@@ -1526,6 +1526,17 @@ function showMagouilleCardDetail(card, canPlay, reason, onPlay) {
 
   ov.querySelector('.magouille-detail-title').textContent = card.nom;
 
+  const imgSrc = card.image ? `assets/cards/${card.image}.png` : null;
+  const imgEl = ov.querySelector('.magouille-detail-img');
+  if (imgEl) {
+    if (imgSrc) {
+      imgEl.innerHTML = `<img src="${imgSrc}" alt="${card.nom}" onerror="this.parentElement.style.display='none'">`;
+      imgEl.style.display = '';
+    } else {
+      imgEl.style.display = 'none';
+    }
+  }
+
   const texteOriginal = card.texte_original;
   if (texteOriginal && texteOriginal.length > 0) {
     ov.querySelector('.magouille-detail-desc').innerHTML = texteOriginal.map(p => `<p>${p}</p>`).join('');
