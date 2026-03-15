@@ -4,6 +4,7 @@ import { renderSetupScreen } from './setup.js';
 import { TurnManager, PHASE, GAME_PHASE_LABELS } from './turn-manager.js';
 import { RevenueEngine, BUY_PRICE, CONSTRUCTION_DEFS } from './revenue-engine.js';
 import { ConflictResolver } from './conflict-resolver.js';
+import { MayorEngine, MAYOR_POWERS } from './mayor-engine.js';
 
 let gameData = null;
 let gameState = null;
@@ -85,7 +86,8 @@ function updateHUD() {
     <div class="hud-phase">${phaseLabel}</div>
     <div class="hud-players">${gameState.joueurs.map(j => {
       const pts = gameState.getPlayerPoints(j.id, gameData.gameplay);
-      return `<div class="hud-player"><span class="hud-player-dot" style="background:${j.couleur}"></span><span>${j.nom}</span><span class="hud-player-pts">${pts} pts</span><span class="hud-player-gold">${j.ressources.lingots}L</span></div>`;
+      const maireTag = j.est_maire ? ' 🏛️' : '';
+      return `<div class="hud-player"><span class="hud-player-dot" style="background:${j.couleur}"></span><span>${j.nom}${maireTag}</span><span class="hud-player-pts">${pts} pts</span><span class="hud-player-gold">${j.ressources.lingots}L</span></div>`;
     }).join('')}</div></div>`;
 }
 
@@ -119,6 +121,9 @@ function onPhaseChange() {
     case PHASE.NEGOTIATION: renderNegotiation(); break;
     case PHASE.REVEAL_RESOLVE: processAndShowResolve(); break;
     case PHASE.TURN_END: renderTurnEnd(); break;
+    case PHASE.ELECTION_CURTAIN: renderElectionCurtain(); break;
+    case PHASE.ELECTION_VOTE: renderElectionVote(); break;
+    case PHASE.ELECTION_RESULT: renderElectionResult(); break;
   }
 }
 
@@ -169,6 +174,9 @@ function renderOrderPanel(gamePhase) {
           <button class="op-btn" id="btn-elim-flic" ${remaining <= 0 ? 'disabled' : ''}>+ Éliminer un flic ennemi</button>
           <div class="op-hint">Les pions non déplacés soutiennent automatiquement les alliés adjacents en conflit.</div>
         `}
+        ${MayorEngine.canUse(gameState, pid) && MayorEngine.availablePowers(gameState, pid, gamePhase).length > 0 ? `
+          <button class="op-btn op-btn-mayor" id="btn-mayor-power">🏛️ Pouvoir du Maire (${gameState.maire.privileges_restants} restant${gameState.maire.privileges_restants > 1 ? 's' : ''})</button>
+        ` : ''}
       </div>
       <div class="op-list">
         ${pendingOrders.length === 0 ? '<div class="op-empty">Aucun ordre</div>' : ''}
@@ -191,6 +199,7 @@ function renderOrderPanel(gamePhase) {
       panel.querySelector('#btn-add-flic')?.addEventListener('click', () => showDeployFlicModal(pid, refresh));
       panel.querySelector('#btn-elim-flic')?.addEventListener('click', () => showElimFlicModal(pid, refresh));
     }
+    panel.querySelector('#btn-mayor-power')?.addEventListener('click', () => showMayorPowerModal(pid, gamePhase, refresh));
 
     panel.querySelector('#btn-submit-orders').onclick = () => {
       panel.classList.add('hidden');
@@ -220,8 +229,12 @@ function openModal(html, onSubmit) {
   const modal = document.getElementById('order-modal');
   modal.querySelector('.modal-body').innerHTML = html;
   modal.classList.remove('hidden');
-  modal.querySelector('#modal-cancel').onclick = () => modal.classList.add('hidden');
-  modal.querySelector('#modal-ok').onclick = () => { modal.classList.add('hidden'); onSubmit(); };
+  modal.querySelector('#modal-cancel').onclick = () => closeModal();
+  modal.querySelector('#modal-ok').onclick = () => { closeModal(); onSubmit(); };
+}
+
+function closeModal() {
+  document.getElementById('order-modal').classList.add('hidden');
 }
 
 function showSupplyModal(pid, refresh) {
@@ -477,6 +490,174 @@ function showElimFlicModal(pid, refresh) {
   });
 }
 
+/* ── Mayor Power Modal ── */
+function showMayorPowerModal(pid, gamePhase, refresh) {
+  const powers = MayorEngine.availablePowers(gameState, pid, gamePhase);
+  if (powers.length === 0) return;
+
+  const html = `
+    <h3>🏛️ Pouvoir du Maire</h3>
+    <p style="font-size:12px;color:#888;margin-bottom:12px">${gameState.maire.privileges_restants} privilège(s) restant(s)</p>
+    <div class="mayor-power-list">
+      ${powers.map(p => `<button class="op-btn mayor-power-choice" data-power="${p.id}" style="text-align:left;margin-bottom:6px"><strong>${p.label}</strong><br><span style="font-size:11px;color:#aaa">${p.desc}</span></button>`).join('')}
+    </div>
+    <div class="modal-actions"><button class="btn-secondary" id="modal-cancel">Annuler</button><button class="btn-primary" id="modal-ok" style="display:none">OK</button></div>
+  `;
+
+  openModal(html, () => {});
+
+  document.querySelectorAll('.mayor-power-choice').forEach(btn => {
+    btn.addEventListener('click', () => {
+      closeModal();
+      executeMayorPower(pid, btn.dataset.power, gamePhase, refresh);
+    });
+  });
+}
+
+function executeMayorPower(pid, powerId, gamePhase, refresh) {
+  switch (powerId) {
+    case 'taxe': {
+      const result = MayorEngine.execute(gameState, pid, 'taxe', {}, gameData.gameplay);
+      showMayorResultToast(result.msg);
+      refresh();
+      break;
+    }
+    case 'saisir_argent': showTargetPlayerModal(pid, 'saisir_argent', refresh); break;
+    case 'saisir_denrees': showTargetPlayerModal(pid, 'saisir_denrees', refresh); break;
+    case 'coupure': showQuartierSelectModal(pid, refresh); break;
+    case 'repositionner': showRepositionnerModal(pid, refresh); break;
+    case 'deplacer_gitans': showGitansModal(pid, refresh); break;
+    case 'incorruptible': showZoneSelectModal(pid, 'incorruptible', refresh); break;
+    case 'exproprier': showExproprierModal(pid, refresh); break;
+  }
+}
+
+function showMayorResultToast(msg) {
+  const toast = document.createElement('div');
+  toast.className = 'mayor-toast';
+  toast.textContent = '🏛️ ' + msg;
+  document.body.appendChild(toast);
+  setTimeout(() => toast.remove(), 3500);
+}
+
+function showTargetPlayerModal(pid, powerId, refresh) {
+  const others = gameState.joueurs.filter((_, i) => i !== pid);
+  const html = `
+    <h3>🏛️ ${MAYOR_POWERS[powerId].label}</h3>
+    <label>Joueur ciblé :</label>
+    <select id="f-target">${others.map(j => `<option value="${j.id}">${j.nom}</option>`).join('')}</select>
+    <div class="modal-actions"><button class="btn-secondary" id="modal-cancel">Annuler</button><button class="btn-primary" id="modal-ok">Confirmer</button></div>
+  `;
+  openModal(html, () => {
+    const cible = Number(document.getElementById('f-target').value);
+    const result = MayorEngine.execute(gameState, pid, powerId, { cible }, gameData.gameplay);
+    showMayorResultToast(result.msg);
+    refresh();
+  });
+}
+
+function showQuartierSelectModal(pid, refresh) {
+  const quartiers = gameData.gameplay.quartiers;
+  const html = `
+    <h3>🏛️ Couper l'électricité</h3>
+    <label>Quartier :</label>
+    <select id="f-quartier">${quartiers.map(q => `<option value="${q.id}">${q.nom}</option>`).join('')}</select>
+    <p style="font-size:11px;color:#e74c3c;margin-top:6px">⚡ L'électricité sera coupée pour tout le mandat.</p>
+    <div class="modal-actions"><button class="btn-secondary" id="modal-cancel">Annuler</button><button class="btn-primary" id="modal-ok">Confirmer</button></div>
+  `;
+  openModal(html, () => {
+    const quartierId = document.getElementById('f-quartier').value;
+    const result = MayorEngine.execute(gameState, pid, 'coupure', { quartierId }, gameData.gameplay);
+    showMayorResultToast(result.msg);
+    refresh();
+  });
+}
+
+function showRepositionnerModal(pid, refresh) {
+  const flicZones = Object.entries(gameState.plateau)
+    .filter(([_, z]) => z.pions.some(p => p.type === 'flic'))
+    .map(([zid]) => zid);
+
+  if (flicZones.length === 0) {
+    openModal(`<h3>Repositionner des flics</h3><p style="color:#888">Aucun flic sur le plateau.</p>
+      <div class="modal-actions"><button class="btn-secondary" id="modal-cancel">Fermer</button><button class="btn-primary" id="modal-ok" style="display:none">OK</button></div>`, () => {});
+    return;
+  }
+
+  const allZones = Object.keys(gameState.plateau);
+  let movCount = Math.min(3, flicZones.length);
+  let rows = '';
+  for (let i = 0; i < movCount; i++) {
+    rows += `<div style="display:flex;gap:6px;margin-bottom:6px">
+      <select class="flic-from"><option value="">—</option>${flicZones.map(z => `<option value="${z}">${z}</option>`).join('')}</select>
+      <span>→</span>
+      <select class="flic-to">${allZones.map(z => `<option value="${z}">${z}</option>`).join('')}</select>
+    </div>`;
+  }
+  openModal(`<h3>🏛️ Repositionner des flics</h3>${rows}
+    <div class="modal-actions"><button class="btn-secondary" id="modal-cancel">Annuler</button><button class="btn-primary" id="modal-ok">Confirmer</button></div>`, () => {
+    const froms = [...document.querySelectorAll('.flic-from')].map(s => s.value).filter(v => v);
+    const tos = [...document.querySelectorAll('.flic-to')].map(s => s.value);
+    const mouvements = froms.map((f, i) => ({ from: f, to: tos[i] })).filter(m => m.from);
+    const result = MayorEngine.execute(gameState, pid, 'repositionner', { mouvements }, gameData.gameplay);
+    showMayorResultToast(result.msg);
+    refresh();
+  });
+}
+
+function showZoneSelectModal(pid, powerId, refresh) {
+  const allZones = Object.keys(gameState.plateau);
+  const html = `
+    <h3>🏛️ ${MAYOR_POWERS[powerId].label}</h3>
+    <label>Zone :</label>
+    <select id="f-zone">${allZones.map(z => `<option value="${z}">${z} — ${gameData.gameplay.zones[z]?.nom || z}</option>`).join('')}</select>
+    <div class="modal-actions"><button class="btn-secondary" id="modal-cancel">Annuler</button><button class="btn-primary" id="modal-ok">Confirmer</button></div>
+  `;
+  openModal(html, () => {
+    const zone = document.getElementById('f-zone').value;
+    const result = MayorEngine.execute(gameState, pid, powerId, { zone }, gameData.gameplay);
+    showMayorResultToast(result.msg);
+    refresh();
+  });
+}
+
+function showExproprierModal(pid, refresh) {
+  const others = gameState.joueurs.filter((_, i) => i !== pid);
+  const allZones = Object.keys(gameState.plateau);
+  const html = `
+    <h3>🏛️ Exproprier un joueur</h3>
+    <label>Joueur ciblé :</label>
+    <select id="f-target">${others.map(j => `<option value="${j.id}">${j.nom}</option>`).join('')}</select>
+    <label>Zones (4 max, séparées par virgule) :</label>
+    <input type="text" id="f-expro-zones" placeholder="ex: BG01,BG02,JC01,JC02" style="width:100%;padding:6px;background:#1a1a2e;color:#eee;border:1px solid #334;border-radius:4px">
+    <div class="modal-actions"><button class="btn-secondary" id="modal-cancel">Annuler</button><button class="btn-primary" id="modal-ok">Exproprier</button></div>
+  `;
+  openModal(html, () => {
+    const cible = Number(document.getElementById('f-target').value);
+    const zones = document.getElementById('f-expro-zones').value.split(',').map(s => s.trim()).filter(Boolean).slice(0, 4);
+    const result = MayorEngine.execute(gameState, pid, 'exproprier', { cible, zones }, gameData.gameplay);
+    showMayorResultToast(result.msg);
+    refresh();
+  });
+}
+
+function showGitansModal(pid, refresh) {
+  const allZones = Object.keys(gameState.plateau);
+  const currentPositions = gameState.gitans.positions || [];
+  const html = `
+    <h3>🏛️ Déplacer les gitans</h3>
+    <label>Nouvelles zones (séparées par virgule) :</label>
+    <input type="text" id="f-gitan-zones" value="${currentPositions.join(',')}" placeholder="ex: BG01,JC03" style="width:100%;padding:6px;background:#1a1a2e;color:#eee;border:1px solid #334;border-radius:4px">
+    <div class="modal-actions"><button class="btn-secondary" id="modal-cancel">Annuler</button><button class="btn-primary" id="modal-ok">Déplacer</button></div>
+  `;
+  openModal(html, () => {
+    const zones = document.getElementById('f-gitan-zones').value.split(',').map(s => s.trim()).filter(Boolean);
+    const result = MayorEngine.execute(gameState, pid, 'deplacer_gitans', { zones }, gameData.gameplay);
+    showMayorResultToast(result.msg);
+    refresh();
+  });
+}
+
 /* ── Victory Check ── */
 function checkVictory() {
   if (!gameState) return null;
@@ -571,6 +752,106 @@ function showRevealOverlay(title, log, onContinue) {
 }
 
 /* ── Turn End ── */
+/* ── Election ── */
+function renderElectionCurtain() {
+  const ov = document.getElementById('curtain');
+  const j = turnManager.currentPlayer;
+  ov.querySelector('.curtain-player').textContent = j.nom;
+  ov.querySelector('.curtain-player').style.color = j.couleur;
+  ov.querySelector('.curtain-phase').textContent = '🗳️ Élection municipale — Vote secret';
+  ov.querySelector('#btn-curtain-go').onclick = () => {
+    ov.classList.add('hidden');
+    turnManager.confirmElectionCurtain();
+  };
+  ov.classList.remove('hidden');
+}
+
+function renderElectionVote() {
+  const ov = document.getElementById('election-ov');
+  const voter = turnManager.currentPlayer;
+  const body = ov.querySelector('.election-body');
+  let selectedCandidate = null;
+
+  const candidateCards = gameState.joueurs.map(j => {
+    const pts = gameState.getPlayerPoints(j.id, gameData.gameplay);
+    return `<div class="vote-candidate" data-pid="${j.id}" role="button" tabindex="0">
+      <span class="vote-candidate-dot" style="background:${j.couleur}"></span>
+      <span class="vote-candidate-name">${j.nom}</span>
+      <span class="vote-candidate-info">${pts} pts</span>
+    </div>`;
+  }).join('');
+
+  body.innerHTML = `
+    <div class="election-title">🗳️ Élection municipale</div>
+    <div class="election-sub">Tour ${gameState.tour} — <strong style="color:${voter.couleur}">${voter.nom}</strong>, votez pour votre candidat</div>
+    <div class="vote-candidates">${candidateCards}</div>
+    <button id="btn-vote-submit" class="btn-main" disabled>Voter</button>
+  `;
+
+  body.querySelectorAll('.vote-candidate').forEach(el => {
+    el.addEventListener('click', () => {
+      body.querySelectorAll('.vote-candidate').forEach(c => c.classList.remove('selected'));
+      el.classList.add('selected');
+      selectedCandidate = Number(el.dataset.pid);
+      body.querySelector('#btn-vote-submit').disabled = false;
+    });
+  });
+
+  body.querySelector('#btn-vote-submit').addEventListener('click', () => {
+    if (selectedCandidate !== null) {
+      ov.classList.add('hidden');
+      turnManager.submitVote(selectedCandidate);
+    }
+  });
+
+  ov.classList.remove('hidden');
+}
+
+function renderElectionResult() {
+  const ov = document.getElementById('election-ov');
+  const body = ov.querySelector('.election-body');
+  const results = turnManager.getElectionResults(gameData.gameplay);
+  const maxVotes = Math.max(1, ...Object.values(results.candidateVotes));
+
+  const rows = gameState.joueurs.map(j => {
+    const votes = results.candidateVotes[j.id] || 0;
+    const pct = Math.round((votes / maxVotes) * 100);
+    const power = results.voterPower[j.id] || 0;
+    const isWinner = results.winner === j.id;
+    return `<div class="election-result-row" style="${isWinner ? 'border:1px solid #f8c48a;' : ''}">
+      <span class="vote-candidate-dot" style="background:${j.couleur}"></span>
+      <span style="width:100px;font-weight:600">${j.nom}</span>
+      <div style="flex:1;background:rgba(255,255,255,0.05);border-radius:3px;overflow:hidden;">
+        <div class="election-bar" style="width:${pct}%;background:${j.couleur}"></div>
+      </div>
+      <span style="min-width:90px;text-align:right;font-size:13px">${(votes / 1000).toFixed(0)}k voix</span>
+      <span style="min-width:80px;text-align:right;font-size:11px;color:#888">(poids: ${(power / 1000).toFixed(0)}k)</span>
+    </div>`;
+  }).join('');
+
+  let banner = '';
+  if (results.winner !== null) {
+    const w = gameState.joueurs[results.winner];
+    banner = `<div class="election-winner-banner" style="color:${w.couleur}">🏛️ ${w.nom} est élu(e) Maire !</div>`;
+  } else {
+    banner = `<div class="election-winner-banner">Égalité — aucun maire élu ce tour</div>`;
+  }
+
+  body.innerHTML = `
+    <div class="election-title">🗳️ Résultats de l'élection</div>
+    <div class="election-results">${rows}</div>
+    ${banner}
+    <button id="btn-election-continue" class="btn-main" style="margin-top:16px">Continuer</button>
+  `;
+
+  body.querySelector('#btn-election-continue').addEventListener('click', () => {
+    ov.classList.add('hidden');
+    turnManager.applyElectionResult(results.winner);
+  });
+
+  ov.classList.remove('hidden');
+}
+
 function renderTurnEnd() {
   const ov = document.getElementById('turnend-ov');
   const body = ov.querySelector('.turnend-body');

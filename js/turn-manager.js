@@ -5,7 +5,10 @@ export const PHASE = {
   NEGOTIATION: 'negotiation',
   ORDERS_MOVE: 'orders_move',
   REVEAL_RESOLVE: 'reveal_resolve',
-  TURN_END: 'turn_end'
+  TURN_END: 'turn_end',
+  ELECTION_CURTAIN: 'election_curtain',
+  ELECTION_VOTE: 'election_vote',
+  ELECTION_RESULT: 'election_result'
 };
 
 export const GAME_PHASE_LABELS = {
@@ -103,6 +106,91 @@ export class TurnManager {
   endNegotiation() { this._advance(); this._emit(); }
 
   nextTurn() {
+    if (this.gs.tour > 0 && this.gs.tour % 10 === 0) {
+      this._beginElection();
+      return;
+    }
+    this.gs.tour++;
+    this.startTurn();
+  }
+
+  _beginElection() {
+    this.votes = {};
+    this.playerQueue = shuffle(this.gs.joueurs.map((_, i) => i));
+    this.currentPlayerIdx = 0;
+    this.phase = PHASE.ELECTION_CURTAIN;
+    this._emit();
+  }
+
+  confirmElectionCurtain() {
+    this.phase = PHASE.ELECTION_VOTE;
+    this._emit();
+  }
+
+  submitVote(candidateId) {
+    const voterId = this.currentPlayerId;
+    this.votes[voterId] = candidateId;
+    this.currentPlayerIdx++;
+    if (this.currentPlayerIdx < this.playerQueue.length) {
+      this.phase = PHASE.ELECTION_CURTAIN;
+    } else {
+      this.phase = PHASE.ELECTION_RESULT;
+    }
+    this._emit();
+  }
+
+  getElectionResults(gameplayData) {
+    const voterPower = {};
+    const zoneToQuartier = {};
+    gameplayData.quartiers.forEach(q => {
+      q.zones.forEach(z => { zoneToQuartier[z] = q; });
+    });
+
+    this.gs.joueurs.forEach((j, pid) => {
+      let pop = 0;
+      Object.entries(this.gs.plateau).forEach(([zid, zone]) => {
+        const hasArmed = zone.pions.some(p => p.joueur === pid && (p.type === 'dealer' || p.type === 'trafiquant'));
+        const hasConstruction = zone.construction && zone.proprietaire === pid;
+        if (hasArmed || hasConstruction) {
+          const q = zoneToQuartier[zid];
+          if (q) pop += q.population_par_zone;
+        }
+      });
+      pop += (j.electeurs_bonus || 0);
+      pop -= (j.electeurs_malus || 0);
+      voterPower[pid] = Math.max(0, pop);
+    });
+
+    const candidateVotes = {};
+    this.gs.joueurs.forEach((_, i) => { candidateVotes[i] = 0; });
+
+    Object.entries(this.votes).forEach(([voterId, candidateId]) => {
+      candidateVotes[candidateId] = (candidateVotes[candidateId] || 0) + (voterPower[Number(voterId)] || 0);
+    });
+
+    let maxVotes = 0;
+    let winner = null;
+    let tied = false;
+    Object.entries(candidateVotes).forEach(([pid, votes]) => {
+      if (votes > maxVotes) { maxVotes = votes; winner = Number(pid); tied = false; }
+      else if (votes === maxVotes && votes > 0) { tied = true; }
+    });
+
+    return { voterPower, candidateVotes, winner: tied ? null : winner, tied };
+  }
+
+  applyElectionResult(winnerId) {
+    if (this.gs.maire.joueur_id !== null) {
+      const oldMayor = this.gs.joueurs[this.gs.maire.joueur_id];
+      if (oldMayor) oldMayor.est_maire = false;
+    }
+
+    if (winnerId !== null) {
+      this.gs.maire = { joueur_id: winnerId, privileges_restants: 2, tour_election: this.gs.tour };
+      this.gs.joueurs[winnerId].est_maire = true;
+      this.gs.joueurs[winnerId].privileges_maire_restants = 2;
+    }
+
     this.gs.tour++;
     this.startTurn();
   }

@@ -142,6 +142,27 @@
   .reveal-btn { text-align: center; margin-top: 20px; }
   .victory-banner { font-size: 22px; font-weight: 700; text-align: center; padding: 20px; margin-top: 12px; animation: pulseGlow 2s infinite; border-radius: 8px; background: rgba(138,180,248,0.05); }
 
+  /* ── Election ── */
+  .election-container { width: 90%; max-width: 520px; max-height: 80vh; display: flex; flex-direction: column; overflow-y: auto; }
+  .election-title { font-size: 26px; color: #f8c48a; margin-bottom: 16px; text-align: center; letter-spacing: 2px; }
+  .election-sub { font-size: 13px; color: #888; text-align: center; margin-bottom: 16px; }
+  .vote-candidates { display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px; }
+  .vote-candidate { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border: 2px solid #334; border-radius: 8px; background: rgba(255,255,255,0.02); cursor: pointer; transition: all 0.2s; }
+  .vote-candidate:hover { background: rgba(255,255,255,0.06); border-color: #556; }
+  .vote-candidate.selected { border-color: #f8c48a; background: rgba(248,196,138,0.08); }
+  .vote-candidate-dot { width: 14px; height: 14px; border-radius: 50%; flex-shrink: 0; }
+  .vote-candidate-name { font-size: 16px; font-weight: 600; }
+  .vote-candidate-info { font-size: 12px; color: #888; margin-left: auto; }
+  .election-results { display: flex; flex-direction: column; gap: 6px; }
+  .election-result-row { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 6px; background: rgba(255,255,255,0.02); }
+  .election-bar { height: 6px; border-radius: 3px; transition: width 0.6s ease; }
+  .election-winner-banner { font-size: 20px; font-weight: 700; text-align: center; padding: 16px; margin-top: 12px; color: #f8c48a; animation: pulseGlow 2s infinite; border-radius: 8px; background: rgba(248,196,138,0.05); }
+
+  /* ── Mayor ── */
+  .op-btn-mayor { background: rgba(248,196,138,0.12) !important; border-color: #f8c48a !important; color: #f8c48a !important; }
+  .op-btn-mayor:hover { background: rgba(248,196,138,0.2) !important; }
+  .mayor-toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: #2a1a3e; color: #f8c48a; padding: 12px 24px; border-radius: 8px; border: 1px solid #f8c48a; font-weight: 600; z-index: 10000; animation: slideUp 0.4s ease, fadeIn 0.4s ease; pointer-events: none; }
+
   /* ── Negotiation ── */
   .nego-container { align-items: center; gap: 24px; }
   .nego-title { font-size: 28px; }
@@ -277,6 +298,13 @@
       <div class="nego-title">Phase de négociation</div>
       <div class="nego-sub">Discutez entre joueurs : accords, menaces, alliances, contrats…<br>Le plateau est visible derrière cet écran.</div>
       <button class="btn-primary" id="btn-end-nego">Fin des négociations</button>
+    </div>
+  </div>
+
+  <!-- Election -->
+  <div id="election-ov" class="overlay hidden">
+    <div class="election-container">
+      <div class="election-body"></div>
     </div>
   </div>
 
