@@ -16,6 +16,21 @@
 
   svg { display: block; }
 
+  .panel-header {
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .panel-toggle {
+    background: none; border: 1px solid #445; color: #888;
+    width: 24px; height: 24px; border-radius: 4px;
+    cursor: pointer; font-size: 14px; line-height: 1;
+    display: flex; align-items: center; justify-content: center;
+    transition: background 0.15s, color 0.15s;
+    flex-shrink: 0;
+  }
+  .panel-toggle:hover { background: #334; color: #ccc; }
+  .panel-body { transition: max-height 0.25s ease, opacity 0.2s; overflow: hidden; }
+  .panel-body.collapsed { max-height: 0 !important; opacity: 0; margin-top: 0 !important; }
+
   #info-panel {
     position: fixed; top: 16px; right: 16px;
     width: 300px; background: rgba(10,10,30,0.92);
@@ -73,7 +88,8 @@
     font-size: 11px; max-height: calc(100vh - 32px); overflow-y: auto;
     backdrop-filter: blur(8px);
   }
-  #legend h3 { font-size: 13px; margin-bottom: 6px; color: #aaa; }
+  #legend h3 { font-size: 13px; margin-bottom: 0; color: #aaa; }
+  #legend .panel-body { margin-top: 6px; }
   .legend-item {
     display: flex; align-items: center; gap: 8px; margin: 2px 0;
     cursor: pointer; padding: 2px 4px; border-radius: 3px;
@@ -113,19 +129,27 @@
 </div>
 
 <div id="legend">
-  <h3>Quartiers de jeu</h3>
-  <div id="legend-items"></div>
+  <div class="panel-header">
+    <h3>Quartiers de jeu</h3>
+    <button class="panel-toggle" onclick="this.closest('#legend').querySelector('.panel-body').classList.toggle('collapsed'); this.textContent = this.textContent === '\u2212' ? '+' : '\u2212';">&minus;</button>
+  </div>
+  <div class="panel-body" id="legend-items"></div>
 </div>
 
 <div id="info-panel" class="hidden">
-  <h2 id="info-name">—</h2>
-  <span class="id-badge" id="info-id">—</span>
-  <span class="quartier-badge" id="info-quartier">—</span>
-  <div id="info-facilite"></div>
-  <div class="indices" id="info-indices"></div>
-  <div id="info-stats"></div>
-  <div class="gang-info" id="info-gang"></div>
-  <div class="adj-list" id="info-adj"></div>
+  <div class="panel-header">
+    <h2 id="info-name">—</h2>
+    <button class="panel-toggle" onclick="this.closest('#info-panel').querySelector('.panel-body').classList.toggle('collapsed'); this.textContent = this.textContent === '\u2212' ? '+' : '\u2212';">&minus;</button>
+  </div>
+  <div class="panel-body" id="info-body">
+    <span class="id-badge" id="info-id">—</span>
+    <span class="quartier-badge" id="info-quartier">—</span>
+    <div id="info-facilite"></div>
+    <div class="indices" id="info-indices"></div>
+    <div id="info-stats"></div>
+    <div class="gang-info" id="info-gang"></div>
+    <div class="adj-list" id="info-adj"></div>
+  </div>
 </div>
 
 <script>
