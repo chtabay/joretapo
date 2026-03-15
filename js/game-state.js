@@ -74,13 +74,15 @@ export class GameState {
     return state;
   }
 
+  static MIN_START_LINGOTS = 20;
+
   _distributeStartingResources(gameplayData) {
     this.joueurs.forEach(joueur => {
       const quartier = gameplayData.quartiers.find(q => q.id === joueur.quartier_origine);
       if (!quartier || !quartier.privileges_depart) return;
 
       const priv = quartier.privileges_depart;
-      joueur.ressources.lingots = priv.lingots;
+      joueur.ressources.lingots = Math.max(priv.lingots || 0, GameState.MIN_START_LINGOTS);
       joueur.ressources.armes = priv.armes;
       joueur.ressources.doses = priv.doses;
 
