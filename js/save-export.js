@@ -52,29 +52,32 @@ export function clearRestoreHash() {
 }
 
 export function generateQRCode(containerEl, url, size = 200) {
-  if (typeof QRCode === 'undefined') {
-    containerEl.innerHTML = '<p style="color:#e74c3c">Bibliothèque QR non chargée</p>';
-    return null;
-  }
   containerEl.innerHTML = '';
-  if (url.length > 2500) {
-    containerEl.innerHTML = '<p style="color:#f39c12;font-size:13px">Partie trop avancée pour le QR — utilisez « Copier le lien » ou WhatsApp pour partager.</p>';
-    return null;
-  }
   try {
-    const qr = new QRCode(containerEl, {
-      text: url,
-      width: size,
-      height: size,
-      colorDark: '#1a1a2e',
-      colorLight: '#ffffff',
-      correctLevel: QRCode.CorrectLevel.L
-    });
-    return qr;
-  } catch (e) {
-    containerEl.innerHTML = '<p style="color:#f39c12;font-size:13px">QR trop dense — utilisez « Copier le lien » ou WhatsApp.</p>';
-    return null;
-  }
+    if (typeof QRCode !== 'undefined') {
+      const qr = new QRCode(containerEl, {
+        text: url,
+        width: size,
+        height: size,
+        colorDark: '#1a1a2e',
+        colorLight: '#ffffff',
+        correctLevel: QRCode.CorrectLevel.L
+      });
+      return qr;
+    }
+  } catch (_) {}
+  const apiUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=' + size + 'x' + size + '&data=' + encodeURIComponent(url);
+  const img = document.createElement('img');
+  img.src = apiUrl;
+  img.alt = 'QR code';
+  img.width = size;
+  img.height = size;
+  img.style.borderRadius = '4px';
+  img.onerror = () => {
+    containerEl.innerHTML = '<p style="color:#f39c12;font-size:13px">QR indisponible — utilisez « Copier le lien » ou WhatsApp.</p>';
+  };
+  containerEl.appendChild(img);
+  return null;
 }
 
 export function getWhatsAppShareUrl(fullUrl, message = 'Partage de partie JORETAPO') {
