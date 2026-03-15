@@ -10,7 +10,7 @@ import { SpecialEntities } from './special-entities.js';
 import { ContractEngine, CONTRACT_TYPES } from './contract-engine.js';
 import { HeistEngine, HEIST_TYPES } from './heist-engine.js';
 import { getShareUrl, generateQRCode, getWhatsAppShareUrl, copyToClipboard, shareViaWebShare, canUseWebShare, parseRestoreFromHash, clearRestoreHash } from './save-export.js';
-import { showDictionaryEntry, initDictionaryOverlay } from './dictionary.js';
+import { showDictionaryEntry, showDictionaryIndex, initDictionaryOverlay } from './dictionary.js';
 
 let gameData = null;
 let cartesDef = null;
@@ -175,6 +175,7 @@ function updateHUD() {
         `<div class="hud-player-res"><span class="hud-clickable" data-dict="ressources" title="Cliquer pour plus d'infos">🔫${j.ressources.armes} 💊${j.ressources.doses} 🃏${(j.cartes_magouille || []).length}</span></div>`;
     }).join('')}</div>
     <button class="hud-quartiers-btn" id="btn-hud-quartiers">🗺️ Territoires</button>
+    <button class="hud-dict-btn" id="btn-hud-dict">📖 Dictionnaire</button>
     </div>`;
   hud.querySelectorAll('.hud-clickable').forEach(el => {
     el.addEventListener('click', (e) => {
@@ -192,6 +193,10 @@ function updateHUD() {
   hud.querySelector('#btn-hud-quartiers')?.addEventListener('click', (e) => {
     e.stopPropagation();
     showQuartiersOverview();
+  });
+  hud.querySelector('#btn-hud-dict')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    showDictionaryIndex();
   });
 }
 
@@ -391,6 +396,21 @@ function formatOrder(o) {
   }
 }
 
+function helpLink(dictKey, label = 'ℹ️') {
+  return `<span class="modal-help" data-dict="${dictKey}" title="En savoir plus">${label}</span>`;
+}
+
+function bindHelpLinks() {
+  setTimeout(() => {
+    document.querySelectorAll('.modal-help').forEach(el => {
+      el.onclick = (e) => {
+        e.stopPropagation();
+        showDictionaryEntry(el.dataset.dict);
+      };
+    });
+  }, 0);
+}
+
 /* ── Modals ── */
 function openModal(html, onSubmit) {
   const modal = document.getElementById('order-modal');
@@ -429,7 +449,7 @@ function showSupplyModal(pid, refresh) {
   }
 
   const html = `
-    <h3>Approvisionnement</h3>
+    <h3>Approvisionnement ${helpLink('approvisionnement')}</h3>
     <label>Point :</label>
     <select id="f-point">${sps.map(sp => {
       const avail = [];
@@ -488,6 +508,7 @@ function showSupplyModal(pid, refresh) {
   document.getElementById('f-denree').addEventListener('change', updateCostPreview);
   document.getElementById('f-qty').addEventListener('input', updateCostPreview);
   updateDenreeOptions();
+  bindHelpLinks();
 }
 
 function showRecruitModal(pid, refresh) {
@@ -498,7 +519,7 @@ function showRecruitModal(pid, refresh) {
     .map(([zid]) => zid);
 
   const html = `
-    <h3>Recruter prostituée</h3>
+    <h3>Recruter prostituée ${helpLink('recrutement')}</h3>
     <label>Point :</label>
     <select id="f-point">${sps.map(sp => `<option value="${sp.zone}">${sp.nom} (${sp.type})</option>`).join('')}</select>
     <label>Type :</label>
@@ -520,6 +541,7 @@ function showRecruitModal(pid, refresh) {
     });
     refresh();
   });
+  bindHelpLinks();
 }
 
 function showBuildModal(pid, refresh) {
@@ -542,7 +564,7 @@ function showBuildModal(pid, refresh) {
   });
 
   const html = `
-    <h3>Construction</h3>
+    <h3>Construction ${helpLink('construction')}</h3>
     <label>Bâtiment :</label>
     <select id="f-bat">${types.map(t =>
       `<option value="${t.id}" ${!t.canBuild ? 'disabled' : ''}>${t.label} — ${t.cost}L → ${t.rev}${!t.canBuild ? ' ⛔' : ''}</option>`
@@ -572,6 +594,7 @@ function showBuildModal(pid, refresh) {
     }
     if (sel) { sel.onchange = updateInfo; updateInfo(); }
   }, 0);
+  bindHelpLinks();
 }
 
 function showMoveModal(pid, refresh) {
@@ -664,7 +687,7 @@ function showMoveModal(pid, refresh) {
   }
 
   const html = `
-    <h3>Déplacement</h3>
+    <h3>Déplacement ${helpLink('deplacement')}</h3>
     <label>Pion :</label>
     <select id="f-pion">${myPions.map((p, i) => {
       const zoneName = gameData.gameplay.zones[p.zid]?.nom || p.zid;
@@ -717,6 +740,7 @@ function showMoveModal(pid, refresh) {
         if (origClick) origClick();
       };
     }
+    bindHelpLinks();
   }, 0);
 }
 
@@ -727,7 +751,7 @@ function showCreateModal(pid, refresh) {
     .map(([zid]) => zid);
 
   const html = `
-    <h3>Créer un pion</h3>
+    <h3>Créer un pion ${helpLink('creation_pion')}</h3>
     <label>Type :</label>
     <select id="f-ptype">
       <option value="dealer">Dealer — 40L + 2 armes</option>
@@ -746,6 +770,7 @@ function showCreateModal(pid, refresh) {
     });
     refresh();
   });
+  bindHelpLinks();
 }
 
 function showDeployFlicModal(pid, refresh) {
@@ -753,7 +778,7 @@ function showDeployFlicModal(pid, refresh) {
     .filter(zid => gameData.gameplay.zones[zid]);
 
   const html = `
-    <h3>Déployer un flic</h3>
+    <h3>Déployer un flic ${helpLink('flic')}</h3>
     <p style="font-size:12px;color:#888;margin-bottom:8px">Coût : 160L (création) + 20L (déplacement direct) = 180L<br>Max 2 par joueur, 7 au total dans la partie.</p>
     <label>Zone cible :</label>
     <select id="f-zone">${allZones.map(z => `<option value="${z}">${z} — ${gameData.gameplay.zones[z]?.nom || z}</option>`).join('')}</select>
@@ -767,6 +792,7 @@ function showDeployFlicModal(pid, refresh) {
     });
     refresh();
   });
+  bindHelpLinks();
 }
 
 function showElimFlicModal(pid, refresh) {
@@ -776,7 +802,7 @@ function showElimFlicModal(pid, refresh) {
 
   if (flicZones.length === 0) {
     openModal(`
-      <h3>Éliminer un flic</h3>
+      <h3>Éliminer un flic ${helpLink('flic')}</h3>
       <p style="color:#888">Aucun flic ennemi sur le plateau.</p>
       <div class="modal-actions"><button class="btn-secondary" id="modal-cancel">Fermer</button><button class="btn-primary" id="modal-ok" style="display:none">OK</button></div>
     `, () => {});
@@ -784,7 +810,7 @@ function showElimFlicModal(pid, refresh) {
   }
 
   const html = `
-    <h3>Éliminer un flic ennemi</h3>
+    <h3>Éliminer un flic ennemi ${helpLink('flic')}</h3>
     <label>Zone :</label>
     <select id="f-zone">${flicZones.map(z => `<option value="${z}">${z} — ${gameData.gameplay.zones[z]?.nom || z}</option>`).join('')}</select>
     <label>Type :</label>
@@ -804,6 +830,7 @@ function showElimFlicModal(pid, refresh) {
     });
     refresh();
   });
+  bindHelpLinks();
 }
 
 /* ── Mayor Power Modal ── */
@@ -812,7 +839,7 @@ function showMayorPowerModal(pid, gamePhase, refresh) {
   if (powers.length === 0) return;
 
   const html = `
-    <h3>🏛️ Pouvoir du Maire</h3>
+    <h3>🏛️ Pouvoir du Maire ${helpLink('maire')}</h3>
     <p style="font-size:12px;color:#888;margin-bottom:12px">${gameState.maire.privileges_restants} privilège(s) restant(s)</p>
     <div class="mayor-power-list">
       ${powers.map(p => `<button class="op-btn mayor-power-choice" data-power="${p.id}" style="text-align:left;margin-bottom:6px"><strong>${p.label}</strong><br><span style="font-size:11px;color:#aaa">${p.desc}</span></button>`).join('')}
@@ -828,6 +855,7 @@ function showMayorPowerModal(pid, gamePhase, refresh) {
       executeMayorPower(pid, btn.dataset.power, gamePhase, refresh);
     });
   });
+  bindHelpLinks();
 }
 
 function executeMayorPower(pid, powerId, gamePhase, refresh) {
@@ -981,13 +1009,14 @@ function showElimIncorruptibleModal(pid, refresh) {
     .map(([zid]) => zid);
 
   if (incZones.length === 0) {
-    openModal(`<h3>Éliminer un incorruptible</h3><p style="color:#888">Aucun incorruptible sur le plateau.</p>
+    openModal(`<h3>Éliminer un incorruptible ${helpLink('incorruptible')}</h3><p style="color:#888">Aucun incorruptible sur le plateau.</p>
       <div class="modal-actions"><button class="btn-secondary" id="modal-cancel">Fermer</button><button class="btn-primary" id="modal-ok" style="display:none">OK</button></div>`, () => {});
+    bindHelpLinks();
     return;
   }
 
   const check = SpecialEntities.canEliminateIncorruptible(gameState, pid);
-  const html = `<h3>Éliminer un incorruptible</h3>
+  const html = `<h3>Éliminer un incorruptible ${helpLink('incorruptible')}</h3>
     <label>Zone :</label>
     <select id="f-zone">${incZones.map(z => `<option value="${z}">${z} — ${gameData.gameplay.zones[z]?.nom || z}</option>`).join('')}</select>
     <p style="font-size:11px;color:#e74c3c;margin-top:6px">⚠ Coût : 700L. Retiré définitivement du jeu.</p>
@@ -1000,6 +1029,7 @@ function showElimIncorruptibleModal(pid, refresh) {
     showMayorResultToast(result.msg || result.reason);
     refresh();
   });
+  bindHelpLinks();
 }
 
 function showActivateGangModal(pid, refresh) {
@@ -1009,11 +1039,28 @@ function showActivateGangModal(pid, refresh) {
     return { ...q, canActivate: check.ok, reason: check.reason };
   });
 
-  const html = `<h3>Activer un gang</h3>
-    ${available.map(q => `<button class="op-btn gang-choice" data-qid="${q.id}" ${!q.canActivate ? 'disabled title="' + q.reason + '"' : ''} style="text-align:left;margin-bottom:6px">
+  const html = `<h3>Activer un gang ${helpLink('gang')}</h3>
+    ${available.map(q => {
+      const presence = {};
+      q.zones.forEach(zid => {
+        const z = gameState.plateau[zid];
+        if (z && z.proprietaire === pid) {
+          if (!presence[pid]) presence[pid] = 0;
+          presence[pid]++;
+        }
+      });
+      const myCount = presence[pid] || 0;
+      const pct = Math.round((myCount / q.zones.length) * 100);
+      return `<button class="op-btn gang-choice" data-qid="${q.id}" ${!q.canActivate ? 'disabled' : ''} style="text-align:left;margin-bottom:6px">
       <strong>${q.gang.nom}</strong> (${q.nom})${!q.canActivate ? ' ⛔' : ''}
       <br><span style="font-size:11px;color:#aaa">${q.gang.effet.replace(/_/g, ' ')}</span>
-    </button>`).join('')}
+      ${!q.canActivate ? `<br><span style="font-size:11px;color:#e74c3c">${q.reason}</span>` : ''}
+      <div style="display:flex;align-items:center;gap:6px;margin-top:4px">
+        <div style="flex:1;height:4px;background:rgba(255,255,255,0.1);border-radius:2px;overflow:hidden"><div style="width:${pct}%;height:100%;background:${q.canActivate ? '#2ecc71' : '#888'};border-radius:2px"></div></div>
+        <span style="font-size:10px;color:#888;font-family:monospace">${myCount}/${q.zones.length}</span>
+      </div>
+    </button>`;
+    }).join('')}
     <div class="modal-actions"><button class="btn-secondary" id="modal-cancel">Annuler</button><button class="btn-primary" id="modal-ok" style="display:none">OK</button></div>`;
 
   openModal(html, () => {});
@@ -1034,6 +1081,7 @@ function showActivateGangModal(pid, refresh) {
       }
     });
   });
+  bindHelpLinks();
 }
 
 function executeGangEffect(pid, quartierId, gang, refresh) {
@@ -1172,7 +1220,7 @@ function showHeistModal(pid, refresh) {
     return { id, ...def, canDo: check.ok, reason: check.reason || '', check, progress, pct };
   });
 
-  const html = `<h3>💰 Cambriolage</h3>
+  const html = `<h3>💰 Cambriolage ${helpLink('cambriolage')}</h3>
     <div class="heist-grid">
     ${heists.map(h => `
       <div class="heist-card ${h.canDo ? 'heist-ready' : ''}" data-hid="${h.id}" style="--heist-color:${h.color}">
@@ -1238,6 +1286,7 @@ function showHeistModal(pid, refresh) {
         }
       });
     });
+    bindHelpLinks();
   }, 0);
 }
 
@@ -2586,7 +2635,7 @@ function showGangInfoModal(quartier) {
   }
 
   const html = `
-    <h3>${info.icon} ${g.nom}</h3>
+    <h3>${info.icon} ${g.nom} ${helpLink('gang')}</h3>
     <div class="gang-modal-quartier">Quartier : <strong>${quartier.nom}</strong> (${quartier.zones.length} zones, ${quartier.points} pts)</div>
     <div class="gang-modal-effect">${info.desc}</div>
     <div class="gang-modal-details">
@@ -2605,6 +2654,7 @@ function showGangInfoModal(quartier) {
     <div class="modal-actions"><button class="btn-primary" id="modal-cancel">Fermer</button></div>`;
 
   openModal(html, null);
+  bindHelpLinks();
 }
 
 function renderLegend() {

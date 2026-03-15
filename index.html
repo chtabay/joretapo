@@ -151,7 +151,9 @@
   .modal-content { background: #151528; border: 1px solid #445; border-radius: 10px; padding: 20px; width: 90%; max-width: 420px; display: flex; flex-direction: column; max-height: 90vh; overflow-y: auto; }
   .modal-body { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; }
   .modal-actions { flex-shrink: 0; margin-top: 16px; padding-top: 12px; border-top: 1px solid #334; }
-  .modal-body h3 { font-size: 18px; color: #8ab4f8; margin-bottom: 12px; }
+  .modal-body h3 { font-size: 18px; color: #8ab4f8; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+  .modal-help { font-size: 14px; cursor: pointer; opacity: 0.6; transition: opacity 0.2s; padding: 2px 6px; border-radius: 4px; background: rgba(138,180,248,0.1); border: 1px solid rgba(138,180,248,0.2); margin-left: auto; flex-shrink: 0; }
+  .modal-help:hover { opacity: 1; background: rgba(138,180,248,0.2); }
   .modal-cost-preview { margin-top: 10px; padding: 10px 14px; background: rgba(248,196,138,0.08); border: 1px solid #554422; border-radius: 6px; font-size: 14px; color: #f8c48a; }
   .modal-body label { display: block; font-size: 12px; text-transform: uppercase; color: #888; margin-top: 10px; margin-bottom: 4px; }
   .modal-body select, .modal-body input[type="number"] { width: 100%; padding: 8px 10px; background: #0d0d1e; border: 1px solid #334; border-radius: 4px; color: #e0e0e0; font-size: 14px; }
@@ -391,8 +393,11 @@
 
   /* HUD quartier badges */
   .hud-player-quartiers { font-size: 10px; color: #f1c40f; margin-left: 3px; font-weight: 700; }
-  .hud-quartiers-btn { width: 100%; margin-top: 8px; padding: 8px; background: rgba(241,196,15,0.08); border: 1px solid rgba(241,196,15,0.3); border-radius: 6px; color: #f1c40f; font-size: 12px; cursor: pointer; transition: all 0.2s; }
+  .hud-quartiers-btn, .hud-dict-btn { width: 100%; margin-top: 8px; padding: 8px; border-radius: 6px; font-size: 12px; cursor: pointer; transition: all 0.2s; }
+  .hud-quartiers-btn { background: rgba(241,196,15,0.08); border: 1px solid rgba(241,196,15,0.3); color: #f1c40f; }
   .hud-quartiers-btn:hover { background: rgba(241,196,15,0.15); border-color: #f1c40f; }
+  .hud-dict-btn { background: rgba(138,180,248,0.08); border: 1px solid rgba(138,180,248,0.3); color: #8ab4f8; }
+  .hud-dict-btn:hover { background: rgba(138,180,248,0.15); border-color: #8ab4f8; }
 
   /* Quartiers overview */
   .qov-section-title { font-size: 14px; font-weight: 700; margin: 16px 0 8px; color: #eee; }
@@ -473,6 +478,11 @@
   .dict-table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 13px; }
   .dict-table th, .dict-table td { padding: 6px 10px; border: 1px solid #334; text-align: left; }
   .dict-table th { background: #1a1a2e; color: #8ab4f8; }
+  .dict-index { display: flex; flex-direction: column; gap: 6px; }
+  .dict-index-item { text-align: left; padding: 10px 14px; background: rgba(138,180,248,0.06); border: 1px solid #334; border-radius: 6px; color: #ccc; font-size: 14px; cursor: pointer; transition: all 0.2s; }
+  .dict-index-item:hover { background: rgba(138,180,248,0.12); border-color: #5a8ab4; color: #8ab4f8; }
+  .dict-back-link { background: none; border: none; color: #8ab4f8; font-size: 13px; cursor: pointer; text-decoration: underline; padding: 0; }
+  .dict-back-link:hover { color: #a8c8ff; }
   .dict-player-card { padding: 10px; margin-bottom: 12px; border-left: 4px solid; background: rgba(255,255,255,0.03); border-radius: 4px; }
 
   /* ── Carte magouille détail (agrandie) ── */
