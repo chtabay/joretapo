@@ -8,6 +8,14 @@ const BUY_PRICE = { doses: 2, armes: 4, armes_gitans: 24, prostituee_base: 40, p
 const SELL_PRICE = { dose: 3, arme: 8 };
 const CONSTRUCTION_REVENUE = { restaurant: 14, tripot: 14, casino: 60 };
 
+const CONSTRUCTION_DEFS = {
+  restaurant: { z: 40,  p: 40, total: 80 },
+  tripot:     { z: 100, p: 40, total: 140 },
+  labo:       { z: 100, p: 40, total: 140 },
+  bordel:     { z: 400, p: 40, total: 440 },
+  casino:     { z: 400, p: 60, total: 460 }
+};
+
 export class RevenueEngine {
 
   static getSupplyPoints(gameplay) {
@@ -34,7 +42,7 @@ export class RevenueEngine {
     return bonus;
   }
 
-  static processSupplyOrders(gs, allSupplyOrders, gameplay) {
+  static processSupplyOrders(gs, allSupplyOrders, gameplay, adjacencies) {
     const log = [];
     const remaining = {};
     RevenueEngine.getSupplyPoints(gameplay).forEach(sp => {
@@ -94,46 +102,121 @@ export class RevenueEngine {
           log.push({ pid, msg: `${joueur.nom} recrute ${o.pion_type.replace(/_/g, ' ')} → ${o.zone_dest} (−${price}L)`, type: 'buy' });
 
         } else if (o.type === 'construire') {
-          RevenueEngine._buildConstruction(gs, pid, o, gameplay, log);
+          RevenueEngine._buildConstruction(gs, pid, o, gameplay, log, adjacencies);
         }
       });
     });
     return log;
   }
 
-  static _buildConstruction(gs, pid, order, gameplay, log) {
+  static canBuild(gs, pid, batiment, adjacencies) {
+    const d = CONSTRUCTION_DEFS[batiment];
+    if (!d) return { ok: false, reason: 'Bâtiment inconnu' };
+
+    const joueur = gs.joueurs[pid];
+    if (joueur.ressources.lingots < d.total) {
+      return { ok: false, reason: `Pas assez de lingots (${d.total}L nécessaires)` };
+    }
+
+    switch (batiment) {
+      case 'restaurant':
+      case 'tripot':
+        return { ok: true };
+
+      case 'labo': {
+        const dealers = Object.values(gs.plateau)
+          .flatMap(z => z.pions)
+          .filter(p => p.joueur === pid && p.type === 'dealer').length;
+        return dealers >= 6
+          ? { ok: true }
+          : { ok: false, reason: `Min. 6 dealers requis (${dealers} actuellement)` };
+      }
+
+      case 'bordel': {
+        const plZones = Object.entries(gs.plateau)
+          .filter(([_, z]) => z.pions.some(p => p.type === 'prostituee_luxe' && p.joueur === pid))
+          .map(([zid]) => zid);
+        for (let i = 0; i < plZones.length; i++) {
+          for (let j = i + 1; j < plZones.length; j++) {
+            for (let k = j + 1; k < plZones.length; k++) {
+              const a = plZones[i], b = plZones[j], c = plZones[k];
+              if (adjacencies[a]?.includes(b) &&
+                  adjacencies[b]?.includes(c) &&
+                  adjacencies[a]?.includes(c)) {
+                return { ok: true, triangle: [a, b, c] };
+              }
+            }
+          }
+        }
+        return { ok: false, reason: '3 prostituées de luxe sur 3 zones mutuellement adjacentes requises' };
+      }
+
+      case 'casino': {
+        const hasBordel = Object.values(gs.plateau).some(z =>
+          z.construction === 'bordel' && z.proprietaire === pid
+        );
+        return hasBordel
+          ? { ok: true }
+          : { ok: false, reason: 'Posséder un bordel requis' };
+      }
+
+      default:
+        return { ok: false, reason: 'Bâtiment inconnu' };
+    }
+  }
+
+  static _buildConstruction(gs, pid, order, gameplay, log, adjacencies) {
     const joueur = gs.joueurs[pid];
     const zone = gs.plateau[order.zone];
-    if (!zone || zone.construction) { log.push({ pid, msg: `${joueur.nom}: construction impossible sur ${order.zone}`, type: 'warn' }); return; }
+    if (!zone || zone.construction) {
+      log.push({ pid, msg: `${joueur.nom}: construction impossible sur ${order.zone}`, type: 'warn' });
+      return;
+    }
 
-    const defs = { restaurant: { z: 40, p: 40 }, tripot: { z: 100, p: 40 }, labo: { z: 100, p: 40 }, bordel: { z: 400, p: 40 }, casino: { z: 400, p: 60 } };
-    const d = defs[order.batiment];
-    if (!d) return;
-    const total = d.z + d.p;
-    if (joueur.ressources.lingots < total) { log.push({ pid, msg: `${joueur.nom}: pas assez de lingots pour ${order.batiment}`, type: 'warn' }); return; }
+    const check = RevenueEngine.canBuild(gs, pid, order.batiment, adjacencies);
+    if (!check.ok) {
+      log.push({ pid, msg: `${joueur.nom}: ${check.reason}`, type: 'warn' });
+      return;
+    }
 
-    joueur.ressources.lingots -= total;
+    const d = CONSTRUCTION_DEFS[order.batiment];
+    joueur.ressources.lingots -= d.total;
     gs.caisses.zurich_bank += d.z;
     gs.caisses.hotel_police += d.p;
     zone.construction = order.batiment;
     zone.proprietaire = pid;
-    log.push({ pid, msg: `${joueur.nom} construit ${order.batiment} sur ${order.zone} (−${total}L)`, type: 'build' });
+
+    if (order.batiment === 'bordel' && check.triangle) {
+      zone.bordel_triangle = check.triangle;
+    }
+
+    log.push({ pid, msg: `${joueur.nom} construit ${order.batiment} sur ${order.zone} (−${d.total}L)`, type: 'build' });
   }
 
-  static calculateRevenues(gs, gameplay) {
+  static calculateRevenues(gs, gameplay, adjacencies) {
     const log = [];
-    const dealerSales = {};
-    const trafSales = {};
-
-    gs.joueurs.forEach((_, i) => { dealerSales[i] = 0; trafSales[i] = 0; });
 
     Object.entries(gs.plateau).forEach(([zid, zone]) => {
       if (!zone.electricite) return;
       const zd = gameplay.zones[zid];
       if (!zd) return;
 
+      const hasCasino = zone.construction === 'casino';
+      const enemyFlic = zone.pions.find(p => p.type === 'flic');
+      const flicBlocked = enemyFlic && !hasCasino;
+
+      if (flicBlocked) {
+        log.push({ pid: enemyFlic.joueur, msg: `🚔 Flic bloque les revenus sur ${zid}`, type: 'flic' });
+      }
+
       zone.pions.forEach(pion => {
+        if (pion.type === 'flic') return;
         const j = gs.joueurs[pion.joueur];
+
+        if (flicBlocked && enemyFlic.joueur !== pion.joueur) {
+          return;
+        }
+
         switch (pion.type) {
           case 'prostituee_base': {
             const rev = zd.p;
@@ -173,10 +256,30 @@ export class RevenueEngine {
       });
 
       if (zone.construction && zone.proprietaire !== null) {
-        const rev = CONSTRUCTION_REVENUE[zone.construction] || 0;
-        if (rev > 0) {
-          gs.joueurs[zone.proprietaire].ressources.lingots += rev;
-          log.push({ pid: zone.proprietaire, msg: `${zone.construction} (${zid}): +${rev}L`, type: 'rev' });
+        const pid = zone.proprietaire;
+        const j = gs.joueurs[pid];
+
+        if (zone.construction === 'bordel') {
+          const triangle = zone.bordel_triangle || [];
+          let bordelRev = 0;
+          triangle.forEach(adjZid => {
+            const adjZd = gameplay.zones[adjZid];
+            if (!adjZd) return;
+            const adjZone = gs.plateau[adjZid];
+            if (!adjZone || !adjZone.electricite) return;
+            const pl = adjZone.pions.find(p => p.type === 'prostituee_luxe' && p.joueur === pid);
+            if (pl) bordelRev += adjZd.p * 3;
+          });
+          if (bordelRev > 0) {
+            j.ressources.lingots += bordelRev;
+            log.push({ pid, msg: `Bordel (${zid}): bonus réseau +${bordelRev}L`, type: 'rev' });
+          }
+        } else {
+          const rev = CONSTRUCTION_REVENUE[zone.construction] || 0;
+          if (rev > 0) {
+            j.ressources.lingots += rev;
+            log.push({ pid, msg: `${zone.construction} (${zid}): +${rev}L`, type: 'rev' });
+          }
         }
       }
     });
@@ -266,4 +369,4 @@ export class RevenueEngine {
   }
 }
 
-export { BUY_PRICE, SELL_PRICE };
+export { BUY_PRICE, SELL_PRICE, CONSTRUCTION_DEFS };

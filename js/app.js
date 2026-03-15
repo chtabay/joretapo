@@ -2,7 +2,7 @@ import { GameState } from './game-state.js';
 import { MapRenderer, QUARTIER_COLORS, FACILITE_LABELS } from './map-renderer.js';
 import { renderSetupScreen } from './setup.js';
 import { TurnManager, PHASE, GAME_PHASE_LABELS } from './turn-manager.js';
-import { RevenueEngine, BUY_PRICE } from './revenue-engine.js';
+import { RevenueEngine, BUY_PRICE, CONSTRUCTION_DEFS } from './revenue-engine.js';
 import { ConflictResolver } from './conflict-resolver.js';
 
 let gameData = null;
@@ -165,6 +165,8 @@ function renderOrderPanel(gamePhase) {
         ` : `
           <button class="op-btn" id="btn-add-move" ${remaining <= 0 ? 'disabled' : ''}>+ Déplacer un pion</button>
           <button class="op-btn" id="btn-add-create" ${remaining <= 0 ? 'disabled' : ''}>+ Créer dealer/trafiquant</button>
+          <button class="op-btn" id="btn-add-flic" ${remaining <= 0 ? 'disabled' : ''}>+ Déployer un flic (180L)</button>
+          <button class="op-btn" id="btn-elim-flic" ${remaining <= 0 ? 'disabled' : ''}>+ Éliminer un flic ennemi</button>
           <div class="op-hint">Les pions non déplacés soutiennent automatiquement les alliés adjacents en conflit.</div>
         `}
       </div>
@@ -186,6 +188,8 @@ function renderOrderPanel(gamePhase) {
     } else {
       panel.querySelector('#btn-add-move')?.addEventListener('click', () => showMoveModal(pid, refresh));
       panel.querySelector('#btn-add-create')?.addEventListener('click', () => showCreateModal(pid, refresh));
+      panel.querySelector('#btn-add-flic')?.addEventListener('click', () => showDeployFlicModal(pid, refresh));
+      panel.querySelector('#btn-elim-flic')?.addEventListener('click', () => showElimFlicModal(pid, refresh));
     }
 
     panel.querySelector('#btn-submit-orders').onclick = () => {
@@ -203,8 +207,10 @@ function formatOrder(o) {
     case 'approvisionner': return `${o.quantite} ${o.denree} via ${o.point} (${o.quantite * (BUY_PRICE[o.denree] || 0)}L)`;
     case 'recruter': return `${o.pion_type.replace(/_/g, ' ')} → ${o.zone_dest} (${BUY_PRICE[o.pion_type]}L)`;
     case 'construire': return `${o.batiment} sur ${o.zone}`;
-    case 'deplacer': return `${o.pion_type} ${o.from} → ${o.to}`;
+    case 'deplacer': return `${o.pion_type} ${o.from} → ${o.to}${o.eliminer ? ' 💀' : ''}`;
     case 'creer_pion': return `Créer ${o.pion_type} sur ${o.zone}`;
+    case 'deployer_flic': return `🚔 Flic → ${o.zone} (180L)`;
+    case 'eliminer_flic': return `🚔 Éliminer flic sur ${o.zone} (${o.definitif ? '550L déf.' : '300L temp.'})`;
     default: return JSON.stringify(o);
   }
 }
@@ -282,16 +288,28 @@ function showBuildModal(pid, refresh) {
   const buildable = Object.entries(gameState.plateau)
     .filter(([_, z]) => (z.proprietaire === pid || z.pions.some(p => p.joueur === pid)) && !z.construction)
     .map(([zid]) => zid);
-  const types = [
-    { id: 'restaurant', label: 'Restaurant — 80L (40+40)', rev: '14L/tour' },
-    { id: 'tripot', label: 'Tripot — 140L (100+40)', rev: '14L/tour' },
-    { id: 'labo', label: 'Labo — 140L (100+40)', rev: 'Prix drogue ÷2' }
+
+  const allTypes = [
+    { id: 'restaurant', label: 'Restaurant', rev: '14L/tour' },
+    { id: 'tripot',     label: 'Tripot',     rev: '14L/tour' },
+    { id: 'labo',       label: 'Labo',       rev: 'Prix drogue ÷2' },
+    { id: 'bordel',     label: 'Bordel',     rev: 'Variable (réseau PL)' },
+    { id: 'casino',     label: 'Casino',     rev: '60L/tour' }
   ];
+
+  const types = allTypes.map(t => {
+    const check = RevenueEngine.canBuild(gameState, pid, t.id, gameData.adjacencies);
+    const d = CONSTRUCTION_DEFS[t.id];
+    return { ...t, cost: d.total, canBuild: check.ok, reason: check.reason || '' };
+  });
 
   const html = `
     <h3>Construction</h3>
     <label>Bâtiment :</label>
-    <select id="f-bat">${types.map(t => `<option value="${t.id}">${t.label} → ${t.rev}</option>`).join('')}</select>
+    <select id="f-bat">${types.map(t =>
+      `<option value="${t.id}" ${!t.canBuild ? 'disabled' : ''}>${t.label} — ${t.cost}L → ${t.rev}${!t.canBuild ? ' ⛔' : ''}</option>`
+    ).join('')}</select>
+    <div id="f-bat-info" class="modal-prereq"></div>
     <label>Zone :</label>
     <select id="f-zone">${buildable.map(z => `<option value="${z}">${z} — ${gameData.gameplay.zones[z]?.nom || z}</option>`).join('')}</select>
     <div class="modal-actions"><button class="btn-secondary" id="modal-cancel">Annuler</button><button class="btn-primary" id="modal-ok">Construire</button></div>
@@ -305,6 +323,17 @@ function showBuildModal(pid, refresh) {
     });
     refresh();
   });
+
+  setTimeout(() => {
+    const sel = document.getElementById('f-bat');
+    const info = document.getElementById('f-bat-info');
+    function updateInfo() {
+      const t = types.find(x => x.id === sel.value);
+      if (t && !t.canBuild) info.textContent = '⛔ ' + t.reason;
+      else info.textContent = '';
+    }
+    if (sel) { sel.onchange = updateInfo; updateInfo(); }
+  }, 0);
 }
 
 function showMoveModal(pid, refresh) {
@@ -330,6 +359,10 @@ function showMoveModal(pid, refresh) {
     <select id="f-pion">${myPions.map((p, i) => `<option value="${i}">${p.type.replace(/_/g, ' ')} @ ${p.zid}</option>`).join('')}</select>
     <label>Destination :</label>
     <select id="f-dest">${getAdjOptions()}</select>
+    <label style="margin-top:10px;display:flex;align-items:center;gap:8px;cursor:pointer">
+      <input type="checkbox" id="f-elim" style="width:16px;height:16px">
+      <span style="font-size:13px;color:#e74c3c">Éliminer si victoire (coût supp. + 100k électeurs)</span>
+    </label>
     <div class="modal-actions"><button class="btn-secondary" id="modal-cancel">Annuler</button><button class="btn-primary" id="modal-ok">Déplacer</button></div>
   `;
 
@@ -337,12 +370,14 @@ function showMoveModal(pid, refresh) {
     const pIdx = parseInt(document.getElementById('f-pion').value);
     const p = myPions[pIdx];
     if (!p) return;
-    pendingOrders.push({
+    const order = {
       type: 'deplacer',
       pion_type: p.type,
       from: p.zid,
       to: document.getElementById('f-dest').value
-    });
+    };
+    if (document.getElementById('f-elim')?.checked) order.eliminer = true;
+    pendingOrders.push(order);
     refresh();
   });
 
@@ -384,6 +419,64 @@ function showCreateModal(pid, refresh) {
   });
 }
 
+function showDeployFlicModal(pid, refresh) {
+  const allZones = Object.keys(gameState.plateau)
+    .filter(zid => gameData.gameplay.zones[zid]);
+
+  const html = `
+    <h3>Déployer un flic</h3>
+    <p style="font-size:12px;color:#888;margin-bottom:8px">Coût : 160L (création) + 20L (déplacement direct) = 180L<br>Max 2 par joueur, 7 au total dans la partie.</p>
+    <label>Zone cible :</label>
+    <select id="f-zone">${allZones.map(z => `<option value="${z}">${z} — ${gameData.gameplay.zones[z]?.nom || z}</option>`).join('')}</select>
+    <div class="modal-actions"><button class="btn-secondary" id="modal-cancel">Annuler</button><button class="btn-primary" id="modal-ok">Déployer</button></div>
+  `;
+
+  openModal(html, () => {
+    pendingOrders.push({
+      type: 'deployer_flic',
+      zone: document.getElementById('f-zone').value
+    });
+    refresh();
+  });
+}
+
+function showElimFlicModal(pid, refresh) {
+  const flicZones = Object.entries(gameState.plateau)
+    .filter(([_, z]) => z.pions.some(p => p.type === 'flic' && p.joueur !== pid))
+    .map(([zid]) => zid);
+
+  if (flicZones.length === 0) {
+    openModal(`
+      <h3>Éliminer un flic</h3>
+      <p style="color:#888">Aucun flic ennemi sur le plateau.</p>
+      <div class="modal-actions"><button class="btn-secondary" id="modal-cancel">Fermer</button><button class="btn-primary" id="modal-ok" style="display:none">OK</button></div>
+    `, () => {});
+    return;
+  }
+
+  const html = `
+    <h3>Éliminer un flic ennemi</h3>
+    <label>Zone :</label>
+    <select id="f-zone">${flicZones.map(z => `<option value="${z}">${z} — ${gameData.gameplay.zones[z]?.nom || z}</option>`).join('')}</select>
+    <label>Type :</label>
+    <select id="f-elim-type">
+      <option value="temp">Temporaire — 300L (retour hôtel de police)</option>
+      <option value="def">Définitif — 550L (retiré du jeu)</option>
+    </select>
+    <p style="font-size:11px;color:#e74c3c;margin-top:6px">⚠ Coûte aussi 100 000 électeurs.</p>
+    <div class="modal-actions"><button class="btn-secondary" id="modal-cancel">Annuler</button><button class="btn-primary" id="modal-ok">Éliminer</button></div>
+  `;
+
+  openModal(html, () => {
+    pendingOrders.push({
+      type: 'eliminer_flic',
+      zone: document.getElementById('f-zone').value,
+      definitif: document.getElementById('f-elim-type').value === 'def'
+    });
+    refresh();
+  });
+}
+
 /* ── Victory Check ── */
 function checkVictory() {
   if (!gameState) return null;
@@ -414,8 +507,8 @@ function showVictoryScreen(winner) {
 
 /* ── Reveal (Phase 2) ── */
 function processAndShowReveal() {
-  const supplyLog = RevenueEngine.processSupplyOrders(gameState, turnManager.supplyOrders, gameData.gameplay);
-  const revenueLog = RevenueEngine.calculateRevenues(gameState, gameData.gameplay);
+  const supplyLog = RevenueEngine.processSupplyOrders(gameState, turnManager.supplyOrders, gameData.gameplay, gameData.adjacencies);
+  const revenueLog = RevenueEngine.calculateRevenues(gameState, gameData.gameplay, gameData.adjacencies);
   gameState.save();
   refreshMap();
 
@@ -460,7 +553,7 @@ function showRevealOverlay(title, log, onContinue) {
   } else {
     body.innerHTML = log.map(entry => {
       const color = entry.pid >= 0 ? gameState.joueurs[entry.pid]?.couleur || '#888' : '#888';
-      const icon = { buy: '📦', rev: '💰', build: '🏗️', move: '🚶', create: '✨', conflict: '⚔️', warn: '⚠️' }[entry.type] || '•';
+      const icon = { buy: '📦', rev: '💰', build: '🏗️', move: '🚶', create: '✨', conflict: '⚔️', warn: '⚠️', flic: '🚔' }[entry.type] || '•';
       return `<div class="reveal-line" data-type="${entry.type}" style="border-left:3px solid ${color}"><span class="reveal-icon">${icon}</span>${entry.msg}</div>`;
     }).join('');
   }

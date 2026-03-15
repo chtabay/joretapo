@@ -1,6 +1,11 @@
 const IS_ARMED = t => t === 'dealer' || t === 'trafiquant';
 const IS_PROST = t => t === 'prostituee_base' || t === 'prostituee_luxe';
 
+const ELIM_COST = {
+  dealer:     { lingots: 40,  armes: 4 },
+  trafiquant: { lingots: 160, armes: 6 }
+};
+
 export class ConflictResolver {
 
   /**
@@ -21,6 +26,14 @@ export class ConflictResolver {
           ConflictResolver._createPion(gs, pid, o, log);
           return;
         }
+        if (o.type === 'deployer_flic') {
+          ConflictResolver._deployFlic(gs, pid, o, log);
+          return;
+        }
+        if (o.type === 'eliminer_flic') {
+          ConflictResolver._eliminateFlic(gs, pid, o, log);
+          return;
+        }
         if (o.type !== 'deplacer') return;
 
         const from = gs.plateau[o.from];
@@ -35,7 +48,7 @@ export class ConflictResolver {
           log.push({ pid, msg: `${gs.joueurs[pid].nom}: pas de ${o.pion_type} sur ${o.from}`, type: 'warn' });
           return;
         }
-        moves.push({ pid, from: o.from, to: o.to, pion_type: o.pion_type, pionIdx });
+        moves.push({ pid, from: o.from, to: o.to, pion_type: o.pion_type, pionIdx, eliminer: !!o.eliminer });
         movedKeys.add(`${o.from}:${pionIdx}`);
       });
     });
@@ -179,16 +192,17 @@ export class ConflictResolver {
     // Les attaquants perdants restent en place
     movers.filter(m => m.pid !== winner).forEach(m => result.cancelled.push(m));
 
-    // Le défenseur doit fuir
+    // Le défenseur doit fuir (ou être éliminé si le gagnant a payé)
     if (defenderPid !== null && defenderPid !== winner) {
-      result.flights.push({ zone: dest, pid: defenderPid });
+      const wantElim = winnerMoves.some(m => m.eliminer);
+      result.flights.push({ zone: dest, pid: defenderPid, eliminateBy: wantElim ? winner : null });
     }
 
     return result;
   }
 
   static _executeFlight(gs, flight, adjacencies, log) {
-    const { zone: fromZone, pid } = flight;
+    const { zone: fromZone, pid, eliminateBy } = flight;
     const zoneData = gs.plateau[fromZone];
     const adj = adjacencies[fromZone] || [];
     const joueur = gs.joueurs[pid];
@@ -196,6 +210,21 @@ export class ConflictResolver {
     // Trouver le pion armé du défenseur
     const armedIdx = zoneData.pions.findIndex(p => IS_ARMED(p.type) && p.joueur === pid);
     if (armedIdx === -1) return;
+
+    // Élimination payante par le gagnant
+    if (eliminateBy !== null && eliminateBy !== undefined) {
+      const attacker = gs.joueurs[eliminateBy];
+      const defPion = zoneData.pions[armedIdx];
+      const cost = ELIM_COST[defPion.type];
+      if (cost && attacker.ressources.lingots >= cost.lingots && attacker.ressources.armes >= (cost.armes || 0)) {
+        attacker.ressources.lingots -= cost.lingots;
+        attacker.ressources.armes -= (cost.armes || 0);
+        attacker.electeurs_malus = (attacker.electeurs_malus || 0) + 100000;
+        zoneData.pions.splice(armedIdx, 1);
+        log.push({ pid: eliminateBy, msg: `💀 ${attacker.nom} élimine ${defPion.type} de ${joueur.nom} (−${cost.lingots}L, −${cost.armes || 0}A, −100k élect.)`, type: 'conflict' });
+        return;
+      }
+    }
 
     // Trouver une case adjacente libre (pas de pion armé ennemi)
     const freeZones = adj.filter(a => {
@@ -298,12 +327,73 @@ export class ConflictResolver {
     log.push({ pid, msg: `${joueur.nom} crée ${order.pion_type} sur ${order.zone} (−${c.lingots}L, −${c.armes}A)`, type: 'create' });
   }
 
+  static _deployFlic(gs, pid, order, log) {
+    const joueur = gs.joueurs[pid];
+    const cost = 160 + 20;
+
+    if (joueur.ressources.lingots < cost) {
+      log.push({ pid, msg: `${joueur.nom}: pas assez de lingots pour déployer un flic (${cost}L)`, type: 'warn' });
+      return;
+    }
+
+    const myFlics = Object.values(gs.plateau)
+      .flatMap(z => z.pions)
+      .filter(p => p.type === 'flic' && p.joueur === pid).length;
+    if (myFlics >= 2) {
+      log.push({ pid, msg: `${joueur.nom}: max 2 flics par joueur atteint`, type: 'warn' });
+      return;
+    }
+
+    const totalFlics = Object.values(gs.plateau)
+      .flatMap(z => z.pions)
+      .filter(p => p.type === 'flic').length;
+    if (totalFlics >= 7) {
+      log.push({ pid, msg: `${joueur.nom}: max 7 flics dans la partie atteint`, type: 'warn' });
+      return;
+    }
+
+    const zone = gs.plateau[order.zone];
+    if (!zone) return;
+
+    joueur.ressources.lingots -= cost;
+    gs.caisses.hotel_police += 160;
+    zone.pions.push({ type: 'flic', joueur: pid });
+    log.push({ pid, msg: `🚔 ${joueur.nom} déploie un flic sur ${order.zone} (−${cost}L)`, type: 'flic' });
+  }
+
+  static _eliminateFlic(gs, pid, order, log) {
+    const joueur = gs.joueurs[pid];
+    const zone = gs.plateau[order.zone];
+    if (!zone) return;
+
+    const flicIdx = zone.pions.findIndex(p => p.type === 'flic' && p.joueur !== pid);
+    if (flicIdx === -1) {
+      log.push({ pid, msg: `${joueur.nom}: pas de flic ennemi sur ${order.zone}`, type: 'warn' });
+      return;
+    }
+
+    const definitif = order.definitif === true;
+    const cost = definitif ? 550 : 300;
+
+    if (joueur.ressources.lingots < cost) {
+      log.push({ pid, msg: `${joueur.nom}: pas assez de lingots (${cost}L) pour éliminer le flic`, type: 'warn' });
+      return;
+    }
+
+    joueur.ressources.lingots -= cost;
+    zone.pions.splice(flicIdx, 1);
+    joueur.electeurs_malus = (joueur.electeurs_malus || 0) + 100000;
+
+    const label = definitif ? 'définitivement' : '(retour hôtel de police)';
+    log.push({ pid, msg: `🚔 ${joueur.nom} élimine un flic ${label} sur ${order.zone} (−${cost}L, −100k électeurs)`, type: 'flic' });
+  }
+
   static _updateOwnership(gs) {
     Object.entries(gs.plateau).forEach(([zid, zone]) => {
       if (zone.pions.length === 0 && !zone.construction) {
         zone.proprietaire = null;
       } else if (zone.pions.length > 0) {
-        const owners = [...new Set(zone.pions.map(p => p.joueur))];
+        const owners = [...new Set(zone.pions.filter(p => p.type !== 'flic').map(p => p.joueur))];
         if (owners.length === 1) zone.proprietaire = owners[0];
       }
     });
