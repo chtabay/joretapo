@@ -31,11 +31,19 @@ Du JS bien structuré en modules ES6 sera plus léger et performant.
 
 ```
 joretapo/
-├── index.html                  # Point d'entrée (carte interactive + futur jeu)
+├── index.html                  # Point d'entrée (écran titre + setup + carte de jeu)
+├── js/
+│   ├── app.js                  # Routeur d'écrans, chargement données, point d'entrée
+│   ├── game-state.js           # Classe GameState (init, sauvegarde, calcul points)
+│   ├── map-renderer.js         # Rendu SVG, zoom/pan, sélection de zones, pions
+│   └── setup.js                # Écrans de configuration, draft et confirmation
 ├── data/
 │   ├── quartiers-osm.geojson   # 74 polygones (59 CDs + 12 Hudson + 3 Bergen)
 │   ├── adjacences-osm.json     # Adjacences calculées (145 paires)
-│   └── quartiers.json          # Stats de jeu historiques (gangs, indices, à migrer)
+│   ├── quartiers-gameplay.json # 15 quartiers × 74 zones, gangs, privilèges, indices P/D/A
+│   ├── pions.json              # Définitions des pions (prix, fonctions, cohabitation)
+│   ├── constructions.json      # Définitions des constructions (coûts, rendements)
+│   └── institutions.json       # Zurich Bank, Hôtel de Police, Mairie, annexes
 ├── assets/
 │   ├── plateau-osm.svg         # Carte SVG générée par le pipeline
 │   └── carte_v12_traced.svg    # Source historique (référence)

@@ -33,16 +33,20 @@ On peut naviguer sur la carte, zoomer, et cliquer chaque quartier pour voir ses 
 **Objectif** : pouvoir lancer une partie avec 2-6 joueurs, tirer les quartiers, distribuer les ressources.
 
 ### Livrables
-- [ ] Écran de configuration (nombre de joueurs, noms, couleurs)
-- [ ] Tirage des quartiers (règles selon nombre de joueurs)
-- [ ] Distribution automatique des ressources de départ (selon fiche quartier)
-- [ ] Placement initial des pions sur le plateau
-- [ ] Placement des gitans sur les îles
-- [ ] Objet `GameState` initialisé et fonctionnel
-- [ ] Fichiers JSON : `pions.json`, `constructions.json`, `institutions.json`
+- [x] Écran de configuration (nombre de joueurs, noms, couleurs, ethnie)
+- [x] Draft des quartiers (sélection tour par tour parmi les 11 dispo au lancement)
+- [x] Distribution automatique des ressources de départ (selon fiche quartier)
+- [x] Placement initial des pions sur le plateau
+- [x] Placement des gitans sur les îles
+- [x] Objet `GameState` initialisé et fonctionnel (avec sauvegarde LocalStorage)
+- [x] Fichiers JSON : `pions.json`, `constructions.json`, `institutions.json`
+- [x] Écran titre (Nouvelle partie / Continuer / Explorer la carte)
+- [x] Routeur d'écrans (title → setup → draft → confirm → game)
+- [x] Modules ES6 : `app.js`, `game-state.js`, `map-renderer.js`, `setup.js`
+- [x] HUD en jeu (tour, phase, scores, lingots par joueur)
 
 ### Critère de validation
-On peut configurer une partie, tirer les quartiers, voir les pions placés sur le plateau.
+On peut configurer une partie, tirer les quartiers, voir les pions placés sur le plateau. **FAIT.**
 
 ---
 
@@ -218,7 +222,7 @@ Le jeu tourne de manière fluide sur tablette, est visuellement soigné, et est 
 | Phase | Complexité | Estimation |
 |-------|-----------|------------|
 | Phase 1 : Plateau SVG | Élevée (cartographie) | **FAIT** |
-| Phase 2 : Configuration | Moyenne | Moyen |
+| Phase 2 : Configuration | Moyenne | **FAIT** |
 | Phase 3 : Boucle de tour | Élevée (hotseat + ordres) | Long |
 | Phase 4 : Économie | Moyenne | Moyen |
 | Phase 5 : Conflits | Très élevée (algorithme récursif) | Long |

@@ -1,0 +1,94 @@
+{
+  "pions": [
+    {
+      "id": "dealer",
+      "nom": "Dealer",
+      "abreviation": "DE",
+      "categorie": "usuel",
+      "arme": true,
+      "prix": { "lingots": 40, "armes": 2 },
+      "prix_elimination": { "lingots": 40, "armes": 4 },
+      "fonction": "vente_drogue",
+      "revenu_par_tour": "3 lingots/dose vendue (max = indice D de la zone)",
+      "cohabite_avec": ["prostituee_base", "prostituee_luxe"],
+      "ne_cohabite_pas": ["trafiquant", "dealer"]
+    },
+    {
+      "id": "prostituee_base",
+      "nom": "Prostituée classique",
+      "abreviation": "PR",
+      "categorie": "usuel",
+      "arme": false,
+      "prix": { "lingots": 40 },
+      "prix_elimination": { "lingots": 40 },
+      "fonction": "passe_classique",
+      "revenu_par_tour": "1 lingot/passe (max = indice P de la zone)",
+      "capturable": true,
+      "cohabite_avec": ["dealer", "trafiquant"]
+    },
+    {
+      "id": "prostituee_luxe",
+      "nom": "Prostituée de luxe",
+      "abreviation": "PL",
+      "categorie": "usuel",
+      "arme": false,
+      "prix": { "lingots": 80 },
+      "prix_elimination": { "lingots": 160 },
+      "fonction": "passe_luxe",
+      "revenu_par_tour": "3 lingots/passe (max = indice P de la zone)",
+      "capturable": true,
+      "cohabite_avec": ["dealer", "trafiquant"]
+    },
+    {
+      "id": "trafiquant",
+      "nom": "Trafiquant d'armes",
+      "abreviation": "TR",
+      "categorie": "usuel",
+      "arme": true,
+      "prix": { "lingots": 80, "armes": 3 },
+      "prix_elimination": { "lingots": 160, "armes": 6 },
+      "fonction": "vente_armes",
+      "revenu_par_tour": "8 lingots/arme vendue (max = indice A de la zone)",
+      "cohabite_avec": ["prostituee_base", "prostituee_luxe"],
+      "ne_cohabite_pas": ["dealer", "trafiquant"]
+    },
+    {
+      "id": "flic",
+      "nom": "Policier",
+      "abreviation": "FL",
+      "categorie": "special",
+      "arme": false,
+      "prix": { "lingots": 160 },
+      "prix_elimination_retour": { "lingots": 300 },
+      "prix_elimination_definitif": { "lingots": 550 },
+      "max_par_joueur": 2,
+      "max_total": 7,
+      "fonction": "bloquer_zone",
+      "cout_deplacement_direct": 20
+    },
+    {
+      "id": "incorruptible",
+      "nom": "Incorruptible",
+      "abreviation": "IC",
+      "categorie": "special",
+      "arme": false,
+      "cout_deplacement": { "lingots": 1000, "avec_bordel": 500 },
+      "prix_elimination": { "lingots": 700 },
+      "max_total": 2,
+      "controleur": "systeme",
+      "fonction": "bloquer_zone_infranchissable"
+    },
+    {
+      "id": "gitan",
+      "nom": "Gitans",
+      "abreviation": "GI",
+      "categorie": "special",
+      "arme": false,
+      "prix_traversee": { "doses": 5, "armes": 5, "pion_sacrifie": 1 },
+      "eliminable": false,
+      "controleur": "systeme",
+      "fonction": "vente_armes_3x_prix",
+      "bloque_construction": true
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "institutions": [
+    {
+      "id": "zurich_bank",
+      "nom": "Central Zurich Bank",
+      "zone": "MN1",
+      "fonction": "Récolte l'argent des constructions",
+      "cambriolable": true
+    },
+    {
+      "id": "hotel_police",
+      "nom": "Hôtel de Police",
+      "zone": "BX4",
+      "fonction": "Stocke amendes, créations de pions et bakchichs",
+      "cambriolable": true
+    },
+    {
+      "id": "mairie",
+      "nom": "Mairie",
+      "zone": "MN5",
+      "fonction": "Siège du pouvoir, pouvoirs du maire"
+    }
+  ],
+  "annexes_zurich_bank": ["BG01", "HC10", "MN2", "MN9", "QN3", "BK8"]
+}

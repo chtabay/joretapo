@@ -1,0 +1,62 @@
+{
+  "constructions": [
+    {
+      "id": "restaurant",
+      "nom": "Restaurant / Pizzeria",
+      "abreviation": "RE",
+      "cout_zurich": 40,
+      "cout_police": 40,
+      "condition": null,
+      "rendement_par_tour": 14,
+      "points_victoire": 1
+    },
+    {
+      "id": "tripot",
+      "nom": "Tripot",
+      "abreviation": "TP",
+      "cout_zurich": 100,
+      "cout_police": 40,
+      "condition": null,
+      "rendement_par_tour": 14,
+      "points_victoire": 1
+    },
+    {
+      "id": "labo",
+      "nom": "Labo de raffinage",
+      "abreviation": "LA",
+      "cout_zurich": 100,
+      "cout_police": 40,
+      "condition": "min_6_dealers",
+      "rendement_par_tour": 0,
+      "points_victoire": 1,
+      "effet": "divise_prix_drogue_par_2"
+    },
+    {
+      "id": "bordel",
+      "nom": "Bordel",
+      "abreviation": "BO",
+      "cout_zurich": 400,
+      "cout_police": 40,
+      "condition": "3_prostituees_luxe_3_zones_adjacentes",
+      "rendement_par_tour": "variable",
+      "points_victoire": 1,
+      "effets": [
+        "possede_3_zones_adjacentes",
+        "chantage",
+        "reduit_cout_incorruptible_500",
+        "prerequis_casino"
+      ]
+    },
+    {
+      "id": "casino",
+      "nom": "Casino",
+      "abreviation": "CA",
+      "cout_zurich": 400,
+      "cout_police": 60,
+      "condition": "posseder_bordel",
+      "rendement_par_tour": 60,
+      "points_victoire": 1,
+      "immunite_flics": true
+    }
+  ]
+}
