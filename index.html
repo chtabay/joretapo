@@ -204,9 +204,11 @@
   .draft-card-desc { font-size: 12px; color: #bbb; line-height: 1.4; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
   .draft-card-cost { font-size: 11px; color: #f8c48a; }
   .draft-check { position: absolute; top: 6px; right: 8px; color: #9b59b6; font-size: 18px; font-weight: 700; }
-  .draft-card-actions { display: flex; flex-direction: column; gap: 4px; margin-left: auto; flex-shrink: 0; align-self: center; }
-  .draft-card-expand, .draft-card-select { width: 36px; height: 36px; border-radius: 50%; border: 1px solid #445; background: rgba(255,255,255,0.06); cursor: pointer; font-size: 18px; display: flex; align-items: center; justify-content: center; padding: 0; }
-  .draft-card-expand:hover, .draft-card-select:hover { background: rgba(255,255,255,0.15); }
+  .draft-card-actions { display: flex; gap: 6px; margin-left: auto; flex-shrink: 0; align-self: center; }
+  .draft-card-expand { background: rgba(138,180,248,0.15); border: 1px solid #5a8ab4; border-radius: 4px; padding: 6px 10px; cursor: pointer; font-size: 12px; color: #8ab4f8; white-space: nowrap; }
+  .draft-card-expand:hover { background: rgba(138,180,248,0.3); }
+  .draft-card-select { background: rgba(155,89,182,0.2); border: 1px solid #9b59b6; border-radius: 4px; padding: 6px 10px; cursor: pointer; font-size: 12px; color: #c39bd3; white-space: nowrap; }
+  .draft-card-select:hover { background: rgba(155,89,182,0.4); }
 
   /* ── Magouille Play ── */
   .op-btn-magouille { background: rgba(155,89,182,0.12) !important; border-color: #9b59b6 !important; color: #c39bd3 !important; }
@@ -326,11 +328,9 @@
   .dict-player-card { padding: 10px; margin-bottom: 12px; border-left: 4px solid; background: rgba(255,255,255,0.03); border-radius: 4px; }
 
   /* ── Carte magouille détail (agrandie) ── */
-  #magouille-detail-ov { z-index: 350; background: rgba(0,0,0,0.85); }
   .magouille-detail-container { background: #151528; border: 1px solid #9b59b6; border-radius: 10px; padding: 24px; width: 90%; max-width: 460px; max-height: 85vh; overflow-y: auto; }
   .magouille-detail-title { font-size: 20px; color: #c39bd3; margin-bottom: 16px; font-weight: 700; }
-  .magouille-detail-img { text-align: center; margin-bottom: 16px; }
-  .magouille-detail-img img { max-width: 100%; max-height: 200px; border-radius: 6px; object-fit: contain; }
+  .magouille-detail-img { width: 100%; max-height: 220px; object-fit: contain; border-radius: 6px; margin-bottom: 16px; background: #1a1a2e; }
   .magouille-detail-desc { font-size: 14px; line-height: 1.6; color: #ddd; margin-bottom: 16px; }
   .magouille-detail-desc p { margin-bottom: 10px; }
   .magouille-detail-desc p:last-child { margin-bottom: 0; }
@@ -550,7 +550,7 @@
   <div id="magouille-detail-ov" class="overlay hidden">
     <div class="magouille-detail-container" onclick="event.stopPropagation()">
       <h3 class="magouille-detail-title"></h3>
-      <div class="magouille-detail-img"></div>
+      <img class="magouille-detail-img" src="" alt="" style="display:none">
       <div class="magouille-detail-desc"></div>
       <div class="magouille-detail-meta"></div>
       <div class="magouille-detail-actions" style="margin-top:16px;display:flex;gap:10px"></div>

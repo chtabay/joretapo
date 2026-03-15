@@ -1467,8 +1467,8 @@ function renderDraftPick() {
           ${Object.keys(card.cout || {}).length ? `<span class="draft-card-cost">${Object.entries(card.cout).map(([k,v]) => `${v}${k[0].toUpperCase()}`).join(' ')}</span>` : '<span class="draft-card-cost">Gratuit</span>'}
         </div>
         <div class="draft-card-actions" onclick="event.stopPropagation()">
-          <button class="draft-card-expand" title="Voir la fiche complète">🔎</button>
-          <button class="draft-card-select" title="${sel ? 'Retirer de la sélection' : 'Ajouter à la sélection'}">${sel ? '➖' : '➕'}</button>
+          <button class="draft-card-expand" title="Voir la fiche complète">ℹ️ Détails</button>
+          <button class="draft-card-select">${sel ? '✓ Retirer' : '+ Garder'}</button>
         </div>
       </div>`;
     }).join('');
@@ -1526,15 +1526,13 @@ function showMagouilleCardDetail(card, canPlay, reason, onPlay) {
 
   ov.querySelector('.magouille-detail-title').textContent = card.nom;
 
-  const imgSrc = card.image ? `assets/cards/${card.image}.png` : null;
   const imgEl = ov.querySelector('.magouille-detail-img');
-  if (imgEl) {
-    if (imgSrc) {
-      imgEl.innerHTML = `<img src="${imgSrc}" alt="${card.nom}" onerror="this.parentElement.style.display='none'">`;
-      imgEl.style.display = '';
-    } else {
-      imgEl.style.display = 'none';
-    }
+  if (card.image) {
+    imgEl.src = `assets/cards/${card.image}.png`;
+    imgEl.style.display = '';
+    imgEl.onerror = () => { imgEl.style.display = 'none'; };
+  } else {
+    imgEl.style.display = 'none';
   }
 
   const texteOriginal = card.texte_original;
