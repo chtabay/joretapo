@@ -588,6 +588,7 @@ function renderOrderPanel(gamePhase) {
   function refresh() {
     const remaining = maxOrders - pendingOrders.length;
     panel.innerHTML = `
+      <div class="op-sheet-handle" id="op-drag-handle"><div class="op-sheet-grip"></div></div>
       <div class="op-header" style="border-color:${j.couleur}">
         <div><strong style="color:${j.couleur}">${j.nom}</strong><span>${GAME_PHASE_LABELS[gamePhase]}</span></div>
         <div style="display:flex;gap:4px;align-items:center">
@@ -686,7 +687,69 @@ function renderOrderPanel(gamePhase) {
 
   refresh();
   panel.classList.remove('hidden', 'collapsed');
-  if (isMobile()) switchMobileTab('orders');
+  if (isMobile()) {
+    switchMobileTab('orders');
+    panel.classList.add('sheet-mid');
+    panel.classList.remove('sheet-mini', 'sheet-full');
+    initSheetDrag(panel);
+  }
+}
+
+function initSheetDrag(panel) {
+  const handle = panel.querySelector('#op-drag-handle');
+  if (!handle) return;
+  let startY = 0, startH = 0;
+
+  const onStart = (y) => {
+    startY = y;
+    startH = panel.offsetHeight;
+    panel.classList.add('sheet-dragging');
+    panel.classList.remove('sheet-mini', 'sheet-mid', 'sheet-full');
+  };
+
+  const onMove = (y) => {
+    const delta = startY - y;
+    const newH = Math.max(56, Math.min(startH + delta, window.innerHeight - 90));
+    panel.style.height = newH + 'px';
+  };
+
+  const onEnd = () => {
+    panel.classList.remove('sheet-dragging');
+    const h = panel.offsetHeight;
+    const vh = window.innerHeight - 90;
+    panel.style.height = '';
+    if (h < 100) {
+      panel.classList.add('sheet-mini');
+    } else if (h > vh * 0.65) {
+      panel.classList.add('sheet-full');
+    } else {
+      panel.classList.add('sheet-mid');
+    }
+  };
+
+  handle.addEventListener('touchstart', e => {
+    if (e.touches.length === 1) onStart(e.touches[0].clientY);
+  }, { passive: true });
+  handle.addEventListener('touchmove', e => {
+    e.preventDefault();
+    if (e.touches.length === 1) onMove(e.touches[0].clientY);
+  }, { passive: false });
+  handle.addEventListener('touchend', onEnd, { passive: true });
+
+  handle.addEventListener('mousedown', e => {
+    onStart(e.clientY);
+    const move = ev => onMove(ev.clientY);
+    const up = () => { onEnd(); document.removeEventListener('mousemove', move); document.removeEventListener('mouseup', up); };
+    document.addEventListener('mousemove', move);
+    document.addEventListener('mouseup', up);
+  });
+
+  handle.addEventListener('click', () => {
+    if (panel.classList.contains('sheet-mini')) {
+      panel.classList.remove('sheet-mini');
+      panel.classList.add('sheet-mid');
+    }
+  });
 }
 
 function formatOrder(o) {

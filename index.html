@@ -525,6 +525,7 @@
   /* ── Mobile nav & sheet (hidden on desktop) ── */
   #mobile-nav { display: none; }
   .mobile-sheet { display: none; }
+  .op-sheet-handle { display: none; }
 
   #legend { position: fixed; bottom: 16px; left: 16px; background: rgba(10,10,30,0.92); border: 1px solid #334; border-radius: 8px; padding: 12px 16px; z-index: 10; font-size: 11px; max-height: calc(100vh - 32px); overflow-y: auto; backdrop-filter: blur(8px); }
   #legend h3 { font-size: 13px; margin-bottom: 0; color: #aaa; }
@@ -592,12 +593,21 @@
     #info-panel { top: 36px; right: 0; left: 0; width: auto; max-width: none; padding: 12px; max-height: 50vh; border-radius: 0; border-left: none; border-right: none; z-index: 55; }
     #info-panel.shifted { right: 0; left: 0; }
 
-    /* Order panel = bottom sheet sur mobile */
-    #order-panel { width: 100%; right: 0; left: 0; top: auto; bottom: 52px; height: auto; max-height: calc(100dvh - 36px - 52px); max-height: calc(100vh - 36px - 52px); padding: 0; border-left: none; border-radius: 16px 16px 0 0; border: 1px solid #334; border-bottom: none; animation: slideSheetUp 0.3s ease; }
-    #order-panel .op-header { padding: 12px 16px 8px; }
+    /* Order panel = draggable bottom sheet sur mobile */
+    #order-panel { width: 100%; right: 0; left: 0; top: auto; bottom: 52px; height: 50vh; max-height: calc(100dvh - 36px - 52px); padding: 0; border-left: none; border-radius: 16px 16px 0 0; border: 1px solid #334; border-bottom: none; animation: slideSheetUp 0.3s ease; transition: height 0.25s ease; }
+    #order-panel.sheet-mini { height: 56px; overflow: hidden; }
+    #order-panel.sheet-mid { height: 50vh; }
+    #order-panel.sheet-full { height: calc(100dvh - 36px - 52px); }
+    #order-panel.sheet-dragging { transition: none !important; }
+    .op-sheet-handle { display: flex; justify-content: center; padding: 8px 0 0; flex-shrink: 0; cursor: grab; touch-action: none; }
+    .op-sheet-handle:active { cursor: grabbing; }
+    .op-sheet-grip { width: 36px; height: 4px; border-radius: 2px; background: rgba(255,255,255,0.25); }
+    #order-panel .op-header { padding: 8px 16px 8px; }
     #order-panel .op-scroll { padding: 0 16px; }
     #order-panel .op-footer { padding: 8px 16px; padding-bottom: max(8px, env(safe-area-inset-bottom)); }
-    #order-panel.collapsed { display: none !important; }
+    #order-panel.collapsed, #order-panel.sheet-mini .op-scroll { overflow: hidden; }
+    #order-panel.sheet-mini .op-scroll { max-height: 0; padding: 0 16px; }
+    #order-panel.sheet-mini .op-footer { display: none; }
     .op-toggle-map, .op-collapse { display: none !important; }
     .op-collapsed-label { display: none !important; }
     .op-btn { min-height: 44px; padding: 12px 14px; font-size: 14px; }
