@@ -169,9 +169,12 @@ function updateHUD() {
       const pContracts = activeContracts.filter(c => c.joueur_a === j.id || c.joueur_b === j.id).length;
       const contractBadge = pContracts > 0 ? `<span class="hud-contracts-badge">📜${pContracts}</span>` : '';
       const qOrig = gameData.gameplay.quartiers.find(q => q.id === j.quartier_origine)?.nom || j.quartier_origine;
-      return `<div class="hud-player"><span class="hud-player-dot" style="background:${j.couleur}"></span><span class="hud-clickable" data-dict="joueur" data-pid="${j.id}" title="Cliquer pour plus d'infos">${j.nom}${maireTag}${contractBadge}</span><span class="hud-player-pts hud-clickable" data-dict="pts" title="Cliquer pour plus d'infos">${pts} pts</span><span class="hud-player-gold hud-clickable" data-dict="lingots" title="Cliquer pour plus d'infos">${j.ressources.lingots}L</span></div>` +
+      const ownedQ = gameData.gameplay.quartiers.filter(q => gameState.getQuartierOwner(q.id, gameData.gameplay) === j.id);
+      const qBadge = ownedQ.length > 0 ? `<span class="hud-player-quartiers">★${ownedQ.length}</span>` : '';
+      return `<div class="hud-player"><span class="hud-player-dot" style="background:${j.couleur}"></span><span class="hud-clickable" data-dict="joueur" data-pid="${j.id}" title="Cliquer pour plus d'infos">${j.nom}${maireTag}${contractBadge}${qBadge}</span><span class="hud-player-pts hud-clickable" data-dict="pts" title="Cliquer pour plus d'infos">${pts} pts</span><span class="hud-player-gold hud-clickable" data-dict="lingots" title="Cliquer pour plus d'infos">${j.ressources.lingots}L</span></div>` +
         `<div class="hud-player-res"><span class="hud-clickable" data-dict="ressources" title="Cliquer pour plus d'infos">🔫${j.ressources.armes} 💊${j.ressources.doses} 🃏${(j.cartes_magouille || []).length}</span></div>`;
     }).join('')}</div>
+    <button class="hud-quartiers-btn" id="btn-hud-quartiers">🗺️ Territoires</button>
     </div>`;
   hud.querySelectorAll('.hud-clickable').forEach(el => {
     el.addEventListener('click', (e) => {
@@ -185,6 +188,10 @@ function updateHUD() {
         showDictionaryEntry(dict);
       }
     });
+  });
+  hud.querySelector('#btn-hud-quartiers')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    showQuartiersOverview();
   });
 }
 
@@ -598,6 +605,17 @@ function showMoveModal(pid, refresh) {
     }).join('');
   }
 
+  function getQuartierBreakWarning(zoneId, pionType) {
+    const q = gameData.zoneToQuartier[zoneId];
+    if (!q) return null;
+    const isOwner = gameState.getQuartierOwner(q.id, gameData.gameplay) === pid;
+    if (!isOwner) return null;
+    const otherPions = gameState.plateau[zoneId]?.pions.filter(p => p.joueur === pid && !(p.type === pionType));
+    const hasOtherPresence = (otherPions && otherPions.length > 0) || gameState.plateau[zoneId]?.construction;
+    if (hasOtherPresence) return null;
+    return q;
+  }
+
   function updateDestDetails() {
     const destSel = document.getElementById('f-dest');
     const detailEl = document.getElementById('move-dest-detail');
@@ -606,6 +624,14 @@ function showMoveModal(pid, refresh) {
     const destZone = gameState.plateau[destId];
     const info = getDestInfo(destId);
     let html = '';
+
+    if (selectedPion) {
+      const breakQ = getQuartierBreakWarning(selectedPion.zid, selectedPion.type);
+      if (breakQ) {
+        html += `<div class="move-quartier-warn">⚠️ Déplacer ce pion fera perdre le contrôle de <strong>${breakQ.nom}</strong> (${breakQ.points} pts, gang: ${breakQ.gang.nom})</div>`;
+      }
+    }
+
     if (destZone && destZone.pions.length > 0) {
       html += '<div class="move-dest-pions">';
       destZone.pions.forEach(p => {
@@ -2074,6 +2100,111 @@ function showMagouilleToast(msg) {
   setTimeout(() => toast.remove(), 3500);
 }
 
+/* ── Quartiers Overview ── */
+function showQuartiersOverview() {
+  const quartiers = gameData.gameplay.quartiers;
+  const ov = document.getElementById('dict-ov');
+
+  let html = `<h2 style="text-align:center;margin-bottom:16px">🗺️ Vue d'ensemble des territoires</h2>`;
+
+  const owned = [];
+  const contested = [];
+  const empty = [];
+
+  quartiers.forEach(q => {
+    const qc = QUARTIER_COLORS[q.id];
+    const owner = gameState.getQuartierOwner(q.id, gameData.gameplay);
+    const presence = {};
+    q.zones.forEach(zid => {
+      const z = gameState.plateau[zid];
+      if (z && z.proprietaire != null) {
+        if (!presence[z.proprietaire]) presence[z.proprietaire] = 0;
+        presence[z.proprietaire]++;
+      }
+    });
+    const data = { q, qc, owner, presence };
+    if (owner !== null) owned.push(data);
+    else if (Object.keys(presence).length > 0) contested.push(data);
+    else empty.push(data);
+  });
+
+  function renderQuartierCard({ q, qc, owner, presence }) {
+    const oj = owner !== null ? gameState.joueurs[owner] : null;
+    const gangActif = gameState.gangs_actifs[q.id];
+    const canGang = owner !== null && gameState.tour >= 7 && !gangActif;
+    const entries = Object.entries(presence).sort((a, b) => b[1] - a[1]);
+
+    let card = `<div class="qov-card" style="border-color:${oj ? oj.couleur : qc?.stroke || '#555'}" data-qid="${q.id}">
+      <div class="qov-header" style="background:${qc?.fill || '#222'}">
+        <span class="qov-name" style="color:${qc?.stroke || '#aaa'}">${q.nom}</span>
+        <span class="qov-pts">${q.points} pts</span>
+      </div>
+      <div class="qov-body">`;
+
+    if (oj) {
+      card += `<div class="qov-owner" style="color:${oj.couleur}">★ ${oj.nom}</div>`;
+    }
+
+    if (entries.length > 0) {
+      entries.forEach(([pid, count]) => {
+        const j = gameState.joueurs[pid];
+        const pct = Math.round((count / q.zones.length) * 100);
+        card += `<div class="qov-progress">
+          <span class="hud-player-dot" style="background:${j.couleur}"></span>
+          <span style="color:${j.couleur};font-size:11px">${j.nom}</span>
+          <div class="conquest-bar-wrap" style="flex:1"><div class="conquest-bar" style="width:${pct}%;background:${j.couleur}"></div></div>
+          <span style="font-size:11px;font-family:monospace;color:#aaa">${count}/${q.zones.length}</span>
+        </div>`;
+      });
+    } else {
+      card += `<div style="font-size:11px;color:#555;text-align:center;padding:4px">Libre</div>`;
+    }
+
+    if (gangActif) {
+      const gj = gameState.joueurs[gangActif.joueur];
+      card += `<div class="qov-gang active" style="color:${gj.couleur}">🔫 ${q.gang.nom} (actif, ${gj.nom})</div>`;
+    } else if (canGang) {
+      card += `<div class="qov-gang available">🔫 ${q.gang.nom} — activable</div>`;
+    } else {
+      card += `<div class="qov-gang">${q.gang.nom}</div>`;
+    }
+
+    card += `</div></div>`;
+    return card;
+  }
+
+  if (owned.length > 0) {
+    html += `<div class="qov-section-title">★ Quartiers dominés (${owned.length})</div><div class="qov-grid">`;
+    owned.forEach(d => { html += renderQuartierCard(d); });
+    html += `</div>`;
+  }
+
+  if (contested.length > 0) {
+    html += `<div class="qov-section-title">⚔️ Quartiers contestés (${contested.length})</div><div class="qov-grid">`;
+    contested.forEach(d => { html += renderQuartierCard(d); });
+    html += `</div>`;
+  }
+
+  if (empty.length > 0) {
+    html += `<div class="qov-section-title" style="color:#555">Quartiers libres (${empty.length})</div><div class="qov-grid">`;
+    empty.forEach(d => { html += renderQuartierCard(d); });
+    html += `</div>`;
+  }
+
+  ov.querySelector('.dict-body').innerHTML = html;
+  ov.querySelector('.dict-title').textContent = 'Territoires';
+  ov.classList.remove('hidden');
+
+  setTimeout(() => {
+    ov.querySelectorAll('.qov-card').forEach(card => {
+      card.addEventListener('click', () => {
+        ov.classList.add('hidden');
+        mapRenderer?.highlightQuartier(card.dataset.qid);
+      });
+    });
+  }, 0);
+}
+
 function renderTurnEnd() {
   const ov = document.getElementById('turnend-ov');
   const body = ov.querySelector('.turnend-body');
@@ -2226,8 +2357,20 @@ function renderInfoPanel(id) {
         }
       });
       const entries = Object.entries(playerPresence).sort((a, b) => b[1] - a[1]);
+      const owner = gameState.getQuartierOwner(q.id, gameData.gameplay);
+
+      qStatsHtml += `<div class="section-title" style="margin-top:8px">Conquête ${owner !== null ? `<span style="color:#f1c40f">★ Dominé</span>` : ''}</div>`;
+
+      if (owner !== null) {
+        const oj = gameState.joueurs[owner];
+        const canGang = gameState.tour >= 7 && !gameState.gangs_actifs[q.id];
+        qStatsHtml += `<div class="conquest-owner-banner" style="border-color:${oj.couleur}">
+          <strong style="color:${oj.couleur}">${oj.nom}</strong> contrôle ce quartier
+          <div class="conquest-rewards">+${q.points} pts de victoire${canGang ? ` · Gang activable` : ''}</div>
+        </div>`;
+      }
+
       if (entries.length > 0) {
-        qStatsHtml += `<div class="section-title" style="margin-top:8px">Conquête</div>`;
         entries.forEach(([pid, count]) => {
           const j = gameState.joueurs[pid];
           const pct = Math.round((count / q.zones.length) * 100);
@@ -2241,6 +2384,22 @@ function renderInfoPanel(id) {
           </div>`;
         });
       }
+
+      qStatsHtml += `<div class="conquest-zones-detail">`;
+      q.zones.forEach(zid => {
+        const z = gameState.plateau[zid];
+        const zoneName = gameData.gameplay.zones[zid]?.nom || zid;
+        const zOwner = z?.proprietaire;
+        const oj = zOwner != null ? gameState.joueurs[zOwner] : null;
+        const pCount = z ? z.pions.length : 0;
+        qStatsHtml += `<div class="conquest-zone-row" onclick="window._selectZone('${zid}')">
+          <span class="conquest-zone-dot" style="background:${oj ? oj.couleur : '#333'}"></span>
+          <span class="conquest-zone-name">${zoneName}</span>
+          <span class="conquest-zone-owner" style="color:${oj ? oj.couleur : '#555'}">${oj ? oj.nom : '—'}</span>
+          ${pCount > 0 ? `<span class="conquest-zone-pions">${pCount}p</span>` : ''}
+        </div>`;
+      });
+      qStatsHtml += `</div>`;
     }
 
     document.getElementById('info-stats').innerHTML = qStatsHtml;
@@ -2418,8 +2577,8 @@ function showGangInfoModal(quartier) {
       const owner = gameState.getQuartierOwner(quartier.id, gameData.gameplay);
       if (owner !== null) {
         const j = gameState.joueurs[owner];
-        const canActivate = gameState.tour >= 10;
-        statusHtml = `<div class="gang-modal-status"><span style="color:${j.couleur}">${j.nom}</span> contrôle ce quartier${canActivate ? ' — <strong>peut activer</strong>' : ' — activable après le tour 10'}</div>`;
+        const canActivate = gameState.tour >= 7;
+        statusHtml = `<div class="gang-modal-status"><span style="color:${j.couleur}">${j.nom}</span> contrôle ce quartier${canActivate ? ' — <strong>peut activer</strong>' : ' — activable après le tour 7'}</div>`;
       } else {
         statusHtml = `<div class="gang-modal-status">Aucun joueur ne contrôle ce quartier</div>`;
       }
@@ -2438,7 +2597,7 @@ function showGangInfoModal(quartier) {
       <div class="section-title">Comment obtenir un gang ?</div>
       <ol>
         <li><strong>Contrôler toutes les zones</strong> du quartier (avoir au moins un pion ou être propriétaire de chaque zone)</li>
-        <li><strong>Attendre le tour 10</strong> — les gangs ne sont activables qu'à partir du 10ᵉ tour</li>
+        <li><strong>Attendre le tour 7</strong> — les gangs ne sont activables qu'à partir du 7ᵉ tour</li>
         <li><strong>Utiliser une action</strong> pendant la phase d'ordres pour activer le gang</li>
       </ol>
     </div>

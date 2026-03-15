@@ -381,43 +381,99 @@ export class MapRenderer {
 
     this.gameplay.quartiers.forEach(q => {
       const owner = gameState.getQuartierOwner(q.id, this.gameplay);
-      if (owner === null) return;
 
-      const joueur = gameState.joueurs[owner];
-      if (!joueur) return;
-
+      const presence = {};
       q.zones.forEach(zid => {
-        const path = this.pathMap[zid];
-        if (!path) return;
-        const border = document.createElementNS(NS, 'path');
-        border.setAttribute('d', path.getAttribute('d'));
-        border.setAttribute('fill', 'none');
-        border.setAttribute('stroke', joueur.couleur);
-        border.setAttribute('stroke-width', '3');
-        border.setAttribute('opacity', '0.9');
-        border.setAttribute('pointer-events', 'none');
-        border.setAttribute('stroke-dasharray', '6,2');
-        this.gQuartierBorders.appendChild(border);
+        const z = gameState.plateau[zid];
+        if (z && z.proprietaire != null) {
+          if (!presence[z.proprietaire]) presence[z.proprietaire] = 0;
+          presence[z.proprietaire]++;
+        }
       });
+      const topEntry = Object.entries(presence).sort((a, b) => b[1] - a[1])[0];
+      const topPlayer = topEntry ? Number(topEntry[0]) : null;
+      const topCount = topEntry ? topEntry[1] : 0;
+      const pct = topCount / q.zones.length;
 
-      const firstFeature = this.featureMap[q.zones[0]];
-      if (firstFeature) {
-        const [cx, cy] = this._centroid(firstFeature);
-        const badge = document.createElementNS(NS, 'text');
-        badge.setAttribute('x', cx.toFixed(1));
-        badge.setAttribute('y', (cy - 8).toFixed(1));
-        badge.setAttribute('text-anchor', 'middle');
-        badge.setAttribute('dominant-baseline', 'central');
-        badge.setAttribute('font-size', '4');
-        badge.setAttribute('fill', joueur.couleur);
-        badge.setAttribute('font-family', 'system-ui, sans-serif');
-        badge.setAttribute('font-weight', '700');
-        badge.setAttribute('pointer-events', 'none');
-        badge.setAttribute('opacity', '0.85');
-        badge.textContent = `★ ${joueur.nom}`;
-        this.gQuartierBorders.appendChild(badge);
+      if (owner !== null) {
+        const joueur = gameState.joueurs[owner];
+        if (!joueur) return;
+
+        q.zones.forEach(zid => {
+          const path = this.pathMap[zid];
+          if (!path) return;
+          const border = document.createElementNS(NS, 'path');
+          border.setAttribute('d', path.getAttribute('d'));
+          border.setAttribute('fill', 'none');
+          border.setAttribute('stroke', joueur.couleur);
+          border.setAttribute('stroke-width', '3.5');
+          border.setAttribute('opacity', '1');
+          border.setAttribute('pointer-events', 'none');
+          this.gQuartierBorders.appendChild(border);
+        });
+
+        const avgCentroid = this._quartierCentroid(q);
+        if (avgCentroid) {
+          const [cx, cy] = avgCentroid;
+
+          const bgRect = document.createElementNS(NS, 'rect');
+          bgRect.setAttribute('x', (cx - 18).toFixed(1));
+          bgRect.setAttribute('y', (cy - 12).toFixed(1));
+          bgRect.setAttribute('width', '36');
+          bgRect.setAttribute('height', '8');
+          bgRect.setAttribute('rx', '3');
+          bgRect.setAttribute('fill', joueur.couleur);
+          bgRect.setAttribute('opacity', '0.85');
+          bgRect.setAttribute('pointer-events', 'none');
+          this.gQuartierBorders.appendChild(bgRect);
+
+          const badge = document.createElementNS(NS, 'text');
+          badge.setAttribute('x', cx.toFixed(1));
+          badge.setAttribute('y', (cy - 7.5).toFixed(1));
+          badge.setAttribute('text-anchor', 'middle');
+          badge.setAttribute('dominant-baseline', 'central');
+          badge.setAttribute('font-size', '4.5');
+          badge.setAttribute('fill', '#fff');
+          badge.setAttribute('font-family', 'system-ui, sans-serif');
+          badge.setAttribute('font-weight', '800');
+          badge.setAttribute('pointer-events', 'none');
+          badge.textContent = `★ ${joueur.nom}`;
+          this.gQuartierBorders.appendChild(badge);
+        }
+      } else if (pct >= 0.5 && topPlayer !== null) {
+        const joueur = gameState.joueurs[topPlayer];
+        if (!joueur) return;
+
+        q.zones.forEach(zid => {
+          const z = gameState.plateau[zid];
+          if (z && z.proprietaire === topPlayer) {
+            const path = this.pathMap[zid];
+            if (!path) return;
+            const border = document.createElementNS(NS, 'path');
+            border.setAttribute('d', path.getAttribute('d'));
+            border.setAttribute('fill', 'none');
+            border.setAttribute('stroke', joueur.couleur);
+            border.setAttribute('stroke-width', '2');
+            border.setAttribute('opacity', '0.6');
+            border.setAttribute('pointer-events', 'none');
+            border.setAttribute('stroke-dasharray', '4,3');
+            this.gQuartierBorders.appendChild(border);
+          }
+        });
       }
     });
+  }
+
+  _quartierCentroid(quartier) {
+    let sx = 0, sy = 0, n = 0;
+    quartier.zones.forEach(zid => {
+      const f = this.featureMap[zid];
+      if (f) {
+        const [cx, cy] = this._centroid(f);
+        sx += cx; sy += cy; n++;
+      }
+    });
+    return n > 0 ? [sx / n, sy / n] : null;
   }
 
   renderPions(gameState) {

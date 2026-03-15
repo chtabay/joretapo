@@ -121,7 +121,7 @@ export class SpecialEntities {
   // ═══════════════════════════════════════════
 
   static canActivateGang(gs, pid, quartierId, gameplayData) {
-    if (gs.tour < 10) return { ok: false, reason: 'Gangs activables après le tour 10' };
+    if (gs.tour < 7) return { ok: false, reason: 'Gangs activables après le tour 7' };
 
     const q = gameplayData.quartiers.find(q => q.id === quartierId);
     if (!q || !q.gang) return { ok: false, reason: 'Pas de gang dans ce quartier' };
