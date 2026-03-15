@@ -262,6 +262,9 @@ function switchMobileTab(tabId) {
       orderPanel?.classList.add('hidden');
       renderMobileStats();
       statsSheet?.classList.remove('hidden');
+      statsSheet?.classList.add('sheet-mid');
+      statsSheet?.classList.remove('sheet-mini', 'sheet-full');
+      if (statsSheet) initSheetDrag(statsSheet);
       break;
     case 'help':
       orderPanel?.classList.add('hidden');
@@ -695,9 +698,12 @@ function renderOrderPanel(gamePhase) {
   }
 }
 
+const _sheetDragInit = new WeakSet();
 function initSheetDrag(panel) {
-  const handle = panel.querySelector('#op-drag-handle');
+  if (_sheetDragInit.has(panel)) return;
+  const handle = panel.querySelector('.op-sheet-handle, .mobile-sheet-handle');
   if (!handle) return;
+  _sheetDragInit.add(panel);
   let startY = 0, startH = 0;
 
   const onStart = (y) => {

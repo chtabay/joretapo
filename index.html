@@ -615,9 +615,15 @@
     .op-fab { display: none !important; }
 
     /* Mobile stats sheet */
-    .mobile-sheet { position: fixed; left: 0; right: 0; bottom: 52px; max-height: calc(100dvh - 36px - 52px); background: rgba(10,10,30,0.96); border-radius: 16px 16px 0 0; border: 1px solid #334; border-bottom: none; z-index: 50; display: flex; flex-direction: column; overflow: hidden; backdrop-filter: blur(8px); animation: slideSheetUp 0.3s ease; }
+    .mobile-sheet { position: fixed; left: 0; right: 0; bottom: 52px; height: 50vh; max-height: calc(100dvh - 36px - 52px); background: rgba(10,10,30,0.96); border-radius: 16px 16px 0 0; border: 1px solid #334; border-bottom: none; z-index: 50; display: flex; flex-direction: column; overflow: hidden; backdrop-filter: blur(8px); animation: slideSheetUp 0.3s ease; transition: height 0.25s ease; }
     .mobile-sheet.hidden { display: none !important; }
-    .mobile-sheet-handle { display: flex; justify-content: center; padding: 8px 0 4px; flex-shrink: 0; }
+    .mobile-sheet.sheet-mini { height: 56px; }
+    .mobile-sheet.sheet-mid { height: 50vh; }
+    .mobile-sheet.sheet-full { height: calc(100dvh - 36px - 52px); }
+    .mobile-sheet.sheet-dragging { transition: none !important; }
+    .mobile-sheet.sheet-mini .mobile-sheet-body { max-height: 0; overflow: hidden; padding: 0 16px; }
+    .mobile-sheet-handle { display: flex; justify-content: center; padding: 8px 0 4px; flex-shrink: 0; cursor: grab; touch-action: none; }
+    .mobile-sheet-handle:active { cursor: grabbing; }
     .mobile-sheet-grip { width: 36px; height: 4px; border-radius: 2px; background: rgba(255,255,255,0.2); }
     .mobile-sheet-body { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 8px 16px 16px; font-size: 13px; }
     .mobile-sheet-body h3 { font-size: 14px; color: #8ab4f8; margin-bottom: 8px; }
