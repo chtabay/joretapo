@@ -8,6 +8,7 @@ import { MayorEngine, MAYOR_POWERS } from './mayor-engine.js';
 import { MagouilleEngine } from './magouille-engine.js';
 import { SpecialEntities } from './special-entities.js';
 import { ContractEngine, CONTRACT_TYPES } from './contract-engine.js';
+import { HeistEngine, HEIST_TYPES } from './heist-engine.js';
 
 let gameData = null;
 let cartesDef = null;
@@ -198,6 +199,7 @@ function renderOrderPanel(gamePhase) {
           <button class="op-btn" id="btn-elim-flic" ${remaining <= 0 ? 'disabled' : ''}>+ Éliminer un flic ennemi</button>
           <button class="op-btn" id="btn-elim-incorruptible">+ Éliminer un incorruptible (700L)</button>
           <button class="op-btn" id="btn-activate-gang">+ Activer un gang</button>
+          <button class="op-btn" id="btn-heist" style="background:rgba(241,196,15,0.08);border-color:#f1c40f;color:#f1c40f">💰 Cambrioler</button>
           <div class="op-hint">Les pions non déplacés soutiennent automatiquement les alliés adjacents en conflit.</div>
         `}
         ${MayorEngine.canUse(gameState, pid) && MayorEngine.availablePowers(gameState, pid, gamePhase).length > 0 ? `
@@ -229,6 +231,7 @@ function renderOrderPanel(gamePhase) {
       panel.querySelector('#btn-elim-flic')?.addEventListener('click', () => showElimFlicModal(pid, refresh));
       panel.querySelector('#btn-elim-incorruptible')?.addEventListener('click', () => showElimIncorruptibleModal(pid, refresh));
       panel.querySelector('#btn-activate-gang')?.addEventListener('click', () => showActivateGangModal(pid, refresh));
+      panel.querySelector('#btn-heist')?.addEventListener('click', () => showHeistModal(pid, refresh));
     }
     panel.querySelector('#btn-mayor-power')?.addEventListener('click', () => showMayorPowerModal(pid, gamePhase, refresh));
     panel.querySelector('#btn-play-card')?.addEventListener('click', () => showPlayCardModal(pid, gamePhase, refresh));
@@ -737,11 +740,211 @@ function showActivateGangModal(pid, refresh) {
   document.querySelectorAll('.gang-choice:not([disabled])').forEach(btn => {
     btn.addEventListener('click', () => {
       closeModal();
-      const result = SpecialEntities.activateGang(gameState, pid, btn.dataset.qid, gameData.gameplay);
+      const qid = btn.dataset.qid;
+      const result = SpecialEntities.activateGang(gameState, pid, qid, gameData.gameplay);
       showMayorResultToast(result.msg || result.reason);
-      refresh();
+
+      if (result.ok) {
+        const gang = gameData.gameplay.quartiers.find(q => q.id === qid)?.gang;
+        if (gang) executeGangEffect(pid, qid, gang, refresh);
+        else refresh();
+      } else {
+        refresh();
+      }
     });
   });
+}
+
+function executeGangEffect(pid, quartierId, gang, refresh) {
+  const needsTarget = ['bloquer_ordres'];
+  const needsQuartier = ['eliminer_prostituees_quartier_voisin', 'bloquer_approvisionnements', 'bloquer_ventes_armes'];
+  const needsZone = ['casino_gratuit'];
+  const needsCibles = ['eliminer_3_pions'];
+  const directEffects = ['actions_supplementaires', 'revente_marchandises', 'racket_etablissements',
+    'voler_action_maire', 'immunite_restrictions_ethniques', 'bloquer_deplacements_manhattan',
+    'restriction_ethnie_caucasien_asiatique', 'restriction_ethnie_non_asiatique_non_italien', 'restriction_ethnie_non_caucasien'];
+
+  if (directEffects.includes(gang.effet)) {
+    const result = SpecialEntities.applyGangEffect(gameState, pid, quartierId, gameData.gameplay, {});
+    showMayorResultToast(result.msg || result.reason);
+    gameState.save(); refreshMap(); refresh();
+  } else if (needsTarget.includes(gang.effet)) {
+    showGangTargetPlayerModal(pid, quartierId, gang, refresh);
+  } else if (needsQuartier.includes(gang.effet)) {
+    showGangQuartierModal(pid, quartierId, gang, refresh);
+  } else if (needsZone.includes(gang.effet)) {
+    showGangZoneModal(pid, quartierId, gang, refresh);
+  } else if (needsCibles.includes(gang.effet)) {
+    showGangCiblesModal(pid, quartierId, gang, refresh);
+  } else {
+    const result = SpecialEntities.applyGangEffect(gameState, pid, quartierId, gameData.gameplay, {});
+    showMayorResultToast(result.msg || result.reason);
+    gameState.save(); refreshMap(); refresh();
+  }
+}
+
+function showGangTargetPlayerModal(pid, quartierId, gang, refresh) {
+  const others = gameState.joueurs.filter((_, i) => i !== pid);
+  const html = `<h3>🔫 ${gang.nom}</h3><label>Joueur ciblé :</label>
+    <select id="f-gang-target">${others.map(j => `<option value="${j.id}">${j.nom}</option>`).join('')}</select>
+    <div class="modal-actions"><button class="btn-secondary" id="modal-cancel">Annuler</button><button class="btn-primary" id="modal-ok">Confirmer</button></div>`;
+  openModal(html, () => {
+    const cible = Number(document.getElementById('f-gang-target').value);
+    const result = SpecialEntities.applyGangEffect(gameState, pid, quartierId, gameData.gameplay, { cible });
+    showMayorResultToast(result.msg || result.reason);
+    gameState.save(); refreshMap(); refresh();
+  });
+}
+
+function showGangQuartierModal(pid, quartierId, gang, refresh) {
+  const quartiers = gameData.gameplay.quartiers;
+  const html = `<h3>🔫 ${gang.nom}</h3><label>Quartier ciblé :</label>
+    <select id="f-gang-quartier">${quartiers.map(q => `<option value="${q.id}">${q.nom}</option>`).join('')}</select>
+    <div class="modal-actions"><button class="btn-secondary" id="modal-cancel">Annuler</button><button class="btn-primary" id="modal-ok">Confirmer</button></div>`;
+  openModal(html, () => {
+    const targetQ = document.getElementById('f-gang-quartier').value;
+    const result = SpecialEntities.applyGangEffect(gameState, pid, quartierId, gameData.gameplay, { quartierId: targetQ });
+    showMayorResultToast(result.msg || result.reason);
+    gameState.save(); refreshMap(); refresh();
+  });
+}
+
+function showGangZoneModal(pid, quartierId, gang, refresh) {
+  const buildable = Object.entries(gameState.plateau)
+    .filter(([_, z]) => (z.proprietaire === pid || z.pions.some(p => p.joueur === pid)) && !z.construction)
+    .map(([zid]) => zid);
+  const html = `<h3>🔫 ${gang.nom}</h3><label>Zone :</label>
+    <select id="f-gang-zone">${buildable.map(z => `<option value="${z}">${z} — ${gameData.gameplay.zones[z]?.nom || z}</option>`).join('')}</select>
+    <div class="modal-actions"><button class="btn-secondary" id="modal-cancel">Annuler</button><button class="btn-primary" id="modal-ok">Confirmer</button></div>`;
+  openModal(html, () => {
+    const zone = document.getElementById('f-gang-zone').value;
+    const result = SpecialEntities.applyGangEffect(gameState, pid, quartierId, gameData.gameplay, { zone });
+    showMayorResultToast(result.msg || result.reason);
+    gameState.save(); refreshMap(); refresh();
+  });
+}
+
+function showGangCiblesModal(pid, quartierId, gang, refresh) {
+  const enemyPions = [];
+  Object.entries(gameState.plateau).forEach(([zid, zone]) => {
+    zone.pions.forEach((p, i) => {
+      if (p.joueur !== pid && p.joueur != null) {
+        enemyPions.push({ zone: zid, idx: i, type: p.type, joueur: p.joueur });
+      }
+    });
+  });
+  if (enemyPions.length === 0) {
+    showMayorResultToast('Aucun pion ennemi à cibler');
+    refresh();
+    return;
+  }
+
+  const selected = new Set();
+  function refreshCibles() {
+    const modal = document.getElementById('order-modal');
+    const body = modal.querySelector('.modal-body');
+    body.innerHTML = `<h3>🔫 ${gang.nom}</h3><p style="font-size:12px;color:#888">Sélectionnez jusqu'à 3 pions ennemis</p>
+      <div style="max-height:40vh;overflow-y:auto">${enemyPions.map((p, i) => {
+        const j = gameState.joueurs[p.joueur];
+        const sel = selected.has(i);
+        return `<div class="gang-cible-row" data-idx="${i}" style="display:flex;align-items:center;gap:8px;padding:6px 8px;cursor:pointer;border:1px solid ${sel ? '#e74c3c' : '#334'};border-radius:4px;margin-bottom:4px;background:${sel ? 'rgba(231,76,60,0.08)' : 'transparent'}">
+          <span class="hud-player-dot" style="background:${j.couleur}"></span>
+          <span>${p.type.replace(/_/g, ' ')} sur ${p.zone}</span>
+          <span style="margin-left:auto;color:${j.couleur};font-size:12px">${j.nom}</span>
+          ${sel ? '<span style="color:#e74c3c">✓</span>' : ''}
+        </div>`;
+      }).join('')}</div>
+      <div style="text-align:center;margin-top:6px;font-size:12px;color:#888">${selected.size}/3</div>
+      <div class="modal-actions"><button class="btn-secondary" id="modal-cancel">Annuler</button><button class="btn-primary" id="modal-ok" ${selected.size === 0 ? 'disabled' : ''}>Éliminer</button></div>`;
+
+    body.querySelectorAll('.gang-cible-row').forEach(row => {
+      row.onclick = () => {
+        const idx = Number(row.dataset.idx);
+        if (selected.has(idx)) selected.delete(idx);
+        else if (selected.size < 3) selected.add(idx);
+        refreshCibles();
+      };
+    });
+
+    body.querySelector('#modal-cancel').onclick = () => closeModal();
+    body.querySelector('#modal-ok').onclick = () => {
+      closeModal();
+      const cibles = [...selected].map(i => ({ zone: enemyPions[i].zone, idx: enemyPions[i].idx }));
+      const result = SpecialEntities.applyGangEffect(gameState, pid, quartierId, gameData.gameplay, { cibles });
+      showMayorResultToast(result.msg || result.reason);
+      gameState.save(); refreshMap(); refresh();
+    };
+  }
+
+  const modal = document.getElementById('order-modal');
+  modal.classList.remove('hidden');
+  refreshCibles();
+}
+
+/* ── Heist Modal ── */
+function showHeistModal(pid, refresh) {
+  const heists = Object.entries(HEIST_TYPES).map(([id, def]) => {
+    const check = HeistEngine.canHeist(gameState, pid, id, gameData.gameplay);
+    return { id, ...def, canDo: check.ok, reason: check.reason || '', check };
+  });
+
+  const html = `<h3>💰 Cambriolage</h3>
+    ${heists.map(h => `<button class="op-btn heist-choice" data-hid="${h.id}" ${!h.canDo ? 'disabled' : ''} style="text-align:left;margin-bottom:6px">
+      <strong>${h.icon} ${h.label}</strong>${!h.canDo ? ' ⛔' : ''}
+      <br><span style="font-size:11px;color:#aaa">${h.butin}</span>
+      ${!h.canDo ? `<br><span style="font-size:11px;color:#e74c3c">${h.reason}</span>` : ''}
+    </button>`).join('')}
+    <div class="modal-actions"><button class="btn-secondary" id="modal-cancel">Annuler</button><button class="btn-primary" id="modal-ok" style="display:none">OK</button></div>`;
+
+  openModal(html, () => {});
+
+  document.querySelectorAll('.heist-choice:not([disabled])').forEach(btn => {
+    btn.addEventListener('click', () => {
+      closeModal();
+      const hid = btn.dataset.hid;
+      if (hid === 'casino' || hid === 'labo') {
+        showHeistTargetModal(pid, hid, refresh);
+      } else {
+        const result = HeistEngine.executeHeist(gameState, pid, hid, {}, gameData.gameplay);
+        showHeistToast(result.msg || result.reason);
+        gameState.save();
+        refreshMap();
+        refresh();
+      }
+    });
+  });
+}
+
+function showHeistTargetModal(pid, heistType, refresh) {
+  const check = HeistEngine.canHeist(gameState, pid, heistType, gameData.gameplay);
+  const zones = heistType === 'casino' ? check.casinoZones : check.laboZones;
+  if (!zones || zones.length === 0) return;
+
+  const html = `<h3>${HEIST_TYPES[heistType].icon} ${HEIST_TYPES[heistType].label}</h3>
+    <label>Cible :</label>
+    <select id="f-heist-target">${zones.map(z => {
+      const owner = gameState.plateau[z]?.proprietaire;
+      const ownerName = owner != null ? gameState.joueurs[owner]?.nom : '—';
+      return `<option value="${z}">${z} — ${gameData.gameplay.zones[z]?.nom || z} (${ownerName})</option>`;
+    }).join('')}</select>
+    <div class="modal-actions"><button class="btn-secondary" id="modal-cancel">Annuler</button><button class="btn-primary" id="modal-ok">Cambrioler</button></div>`;
+
+  openModal(html, () => {
+    const targetZone = document.getElementById('f-heist-target').value;
+    const result = HeistEngine.executeHeist(gameState, pid, heistType, { targetZone }, gameData.gameplay);
+    showHeistToast(result.msg || result.reason);
+    gameState.save();
+    refreshMap();
+    refresh();
+  });
+}
+
+function showHeistToast(msg) {
+  const toast = document.createElement('div');
+  toast.className = 'heist-toast';
+  toast.textContent = '💰 ' + msg;
+  document.body.appendChild(toast);
+  setTimeout(() => toast.remove(), 4000);
 }
 
 /* ── Victory Check ── */

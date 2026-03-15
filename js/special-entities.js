@@ -216,6 +216,105 @@ export class SpecialEntities {
         return { ok: true, msg: `${gang.nom} : ${total}L rackettés` };
       }
 
+      case 'bloquer_ventes_armes': {
+        const targetQ = params.quartierId || quartierId;
+        if (!gs._blocages) gs._blocages = {};
+        gs._blocages[`armes_${targetQ}`] = {
+          type: 'armes', quartier: targetQ, joueur: pid,
+          tour_fin: gs.tour + (gang.duree > 0 ? gang.duree : 5)
+        };
+        if (gang.usage_unique) delete gs.gangs_actifs[quartierId];
+        return { ok: true, msg: `${gang.nom} : ventes d'armes bloquées dans ${targetQ} pour ${gang.duree} tours` };
+      }
+
+      case 'bloquer_ordres': {
+        const cible = params.cible;
+        if (cible == null || cible === pid) return { ok: false, reason: 'Cible invalide' };
+        if (!gs._blocages) gs._blocages = {};
+        gs._blocages[`ordres_${cible}`] = {
+          type: 'ordres', cible, joueur: pid,
+          tour_fin: gs.tour + (gang.duree > 0 ? gang.duree : 3)
+        };
+        if (gang.usage_unique) delete gs.gangs_actifs[quartierId];
+        return { ok: true, msg: `${gang.nom} : ordres de ${gs.joueurs[cible].nom} bloqués pendant ${gang.duree} tours` };
+      }
+
+      case 'restriction_ethnie_caucasien_asiatique':
+      case 'restriction_ethnie_non_asiatique_non_italien':
+      case 'restriction_ethnie_non_caucasien': {
+        if (!gs._restrictions_ethniques) gs._restrictions_ethniques = [];
+        gs._restrictions_ethniques.push({
+          quartier: quartierId, effet: gang.effet, joueur: pid,
+          tour_fin: gs.tour + (gang.duree > 0 ? gang.duree : 5)
+        });
+        const labels = {
+          restriction_ethnie_caucasien_asiatique: 'caucasiens et asiatiques interdits',
+          restriction_ethnie_non_asiatique_non_italien: 'non-asiatiques et non-italiens interdits',
+          restriction_ethnie_non_caucasien: 'non-caucasiens interdits'
+        };
+        if (gang.usage_unique) delete gs.gangs_actifs[quartierId];
+        return { ok: true, msg: `${gang.nom} : ${labels[gang.effet]} dans ${quartierId}` };
+      }
+
+      case 'immunite_restrictions_ethniques': {
+        gs.joueurs[pid]._immunite_ethnie = true;
+        if (gang.usage_unique) delete gs.gangs_actifs[quartierId];
+        return { ok: true, msg: `${gang.nom} : ${gs.joueurs[pid].nom} est immunisé contre les restrictions ethniques` };
+      }
+
+      case 'voler_action_maire': {
+        if (gs.maire.joueur_id === null) return { ok: false, reason: 'Aucun maire en exercice' };
+        if (gs.maire.joueur_id === pid) return { ok: false, reason: 'Vous êtes le maire' };
+        if (gs.maire.privileges_restants <= 0) return { ok: false, reason: 'Le maire n\'a plus de privilèges' };
+        gs.maire.privileges_restants--;
+        gs.joueurs[gs.maire.joueur_id].privileges_maire_restants--;
+        if (gang.usage_unique) delete gs.gangs_actifs[quartierId];
+        return { ok: true, msg: `${gang.nom} : 1 privilège volé au maire ${gs.joueurs[gs.maire.joueur_id].nom}` };
+      }
+
+      case 'eliminer_prostituees_quartier_voisin': {
+        const targetQ = params.quartierId;
+        if (!targetQ) return { ok: false, reason: 'Quartier cible requis' };
+        const q = gameplayData.quartiers.find(q => q.id === targetQ);
+        if (!q) return { ok: false, reason: 'Quartier invalide' };
+        let eliminated = 0;
+        q.zones.forEach(zid => {
+          const zone = gs.plateau[zid];
+          if (!zone) return;
+          for (let i = zone.pions.length - 1; i >= 0; i--) {
+            if (zone.pions[i].joueur !== pid && (zone.pions[i].type === 'prostituee_base' || zone.pions[i].type === 'prostituee_luxe')) {
+              zone.pions.splice(i, 1);
+              eliminated++;
+            }
+          }
+        });
+        if (gang.usage_unique) delete gs.gangs_actifs[quartierId];
+        return { ok: true, msg: `${gang.nom} : ${eliminated} prostituée(s) éliminée(s) dans ${targetQ}` };
+      }
+
+      case 'bloquer_approvisionnements': {
+        const targetQ = params.quartierId;
+        if (!targetQ) return { ok: false, reason: 'Quartier cible requis' };
+        if (!gs._blocages) gs._blocages = {};
+        gs._blocages[`appro_${targetQ}`] = {
+          type: 'approvisionnement', quartier: targetQ, joueur: pid,
+          tour_fin: gs.tour + (gang.duree > 0 ? gang.duree : 5)
+        };
+        if (gang.usage_unique) delete gs.gangs_actifs[quartierId];
+        return { ok: true, msg: `${gang.nom} : approvisionnements bloqués dans ${targetQ} pendant ${gang.duree} tours` };
+      }
+
+      case 'bloquer_deplacements_manhattan': {
+        if (!gs._blocages) gs._blocages = {};
+        const manhattanZones = Object.keys(gameplayData.zones).filter(z => z.startsWith('MN'));
+        gs._blocages.deplacements_manhattan = {
+          type: 'deplacements', zones: manhattanZones, joueur: pid,
+          tour_fin: gs.tour + (gang.duree > 0 ? gang.duree : 3)
+        };
+        if (gang.usage_unique) delete gs.gangs_actifs[quartierId];
+        return { ok: true, msg: `${gang.nom} : déplacements bloqués dans Manhattan pendant ${gang.duree} tours` };
+      }
+
       default:
         return { ok: true, msg: `${gang.nom} activé (effet passif)` };
     }
@@ -258,7 +357,18 @@ export class SpecialEntities {
 
     gs.joueurs.forEach(j => {
       if (j._ineligible) delete j._ineligible;
+      if (j._immunite_ethnie) delete j._immunite_ethnie;
     });
+
+    if (gs._blocages) {
+      Object.keys(gs._blocages).forEach(key => {
+        const b = gs._blocages[key];
+        if (b && b.tour_fin <= gs.tour) delete gs._blocages[key];
+      });
+    }
+    if (gs._restrictions_ethniques) {
+      gs._restrictions_ethniques = gs._restrictions_ethniques.filter(r => r.tour_fin > gs.tour);
+    }
 
     return results;
   }
