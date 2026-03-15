@@ -1467,8 +1467,8 @@ function renderDraftPick() {
           ${Object.keys(card.cout || {}).length ? `<span class="draft-card-cost">${Object.entries(card.cout).map(([k,v]) => `${v}${k[0].toUpperCase()}`).join(' ')}</span>` : '<span class="draft-card-cost">Gratuit</span>'}
         </div>
         <div class="draft-card-actions" onclick="event.stopPropagation()">
-          <button class="draft-card-expand" title="Voir la fiche complète">ℹ️ Détails</button>
-          <button class="draft-card-select">${sel ? '✓ Retirer' : '+ Garder'}</button>
+          <button class="draft-card-expand" title="Voir la fiche complète">🔎</button>
+          <button class="draft-card-select" title="${sel ? 'Retirer de la sélection' : 'Ajouter à la sélection'}">${sel ? '➖' : '➕'}</button>
         </div>
       </div>`;
     }).join('');
