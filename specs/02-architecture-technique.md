@@ -31,20 +31,28 @@ Du JS bien structuré en modules ES6 sera plus léger et performant.
 
 ```
 joretapo/
-├── index.html                  # Point d'entrée (écran titre + setup + carte de jeu)
+├── index.html                  # Point d'entrée (écran titre + setup + carte de jeu + CSS)
 ├── js/
-│   ├── app.js                  # Routeur d'écrans, chargement données, point d'entrée
+│   ├── app.js                  # Routeur d'écrans, chargement données, UI, point d'entrée
 │   ├── game-state.js           # Classe GameState (init, sauvegarde, calcul points)
 │   ├── map-renderer.js         # Rendu SVG, zoom/pan, sélection de zones, pions
-│   └── setup.js                # Écrans de configuration, draft et confirmation
+│   ├── setup.js                # Écrans de configuration, draft et confirmation
+│   ├── turn-manager.js         # Automate à états (5 phases + élection + draft cartes)
+│   ├── revenue-engine.js       # Revenus, approvisionnement, constructions, canBuild
+│   ├── conflict-resolver.js    # Résolution Diplomacy-like (supports, fuite, élimination)
+│   ├── mayor-engine.js         # 8 pouvoirs du maire, validation, exécution
+│   ├── magouille-engine.js     # Deck, pioche, draft 8→4, play, 15+ effets
+│   └── special-entities.js     # Gitans, incorruptibles, gangs, fin de mandat
 ├── data/
 │   ├── quartiers-osm.geojson   # 74 polygones (59 CDs + 12 Hudson + 3 Bergen)
 │   ├── adjacences-osm.json     # Adjacences calculées (145 paires)
-│   ├── quartiers-gameplay.json # 15 quartiers × 74 zones, gangs, privilèges, indices P/D/A
+│   ├── quartiers-gameplay.json # 15 quartiers × 74 zones + 4 îles, gangs, indices P/D/A
+│   ├── cartes-magouille.json   # 30 types de cartes uniques + 5 cartes culture
 │   ├── pions.json              # Définitions des pions (prix, fonctions, cohabitation)
 │   ├── constructions.json      # Définitions des constructions (coûts, rendements)
 │   └── institutions.json       # Zurich Bank, Hôtel de Police, Mairie, annexes
 ├── assets/
+│   ├── cards/                  # 39 images de cartes magouille (extraites des PPT)
 │   ├── plateau-osm.svg         # Carte SVG générée par le pipeline
 │   └── carte_v12_traced.svg    # Source historique (référence)
 ├── tools/
@@ -69,63 +77,84 @@ data/geo-raw/nj-hudson-bergen.geojson         ─┘
 
 Les fichiers `geo-raw/` sont dans `.gitignore` (régénérables).
 
-## Modules principaux (à développer)
+## Modules principaux (implémentés)
 
-### GameState
+### GameState (`js/game-state.js`)
 
-Objet central qui contient l'intégralité de l'état de la partie :
+Objet central sérialisable en JSON, sauvegardé en LocalStorage :
 
-- `players[]` : joueurs (nom, couleur, ressources, pions, cartes, électeurs)
-- `board` : état de chaque quartier (propriétaire, pions présents, constructions)
-- `turn` : numéro du tour en cours
-- `phase` : phase en cours (1-5)
-- `mayor` : joueur maire en exercice, privilèges restants
-- `banks` : caisses (Zurich Bank, Hôtel de police)
-- `cardDeck` : état du deck de cartes magouille
-- `gangs` : état d'activation des gangs par quartier
-- `history` : historique des tours (pour affichage et debug)
+- `joueurs[]` : joueurs (nom, couleur, ethnie, ressources, cartes, électeurs, est_maire)
+- `plateau{}` : état de chaque zone (propriétaire, pions, construction, electricite, gitans)
+- `tour` / `phase` : progression du jeu
+- `maire` : joueur maire, privilèges restants, tour d'élection
+- `caisses` : Zurich Bank + Hôtel de police
+- `deck_magouille` : pile, défaussées, retirées du jeu
+- `flics` : déployés, réserves, éliminés
+- `incorruptibles` : déployés, éliminés (max 2)
+- `gitans` : positions (initialement sur les 4 îles)
+- `gangs_actifs` : gangs activés par quartier
+- `coupures_electricite` : coupures en cours avec durée
 
-Doit être entièrement **sérialisable en JSON** pour la sauvegarde LocalStorage.
+### TurnManager (`js/turn-manager.js`)
 
-### TurnManager
-
-Automate à états qui pilote la séquence des phases :
+Automate à états pilotant les 5 phases + cycle électoral :
 
 ```
-PHASE_1_ORDERS_SUPPLY  →  chaque joueur saisit (hotseat)
-PHASE_2_REVEAL_HARVEST →  révélation collective + calcul revenus
-PHASE_3_NEGOTIATION    →  écran neutre, discussion orale
-PHASE_4_ORDERS_MOVE    →  chaque joueur saisit (hotseat)
-PHASE_5_REVEAL_RESOLVE →  révélation + résolution conflits
-    └─ si tour % 10 == 0 :
-        ELECTION       →  vote secret par joueur
-        CARD_DRAW      →  pioche 8, garde 4
-        GANG_CHECK     →  possibilité d'activation
+CURTAIN → ORDERS_SUPPLY → REVEAL_HARVEST → NEGOTIATION → ORDERS_MOVE → REVEAL_RESOLVE → TURN_END
+                                                                                            │
+                                                            (si tour % 10 == 0 au nextTurn) │
+                                                                                            ▼
+                                          ELECTION_CURTAIN → ELECTION_VOTE → ELECTION_RESULT
+                                                                                            │
+                                                                                            ▼
+                                                            DRAFT_CURTAIN → DRAFT_PICK (×N joueurs)
+                                                                                            │
+                                                                                            ▼
+                                                                                      tour++ → startTurn
 ```
 
-### ConflictResolver
+### RevenueEngine (`js/revenue-engine.js`)
 
-Le module le plus complexe. Algorithme de résolution :
+Traite les ordres d'approvisionnement et calcule les revenus :
+- Points d'appro (ports, aéroports, péages, camps gitans) avec plafonds
+- Construction avec prérequis complexes (Bordel: triangle 3 prostituées luxe adjacentes, Casino: posséder bordel, Labo: 6 dealers)
+- Revenus par type de pion et construction, blocage par flics
 
-1. Collecter tous les ordres de déplacement
-2. Identifier les conflits (2+ pions veulent la même case)
-3. Calculer les supports effectifs (et couper ceux dont les supporteurs sont eux-mêmes attaqués)
-4. Résoudre chaque conflit (plus de supports = victoire, égalité = statu quo)
-5. Gérer les cascades (un vaincu repoussé peut créer un nouveau conflit)
-6. Appliquer les captures de prostituées
-7. Appliquer les éliminations payantes
+### ConflictResolver (`js/conflict-resolver.js`)
 
-### CardSystem
+Résolution Diplomacy-like des mouvements en Phase 5 :
+1. Validation et parsing des ordres (déplacer, créer pion, déployer/éliminer flic)
+2. Blocage par incorruptible (zone infranchissable si seul)
+3. Détection des conflits (2+ pions vers la même case)
+4. Calcul des supports passifs (pions immobiles adjacents)
+5. Coupure de supports (supporteur lui-même attaqué)
+6. Résolution (plus de supports = victoire, égalité = statu quo)
+7. Fuite du vaincu ou élimination payante
 
-Gère le cycle de vie des cartes magouille :
+### MayorEngine (`js/mayor-engine.js`)
 
-1. **Deck** : 75 cartes initiales mélangées
-2. **Pioche** : chaque joueur tire 8, sélectionne 4 (UI de sélection)
-3. **Main** : les 4 cartes du joueur
-4. **Jeu** : le joueur active une carte, le système applique l'effet
-5. **Défausse** : la carte retourne sous la pile (ou sort du jeu selon la carte)
+8 pouvoirs du maire (2 privilèges par mandat) :
+- Phase 1 : taxe 10%, coupure électricité, repositionner flics, saisie argent/denrées, gitans
+- Phase 5 : incorruptible, exproprier 4 blocs
 
-Chaque carte a un `effect` défini comme une fonction qui modifie le `GameState`.
+### MagouilleEngine (`js/magouille-engine.js`)
+
+Cycle de vie des 75 cartes (30 types) :
+1. **Deck** : construction et mélange à la première élection
+2. **Draft** : chaque joueur pioche 8, sélectionne 4 (UI hotseat)
+3. **Main** : cartes conservées entre les tours
+4. **Jeu** : activation depuis le panneau d'ordres, modales contextuelles par effet
+5. **Défausse/Retrait** : selon la carte, retourne sous la pile ou sort du jeu
+
+15+ effets implémentés : tuer pion, modifier électeurs, téléporter, couper électricité, contaminer prostituées, racket, vendre armes, changer ethnie, etc.
+
+### SpecialEntities (`js/special-entities.js`)
+
+Gère les entités spéciales du plateau :
+- **Gitans** : placés sur les îles, blocage construction, traversée coûteuse (5D+5A+1 pion), armes 3x
+- **Incorruptibles** : max 2, blocage zone, infranchissable si seul, élimination 700L
+- **Gangs** : activation après tour 10 si quartier contrôlé, 5 effets actifs (casino gratuit, éliminer 3 pions, +actions, revente, racket)
+- **Fin de mandat** : restauration électricité, nettoyage cartes ouvertes, reset actions bonus
 
 ## Gestion du Hotseat
 

@@ -158,70 +158,80 @@ avec les stats de gameplay migrées depuis l'ancien plateau.
 > Ancien modèle à 15 quartiers / 68 blocs / 4 îles. Remplacé par `quartiers-gameplay.json`.
 > Conservé uniquement pour traçabilité.
 
-### cartes-magouille.json
+### cartes-magouille.json (implémenté)
+
+Fichier structuré en trois sections :
 
 ```json
 {
-  "cartes": [
+  "types": [
     {
-      "id": "permis_de_tuer",
-      "nom": "Permis de tuer",
-      "texte_saveur": "Cette carte est une opportunité unique d'abattre un importun gratuitement...",
-      "cout": { "lingots": 0, "armes": 0, "doses": 0, "cartes": 0 },
+      "id": "001_permis_de_tuer",
+      "nom": "Permis de Tuer",
+      "description": "Éliminez un pion adverse gratuitement.",
+      "cout": { "lingots": 0, "armes": 0, "doses": 0 },
       "conditions": [],
-      "effet": {
-        "type": "eliminer_pion",
-        "cible": "any",
-        "gratuit": true
-      },
-      "duree": "tour",
-      "retour_pile": true,
-      "exemplaires": 4,
-      "phase_jouable": "any"
+      "effet": "tuer_pion",
+      "phase_jouable": "any",
+      "duree": "instant",
+      "repose_sous_pile": true,
+      "image": "001_permis_de_tuer.png",
+      "quantite": 4,
+      "params": { "cible": "adversaire" }
     },
     {
-      "id": "coupure_electricite",
-      "nom": "Coupure d'électricité",
-      "texte_saveur": "Vous avez l'opportunité de couper le courant...",
-      "cout": { "lingots": 0, "armes": 0, "doses": 0, "cartes": 0 },
+      "id": "010_coupure_electricite",
+      "nom": "Coupure d'Électricité",
+      "description": "Coupez le courant dans un quartier ennemi pendant 3 tours.",
+      "cout": { "lingots": 0, "armes": 0, "doses": 0 },
       "conditions": [],
-      "effet": {
-        "type": "bloquer_quartier",
-        "duree_tours": 3,
-        "bonus_cambriolage": 0.5
-      },
+      "effet": "couper_electricite",
+      "phase_jouable": "any",
       "duree": "3_tours",
-      "retour_pile": true,
-      "exemplaires": 3,
-      "phase_jouable": "any"
+      "repose_sous_pile": true,
+      "image": "010_coupure_electricite.png",
+      "quantite": 3,
+      "params": { "cible": "quartier_adversaire" }
     }
-  ]
+  ],
+  "culture": [
+    {
+      "id": "culture_01",
+      "nom": "Culture Générale",
+      "description": "Pas d'effet. Mauvaise pioche.",
+      "image": null,
+      "quantite": 1
+    }
+  ],
+  "regles_tirage": {
+    "frequence": "chaque_election",
+    "cartes_piochees": 8,
+    "cartes_gardees": 4
+  }
 }
 ```
 
-**Types d'effets** des cartes :
+30 types de cartes mécaniques + 5 cartes culture (sans effet). Images stockées dans `assets/cards/`.
 
-| Type d'effet            | Description                                         |
-|-------------------------|-----------------------------------------------------|
-| `eliminer_pion`         | Retire un pion du plateau                           |
-| `deplacer_pion`         | Déplace un pion (incorruptible, flic, gitan)        |
-| `bloquer_quartier`      | Coupe l'électricité d'un quartier                   |
-| `modifier_electeurs`    | Ajoute ou retire des électeurs                      |
-| `voler_ressources`      | Vole cargaison, argent, denrées                     |
-| `annuler_carte`         | Annule l'effet d'une autre carte magouille          |
-| `gagner_lingots`        | Gain direct de lingots                              |
-| `proteger_triche`       | Protection contre accusation de triche              |
-| `bloquer_extension`     | Empêche les adversaires de s'étendre sur un quartier|
-| `ineligible`            | Rend un joueur inéligible aux prochaines élections  |
-| `actions_bonus`         | Actions supplémentaires par tour                    |
-| `changer_ethnie`        | Change les restrictions d'accès aux quartiers       |
-| `teleporter_pion`       | Envoie un pion n'importe où sur la carte            |
-| `racket`                | Force les autres joueurs à payer                    |
-| `carte_neutre`          | Aucun effet (mauvaise pioche)                       |
-| `retirer_flic`          | Retire un flic du jeu définitivement                |
-| `nettoyeur`             | Dispense de posséder un cimetière pour cacher corps |
-| `vendre_armes`          | Vend le stock d'armes à prix fixe                   |
-| `detournement_fonds`    | Récupère la caisse de la police (maire uniquement)  |
+**Types d'effets** implémentés dans `MagouilleEngine._applyEffect` :
+
+| Effet                     | Description                                         |
+|---------------------------|-----------------------------------------------------|
+| `tuer_pion`               | Élimine un pion adverse sur le plateau              |
+| `retirer_electeurs`       | Retire des électeurs à un adversaire                |
+| `teleporter_pion`         | Déplace un pion vers n'importe quelle zone          |
+| `couper_electricite`      | Coupe l'électricité d'un quartier pour 3 tours      |
+| `piocher_caisse_police`   | Pioche dans la caisse de l'hôtel de police          |
+| `changer_ethnie`          | Change l'ethnie d'un joueur                         |
+| `vendre_armes`            | Vend toutes ses armes à prix fixe (8L/unité)        |
+| `deplacer_incorruptible`  | Déplace un incorruptible vers une autre zone        |
+| `deplacer_gitans`         | Déplace un camp de gitans                           |
+| `rendre_ineligible`       | Rend un joueur inéligible aux prochaines élections  |
+| `igor_nettoyeur`          | Élimination gratuite pendant 1 mandat               |
+| `contaminer_prostituees`  | Contamine les prostituées d'un adversaire           |
+| `carte_orange`            | Déplacements illimités pour 1 tour                  |
+| `secretaire`              | +2 actions par tour pendant 1 mandat                |
+| `verges`                  | +2 actions par tour pendant 1 mandat                |
 
 ### pions.json
 

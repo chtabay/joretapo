@@ -182,9 +182,45 @@
   .mayor-toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: #2a1a3e; color: #f8c48a; padding: 12px 24px; border-radius: 8px; border: 1px solid #f8c48a; font-weight: 600; z-index: 10000; animation: slideUp 0.4s ease, fadeIn 0.4s ease; pointer-events: none; }
 
   /* ── Negotiation ── */
-  .nego-container { align-items: center; gap: 24px; }
+  .nego-container { align-items: center; gap: 20px; width: 90%; max-width: 560px; }
   .nego-title { font-size: 28px; }
   .nego-sub { color: #888; font-size: 14px; text-align: center; max-width: 400px; }
+  .nego-actions { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+  .nego-contracts { width: 100%; max-height: 30vh; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; }
+  .contract-card { display: flex; align-items: flex-start; gap: 10px; padding: 10px 14px; background: rgba(255,255,255,0.03); border: 1px solid #334; border-radius: 8px; font-size: 13px; animation: slideUp 0.2s ease; }
+  .contract-card.breached { border-color: #e74c3c; background: rgba(231,76,60,0.06); }
+  .contract-icon { font-size: 20px; flex-shrink: 0; margin-top: 2px; }
+  .contract-info { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+  .contract-parties { font-weight: 600; color: #ccc; }
+  .contract-desc { color: #888; font-size: 12px; }
+  .contract-meta { font-size: 11px; color: #666; }
+  .contract-cancel { background: none; border: 1px solid #553; border-radius: 4px; color: #e74c3c; font-size: 11px; padding: 2px 8px; cursor: pointer; flex-shrink: 0; align-self: center; }
+  .contract-cancel:hover { background: rgba(231,76,60,0.1); }
+
+  /* ── Coupole ── */
+  .coupole-container { width: 90%; max-width: 480px; }
+  .coupole-title { font-size: 22px; color: #e74c3c; text-align: center; margin-bottom: 12px; }
+  .coupole-sub { font-size: 13px; color: #888; text-align: center; margin-bottom: 16px; }
+  .coupole-vote-row { display: flex; align-items: center; gap: 10px; padding: 8px 12px; background: rgba(255,255,255,0.03); border: 1px solid #334; border-radius: 6px; margin-bottom: 6px; }
+  .coupole-vote-row .hud-player-dot { width: 10px; height: 10px; }
+  .coupole-vote-btns { margin-left: auto; display: flex; gap: 6px; }
+  .coupole-vote-btn { padding: 4px 12px; border-radius: 4px; border: 1px solid #445; background: transparent; color: #ccc; font-size: 12px; cursor: pointer; transition: all 0.15s; }
+  .coupole-vote-btn.guilty { border-color: #e74c3c; color: #e74c3c; }
+  .coupole-vote-btn.guilty.selected { background: rgba(231,76,60,0.2); }
+  .coupole-vote-btn.innocent { border-color: #2ecc71; color: #2ecc71; }
+  .coupole-vote-btn.innocent.selected { background: rgba(46,204,113,0.2); }
+  .coupole-result { text-align: center; padding: 16px; margin-top: 8px; border-radius: 8px; font-size: 16px; font-weight: 600; }
+  .coupole-result.guilty { color: #e74c3c; background: rgba(231,76,60,0.08); }
+  .coupole-result.acquitted { color: #2ecc71; background: rgba(46,204,113,0.08); }
+  .contract-toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: #1a2a1e; color: #2ecc71; padding: 12px 24px; border-radius: 8px; border: 1px solid #2ecc71; font-weight: 600; z-index: 10000; animation: slideUp 0.4s ease, fadeIn 0.4s ease; pointer-events: none; }
+  .coupole-toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: #2a1a1a; color: #e74c3c; padding: 12px 24px; border-radius: 8px; border: 1px solid #e74c3c; font-weight: 600; z-index: 10000; animation: slideUp 0.4s ease, fadeIn 0.4s ease; pointer-events: none; }
+
+  /* ── Turn-start reminder ── */
+  .reminder-container { width: 90%; max-width: 520px; max-height: 80vh; display: flex; flex-direction: column; }
+  .reminder-title { font-size: 22px; color: #8ab4f8; margin-bottom: 12px; text-align: center; }
+  .reminder-body { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; }
+  .reminder-line { padding: 6px 10px; font-size: 13px; border-radius: 4px; background: rgba(255,255,255,0.03); border-left: 3px solid #2ecc71; animation: slideUp 0.2s ease both; }
+  .reminder-line.warn { border-left-color: #e74c3c; color: #e74c3c; }
 
   /* ── Panels ── */
   .panel-header { display: flex; justify-content: space-between; align-items: center; }
@@ -230,6 +266,8 @@
   .hud-player-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
   .hud-player-pts { margin-left: auto; color: #8ab4f8; font-weight: 600; }
   .hud-player-gold { color: #f8c48a; font-family: monospace; min-width: 50px; text-align: right; }
+  .hud-player-res { font-size: 10px; color: #666; margin-left: 14px; display: flex; gap: 6px; }
+  .hud-contracts-badge { font-size: 10px; color: #2ecc71; margin-left: 4px; }
 
   path.zone { transition: opacity 0.15s, stroke-width 0.15s; cursor: pointer; }
   path.zone:hover { opacity: 1 !important; stroke-width: 2; }
@@ -323,6 +361,22 @@
   <div id="election-ov" class="overlay hidden">
     <div class="election-container">
       <div class="election-body"></div>
+    </div>
+  </div>
+
+  <!-- Contract Reminder -->
+  <div id="reminder-ov" class="overlay hidden">
+    <div class="reminder-container">
+      <div class="reminder-title"></div>
+      <div class="reminder-body"></div>
+      <div class="reveal-btn" style="margin-top:16px"><button class="btn-primary" id="btn-reminder-ok">Continuer</button></div>
+    </div>
+  </div>
+
+  <!-- Coupole -->
+  <div id="coupole-ov" class="overlay hidden">
+    <div class="coupole-container">
+      <div class="coupole-body"></div>
     </div>
   </div>
 

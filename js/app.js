@@ -7,6 +7,7 @@ import { ConflictResolver } from './conflict-resolver.js';
 import { MayorEngine, MAYOR_POWERS } from './mayor-engine.js';
 import { MagouilleEngine } from './magouille-engine.js';
 import { SpecialEntities } from './special-entities.js';
+import { ContractEngine, CONTRACT_TYPES } from './contract-engine.js';
 
 let gameData = null;
 let cartesDef = null;
@@ -95,12 +96,16 @@ function updateHUD() {
     return;
   }
   const phaseLabel = GAME_PHASE_LABELS[gameState.phase] || '';
+  const activeContracts = ContractEngine.getActiveContracts(gameState);
   hud.innerHTML = `<h3>Tour ${gameState.tour}</h3><div id="stats-content">
     <div class="hud-phase">${phaseLabel}</div>
     <div class="hud-players">${gameState.joueurs.map(j => {
       const pts = gameState.getPlayerPoints(j.id, gameData.gameplay);
       const maireTag = j.est_maire ? ' 🏛️' : '';
-      return `<div class="hud-player"><span class="hud-player-dot" style="background:${j.couleur}"></span><span>${j.nom}${maireTag}</span><span class="hud-player-pts">${pts} pts</span><span class="hud-player-gold">${j.ressources.lingots}L</span></div>`;
+      const pContracts = activeContracts.filter(c => c.joueur_a === j.id || c.joueur_b === j.id).length;
+      const contractBadge = pContracts > 0 ? `<span class="hud-contracts-badge">📜${pContracts}</span>` : '';
+      return `<div class="hud-player"><span class="hud-player-dot" style="background:${j.couleur}"></span><span>${j.nom}${maireTag}${contractBadge}</span><span class="hud-player-pts">${pts} pts</span><span class="hud-player-gold">${j.ressources.lingots}L</span></div>` +
+        `<div class="hud-player-res">🔫${j.ressources.armes} 💊${j.ressources.doses} 🃏${(j.cartes_magouille || []).length}</div>`;
     }).join('')}</div></div>`;
 }
 
@@ -769,12 +774,25 @@ function showVictoryScreen(winner) {
 
 /* ── Reveal (Phase 2) ── */
 function processAndShowReveal() {
+  const contractLog = ContractEngine.executeAutoContracts(gameState);
   const supplyLog = RevenueEngine.processSupplyOrders(gameState, turnManager.supplyOrders, gameData.gameplay, gameData.adjacencies);
   const revenueLog = RevenueEngine.calculateRevenues(gameState, gameData.gameplay, gameData.adjacencies);
+  const expired = ContractEngine.tickContracts(gameState);
   gameState.save();
   refreshMap();
 
-  showRevealOverlay('Révélation & récolte', [...supplyLog, ...revenueLog], () => {
+  const cLog = contractLog.map(cl => ({
+    pid: cl.contrat.joueur_a,
+    type: cl.ok ? 'rev' : 'warn',
+    msg: cl.msg
+  }));
+  const eLog = expired.map(c => ({
+    pid: -1,
+    type: 'warn',
+    msg: `📜 Contrat #${c.id} expiré (${CONTRACT_TYPES[c.type]?.label || c.type})`
+  }));
+
+  showRevealOverlay('Révélation & récolte', [...cLog, ...eLog, ...supplyLog, ...revenueLog], () => {
     const w = checkVictory();
     if (w) { hideAllOverlays(); showVictoryScreen(w); }
     else turnManager.continueFromReveal();
@@ -784,11 +802,195 @@ function processAndShowReveal() {
 /* ── Negotiation (Phase 3) ── */
 function renderNegotiation() {
   const ov = document.getElementById('negotiation-ov');
+  const container = ov.querySelector('.nego-container');
+  const active = ContractEngine.getActiveContracts(gameState);
+
+  container.innerHTML = `
+    <div class="nego-title">Phase de négociation</div>
+    <div class="nego-sub">Discutez entre joueurs : accords, menaces, alliances…<br>Le plateau est visible derrière cet écran.</div>
+    <div class="nego-actions">
+      <button class="btn-primary" id="btn-add-contract">📜 Nouveau contrat</button>
+      <button class="btn-secondary" id="btn-coupole">⚖️ Convoquer la Coupole</button>
+    </div>
+    ${active.length > 0 ? `
+      <div class="section-title" style="text-align:center;margin-top:4px">Contrats actifs</div>
+      <div class="nego-contracts">${active.map(c => renderContractCard(c)).join('')}</div>
+    ` : '<div style="text-align:center;font-size:12px;color:#555;margin-top:4px">Aucun contrat actif</div>'}
+    <button class="btn-primary" id="btn-end-nego" style="margin-top:8px">Fin des négociations</button>
+  `;
+
+  container.querySelector('#btn-add-contract').onclick = () => showCreateContractModal(() => renderNegotiation());
+  container.querySelector('#btn-coupole').onclick = () => showCoupoleModal(() => renderNegotiation());
+  container.querySelector('#btn-end-nego').onclick = () => { ov.classList.add('hidden'); turnManager.endNegotiation(); };
+
+  container.querySelectorAll('.contract-cancel').forEach(btn => {
+    btn.onclick = () => {
+      ContractEngine.cancelContract(gameState, Number(btn.dataset.cid));
+      gameState.save();
+      renderNegotiation();
+    };
+  });
+
   ov.classList.remove('hidden');
-  document.getElementById('btn-end-nego').onclick = () => {
-    ov.classList.add('hidden');
-    turnManager.endNegotiation();
-  };
+}
+
+function renderContractCard(c) {
+  const typeDef = CONTRACT_TYPES[c.type] || CONTRACT_TYPES.libre;
+  const jA = gameState.joueurs[c.joueur_a];
+  const jB = gameState.joueurs[c.joueur_b];
+  const breach = !c.honore ? ' breached' : '';
+  return `<div class="contract-card${breach}">
+    <span class="contract-icon">${typeDef.icon}</span>
+    <div class="contract-info">
+      <div class="contract-parties"><span style="color:${jA.couleur}">${jA.nom}</span> → <span style="color:${jB.couleur}">${jB.nom}</span></div>
+      <div class="contract-desc">${c.description || typeDef.label}${c.montant > 0 ? ` (${c.montant}/tour)` : ''}</div>
+      <div class="contract-meta">Tour ${c.tour_creation} · ${c.tours_restants} tour${c.tours_restants > 1 ? 's' : ''} restant${c.tours_restants > 1 ? 's' : ''}${!c.honore ? ' · ⚠ Non honoré' : ''}</div>
+    </div>
+    <button class="contract-cancel" data-cid="${c.id}">Annuler</button>
+  </div>`;
+}
+
+function showCreateContractModal(onDone) {
+  const joueurs = gameState.joueurs;
+  const typeOptions = Object.entries(CONTRACT_TYPES).map(([id, t]) => `<option value="${id}">${t.icon} ${t.label}</option>`).join('');
+
+  const html = `
+    <h3>📜 Nouveau contrat</h3>
+    <label>Joueur A (qui donne / s'engage) :</label>
+    <select id="f-cjoueurA">${joueurs.map(j => `<option value="${j.id}">${j.nom}</option>`).join('')}</select>
+    <label>Joueur B (qui reçoit / bénéficie) :</label>
+    <select id="f-cjoueurB">${joueurs.map((j, i) => `<option value="${j.id}" ${i === 1 ? 'selected' : ''}>${j.nom}</option>`).join('')}</select>
+    <label>Type de contrat :</label>
+    <select id="f-ctype">${typeOptions}</select>
+    <label>Description (termes de l'accord) :</label>
+    <input type="text" id="f-cdesc" placeholder="ex: 50 lingots/tour pendant 3 tours" style="width:100%;padding:6px;background:#1a1a2e;color:#eee;border:1px solid #334;border-radius:4px">
+    <label>Montant par tour (pour transferts auto) :</label>
+    <input type="number" id="f-cmontant" value="0" min="0" style="width:100%;padding:6px;background:#1a1a2e;color:#eee;border:1px solid #334;border-radius:4px">
+    <label>Durée (en tours) :</label>
+    <input type="number" id="f-cduree" value="5" min="1" max="50" style="width:100%;padding:6px;background:#1a1a2e;color:#eee;border:1px solid #334;border-radius:4px">
+    <div class="modal-actions"><button class="btn-secondary" id="modal-cancel">Annuler</button><button class="btn-primary" id="modal-ok">Créer</button></div>
+  `;
+
+  openModal(html, () => {
+    const joueurA = Number(document.getElementById('f-cjoueurA').value);
+    const joueurB = Number(document.getElementById('f-cjoueurB').value);
+    const typeContrat = document.getElementById('f-ctype').value;
+    const description = document.getElementById('f-cdesc').value;
+    const montant = parseInt(document.getElementById('f-cmontant').value) || 0;
+    const duree = parseInt(document.getElementById('f-cduree').value) || 5;
+
+    if (joueurA === joueurB) {
+      showContractToast('Un contrat nécessite deux parties différentes');
+      return;
+    }
+
+    ContractEngine.createContract(gameState, { joueurA, joueurB, typeContrat, description, montant, duree });
+    showContractToast('Contrat enregistré');
+    if (onDone) onDone();
+  });
+}
+
+function showCoupoleModal(onDone) {
+  const joueurs = gameState.joueurs;
+
+  const html = `
+    <h3>⚖️ Convoquer la Coupole</h3>
+    <label>Plaignant (qui convoque) :</label>
+    <select id="f-plaintiff">${joueurs.map(j => `<option value="${j.id}">${j.nom} (${j.nb_coupole_restantes || 0} restante${(j.nb_coupole_restantes || 0) > 1 ? 's' : ''})</option>`).join('')}</select>
+    <label>Accusé :</label>
+    <select id="f-accused">${joueurs.map((j, i) => `<option value="${j.id}" ${i === 1 ? 'selected' : ''}>${j.nom}</option>`).join('')}</select>
+    <div class="modal-actions"><button class="btn-secondary" id="modal-cancel">Annuler</button><button class="btn-primary" id="modal-ok">Réunir la Coupole</button></div>
+  `;
+
+  openModal(html, () => {
+    const plaintiffId = Number(document.getElementById('f-plaintiff').value);
+    const accusedId = Number(document.getElementById('f-accused').value);
+
+    if (plaintiffId === accusedId) {
+      showCoupoleToast('Le plaignant et l\'accusé doivent être différents');
+      return;
+    }
+
+    const check = ContractEngine.canConvokeCoupole(gameState, plaintiffId);
+    if (!check.ok) {
+      showCoupoleToast(check.reason);
+      return;
+    }
+
+    showCoupoleVoteModal(plaintiffId, accusedId, onDone);
+  });
+}
+
+function showCoupoleVoteModal(plaintiffId, accusedId, onDone) {
+  const ov = document.getElementById('coupole-ov');
+  const body = ov.querySelector('.coupole-body');
+  const votants = gameState.joueurs.filter(j => j.id !== plaintiffId && j.id !== accusedId);
+  const votes = {};
+
+  function refreshVotes() {
+    const allVoted = votants.every(j => votes[j.id] !== undefined);
+    body.innerHTML = `
+      <div class="coupole-title">⚖️ La Coupole</div>
+      <div class="coupole-sub">
+        <strong style="color:${gameState.joueurs[plaintiffId].couleur}">${gameState.joueurs[plaintiffId].nom}</strong> accuse
+        <strong style="color:${gameState.joueurs[accusedId].couleur}">${gameState.joueurs[accusedId].nom}</strong> de trahison.
+      </div>
+      ${votants.map(j => `<div class="coupole-vote-row">
+        <span class="hud-player-dot" style="background:${j.couleur}"></span>
+        <span>${j.nom}</span>
+        <div class="coupole-vote-btns">
+          <button class="coupole-vote-btn guilty ${votes[j.id] === true ? 'selected' : ''}" data-pid="${j.id}" data-vote="guilty">Coupable</button>
+          <button class="coupole-vote-btn innocent ${votes[j.id] === false ? 'selected' : ''}" data-pid="${j.id}" data-vote="innocent">Innocent</button>
+        </div>
+      </div>`).join('')}
+      <button id="btn-coupole-resolve" class="btn-primary" style="margin-top:16px;width:100%" ${!allVoted ? 'disabled' : ''}>Rendre le verdict</button>
+    `;
+
+    body.querySelectorAll('.coupole-vote-btn').forEach(btn => {
+      btn.onclick = () => {
+        const pid = Number(btn.dataset.pid);
+        votes[pid] = btn.dataset.vote === 'guilty';
+        refreshVotes();
+      };
+    });
+
+    body.querySelector('#btn-coupole-resolve')?.addEventListener('click', () => {
+      const result = ContractEngine.resolveCoupole(gameState, plaintiffId, accusedId, votes);
+      const isGuilty = result.verdict === 'coupable';
+      body.innerHTML = `
+        <div class="coupole-title">⚖️ Verdict de la Coupole</div>
+        <div class="coupole-sub">${result.pour} pour · ${result.contre} contre</div>
+        <div class="coupole-result ${isGuilty ? 'guilty' : 'acquitted'}">
+          ${isGuilty ? `☠️ COUPABLE — ${result.sanction}` : '✅ ACQUITTÉ — Aucune sanction'}
+        </div>
+        <button class="btn-primary" id="btn-coupole-close" style="margin-top:16px;width:100%">Fermer</button>
+      `;
+      body.querySelector('#btn-coupole-close').onclick = () => {
+        ov.classList.add('hidden');
+        refreshMap();
+        if (onDone) onDone();
+      };
+    });
+  }
+
+  refreshVotes();
+  ov.classList.remove('hidden');
+}
+
+function showContractToast(msg) {
+  const toast = document.createElement('div');
+  toast.className = 'contract-toast';
+  toast.textContent = '📜 ' + msg;
+  document.body.appendChild(toast);
+  setTimeout(() => toast.remove(), 3500);
+}
+
+function showCoupoleToast(msg) {
+  const toast = document.createElement('div');
+  toast.className = 'coupole-toast';
+  toast.textContent = '⚖️ ' + msg;
+  document.body.appendChild(toast);
+  setTimeout(() => toast.remove(), 3500);
 }
 
 /* ── Resolve (Phase 5) ── */
@@ -1194,12 +1396,24 @@ function showMagouilleToast(msg) {
 function renderTurnEnd() {
   const ov = document.getElementById('turnend-ov');
   const body = ov.querySelector('.turnend-body');
+  const active = ContractEngine.getActiveContracts(gameState);
+
   body.innerHTML = `<h2>Fin du tour ${gameState.tour}</h2>` +
     gameState.joueurs.map(j => {
       const pts = gameState.getPlayerPoints(j.id, gameData.gameplay);
       return `<div class="reveal-player"><span class="hud-player-dot" style="background:${j.couleur}"></span>
         <strong>${j.nom}</strong> — <span class="hud-player-pts">${pts} pts</span> · ${j.ressources.lingots}L · ${j.ressources.armes}A · ${j.ressources.doses}D</div>`;
     }).join('');
+
+  if (active.length > 0) {
+    body.innerHTML += `<div class="section-title" style="margin-top:12px">📜 Contrats actifs (${active.length})</div>` +
+      active.map(c => {
+        const jA = gameState.joueurs[c.joueur_a];
+        const jB = gameState.joueurs[c.joueur_b];
+        const typeDef = CONTRACT_TYPES[c.type] || CONTRACT_TYPES.libre;
+        return `<div class="reveal-line" style="border-left:3px solid #2ecc71;font-size:12px">${typeDef.icon} <span style="color:${jA.couleur}">${jA.nom}</span> → <span style="color:${jB.couleur}">${jB.nom}</span> : ${c.description || typeDef.label} (${c.tours_restants}t)${!c.honore ? ' <span style="color:#e74c3c">⚠ Non honoré</span>' : ''}</div>`;
+      }).join('');
+  }
 
   const winner = gameState.joueurs.find(j => gameState.getPlayerPoints(j.id, gameData.gameplay) >= 55);
   if (winner) {
@@ -1260,16 +1474,33 @@ function renderInfoPanel(id) {
   const gameInfoEl = document.getElementById('info-game');
   if (gameState) {
     const zone = gameState.plateau[id];
-    if (zone && zone.pions.length > 0) {
-      gameInfoEl.innerHTML = `<div class="section-title">Pions</div>` +
-        zone.pions.map(p => {
-          const j = p.joueur != null ? gameState.joueurs[p.joueur] : null;
-          const color = j ? j.couleur : '#888';
-          const name = j ? j.nom : 'Neutre';
-          return `<div class="stat-row"><span class="stat-label" style="color:${color}">${name}</span><span class="stat-value">${p.type.replace(/_/g, ' ')}</span></div>`;
-        }).join('');
-      if (zone.gitans) gameInfoEl.innerHTML += `<div class="stat-row" style="color:#795548"><strong>🏕️ Camp de gitans</strong></div>`;
-    } else { gameInfoEl.innerHTML = ''; }
+    let html = '';
+
+    if (zone) {
+      if (zone.proprietaire != null) {
+        const owner = gameState.joueurs[zone.proprietaire];
+        html += `<div class="stat-row"><span class="stat-label">Contrôle</span><span class="stat-value" style="color:${owner.couleur}">${owner.nom}</span></div>`;
+      }
+      if (zone.construction) {
+        const buildLabel = CONSTRUCTION_DEFS[zone.construction]?.label || zone.construction;
+        const owner = zone.proprietaire != null ? gameState.joueurs[zone.proprietaire] : null;
+        html += `<div class="stat-row"><span class="stat-label">🏗️ ${buildLabel}</span><span class="stat-value" style="color:${owner?.couleur || '#888'}">${owner?.nom || '—'}</span></div>`;
+      }
+      if (!zone.electricite) {
+        html += `<div class="stat-row" style="color:#f39c12"><strong>⚡ Électricité coupée</strong></div>`;
+      }
+      if (zone.pions.length > 0) {
+        html += `<div class="section-title">Pions (${zone.pions.length})</div>` +
+          zone.pions.map(p => {
+            const j = p.joueur != null ? gameState.joueurs[p.joueur] : null;
+            const color = j ? j.couleur : '#888';
+            const name = j ? j.nom : 'Neutre';
+            return `<div class="stat-row"><span class="stat-label" style="color:${color}">${name}</span><span class="stat-value">${p.type.replace(/_/g, ' ')}</span></div>`;
+          }).join('');
+      }
+      if (zone.gitans) html += `<div class="stat-row" style="color:#795548"><strong>🏕️ Camp de gitans</strong></div>`;
+    }
+    gameInfoEl.innerHTML = html;
   } else { gameInfoEl.innerHTML = ''; }
 
   document.getElementById('info-adj').innerHTML = adj.length

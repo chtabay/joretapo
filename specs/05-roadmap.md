@@ -76,165 +76,132 @@ On peut enchaîner les tours : saisir des ordres, voir les revenus, déplacer se
 
 ---
 
-## Phase 4 : Économie complète
+## Sprint 4 : Conflits, combats, flics et victoire (ancienne Phase 5)
 
-**Objectif** : tout le système économique fonctionne.
+**Objectif** : le système de conflits fonctionne, les flics sont déployables, la victoire est détectable.
 
 ### Livrables
-- [ ] `EconomyEngine` : achats, ventes de drogue et d'armes selon indices de blocs
-- [ ] Points d'approvisionnement : ports, aéroports, péages, camps de gitans
-- [ ] Bonus des administrations (ambassade, douanes, immigration)
-- [ ] Constructions complètes : restaurant, tripot, labo, bordel, casino
-- [ ] Flux d'argent vers Zurich Bank et Hôtel de police
-- [ ] Création de pions (coûte une action + prix)
-- [ ] Transactions entre joueurs (échanges de ressources, pions, bâtiments)
+- [x] `ConflictResolver` (js/conflict-resolver.js) : résolution Diplomacy-like
+- [x] Système de supports (pions immobiles adjacents au défenseur)
+- [x] Coupure de support (supporteur lui-même attaqué)
+- [x] Résolution : plus de supports = victoire, égalité = statu quo
+- [x] Fuite du vaincu (vers case libre adjacente)
+- [x] Capture de prostituées non protégées
+- [x] Élimination payante (prix du pion + -100 000 électeurs)
+- [x] Log de résolution animé (conflit par conflit, CSS distinct)
+- [x] Flics : déploiement, blocage revenus, élimination payante
+- [x] `RevenueEngine.canBuild` : validation dynamique des prérequis de construction
+- [x] Détection de victoire (55 points) à chaque fin de tour
 
 ### Critère de validation
-L'économie tourne : les revenus sont cohérents, on peut construire, acheter, vendre, échanger.
+Les conflits se résolvent correctement, les flics bloquent les revenus, la victoire est détectée. **FAIT.**
 
 ---
 
-## Phase 5 : Conflits et combats
-
-**Objectif** : le système de conflits fonctionne intégralement.
-
-### Livrables
-- [ ] `ConflictResolver` : détection des conflits de position
-- [ ] Système de supports (pions immobiles soutiennent un voisin)
-- [ ] Coupure de support (le supporteur est lui-même attaqué)
-- [ ] Résolution : plus de supports = victoire, égalité = statu quo
-- [ ] Fuite du vaincu (vers case libre adjacente)
-- [ ] Conflits en cascade (résolution récursive)
-- [ ] Capture de prostituées (non protégées)
-- [ ] Élimination payante (payer le prix + -100 000 électeurs)
-- [ ] Écran de résolution animé (conflit par conflit)
-- [ ] Échange de positions (même joueur ou accord mutuel)
-
-### Critère de validation
-Les conflits se résolvent correctement, y compris les cascades et captures.
-
----
-
-## Phase 6 : Cartes Magouille
-
-**Objectif** : les 75 cartes sont jouables avec tous leurs effets.
-
-### Livrables
-- [ ] `CardSystem` : deck, pioche, sélection, activation
-- [ ] Fichier `cartes-magouille.json` : les 38 cartes uniques avec effets codés
-- [ ] Écran de sélection des cartes (pioche 8, garde 4)
-- [ ] Interface pour jouer une carte en cours de partie
-- [ ] Implémentation de chaque type d'effet (cf. modèle de données)
-- [ ] Cartes neutres (culture générale) : aucun effet, mauvaise pioche
-- [ ] `CardViewer` : affichage détaillé d'une carte (texte, coût, effet)
-- [ ] Conservation des cartes non jouées entre mandats
-
-### Critère de validation
-On peut piocher, sélectionner, jouer les 38 types de cartes et voir leurs effets appliqués.
-
----
-
-## Phase 7 : Élections et pouvoirs du maire
+## Sprint 5 : Élections et pouvoirs du maire (ancienne Phase 7)
 
 **Objectif** : les élections fonctionnent, le maire a ses pouvoirs.
 
 ### Livrables
-- [ ] `ElectionSystem` : comptage des électeurs par joueur
-- [ ] Calcul des voix : constructions + hommes armés sur les blocs
-- [ ] Malus et bonus d'électeurs (cartes magouille, détournement, etc.)
-- [ ] Vote à bulletin secret (hotseat avec rideau)
-- [ ] Dépouillement animé
-- [ ] Attribution du titre de maire (+15 pts de victoire)
-- [ ] Interface pour les 8 pouvoirs du maire
-- [ ] Implémentation des 8 pouvoirs du maire
-- [ ] Gestion des 2 privilèges par mandat
+- [x] Phases `ELECTION_CURTAIN`, `ELECTION_VOTE`, `ELECTION_RESULT` dans TurnManager
+- [x] Déclenchement automatique tous les 10 tours
+- [x] Calcul des voix (pions + constructions × population de zone)
+- [x] Vote à bulletin secret (hotseat avec rideau)
+- [x] Dépouillement avec barres animées
+- [x] Attribution du titre de maire (+15 pts)
+- [x] `MayorEngine` (js/mayor-engine.js) : 8 pouvoirs, 2 privilèges par mandat
+- [x] Modales spécialisées pour chaque pouvoir (taxe, exproprier, incorruptible, etc.)
+- [x] Marqueur 🏛️ dans le HUD pour le maire en exercice
 
 ### Critère de validation
-On peut voter, élire un maire, et utiliser les pouvoirs du maire.
+On peut voter, élire un maire, et utiliser les pouvoirs du maire. **FAIT.**
 
 ---
 
-## Phase 8 : Gangs et pouvoirs de quartier
+## Sprint 6 : Cartes Magouille (ancienne Phase 6)
 
-**Objectif** : les 15 gangs sont activables et leurs effets fonctionnent.
+**Objectif** : les cartes magouille sont jouables avec tous leurs effets.
 
 ### Livrables
-- [ ] `GangSystem` : vérification de possession de quartier, activation
-- [ ] Implémentation des 15 pouvoirs de gang :
-  - [ ] Cartel de Bogota (bloquer ventes d'armes)
-  - [ ] Gang du Bolito (restrictions d'accès)
-  - [ ] Lobby des Taxis (bloquer déplacements Manhattan)
-  - [ ] Triades (restrictions d'accès)
-  - [ ] Les Nets (+2 actions)
-  - [ ] Syndicat des Dockers (bloquer approvisionnements)
-  - [ ] Camora Napolitaine (racket)
-  - [ ] St James Boys (immunité)
-  - [ ] Rat Pack (voler action du maire)
-  - [ ] Natifs Américains (casino gratuit)
-  - [ ] Ku Klux Klan (restrictions d'accès)
-  - [ ] Mafia Bulgare (éliminer prostituées)
-  - [ ] Yakuzas (éliminer pions)
-  - [ ] Lobby Juif (revente marchandises)
-  - [ ] Mafia Créole (bloquer ordres)
-- [ ] Interface d'activation (lors de la phase d'action, après tour 10)
+- [x] `MagouilleEngine` (js/magouille-engine.js) : deck, draft, pioche, play, effets
+- [x] `data/cartes-magouille.json` : 30 types mécaniques + 5 cartes culture
+- [x] Extraction des 39 images de cartes depuis les fichiers PowerPoint originaux
+- [x] Phases `DRAFT_CURTAIN`, `DRAFT_PICK` dans TurnManager (après chaque élection)
+- [x] UI de draft : pioche 8, sélection 4, UI cartes illustrées
+- [x] Bouton "🃏 Jouer une carte" dans le panneau d'ordres
+- [x] Modales contextuelles selon l'effet (cible pion, quartier, joueur, zone...)
+- [x] 15+ effets implémentés (tuer_pion, téléporter, couper_electricite, changer_ethnie, vendre_armes, etc.)
+- [x] Conservation des cartes non jouées entre les tours
 
 ### Critère de validation
-On peut activer un gang et voir son effet appliqué correctement.
+On peut piocher, sélectionner, jouer les cartes et voir leurs effets appliqués. **FAIT.**
 
 ---
 
-## Phase 9 : Cambriolages, contrats, coupole, conditions de victoire
+## Sprint 7 : Gitans, Incorruptibles, Gangs, Fin de mandat (anciennes Phases 8 & 9 partiellement)
 
-**Objectif** : toutes les mécaniques restantes.
+**Objectif** : les entités spéciales du plateau sont fonctionnelles.
 
 ### Livrables
+- [x] `SpecialEntities` (js/special-entities.js) : module centralisé
+- [x] **Gitans** : placement initial sur les 4 îles, blocage construction, traversée coûteuse (5D+5A+1 pion), vente armes 3×
+- [x] **Incorruptibles** : placement (max 2), zone bloquée infranchissable si seul, élimination 700L (500L avec Bordel), déplacement 1000L
+- [x] **Gangs** : activation après tour 10 si quartier contrôlé, framework + 5 effets (casino gratuit, éliminer 3 pions, +2 actions, revente marchandises, racket établissements)
+- [x] **Fin de mandat** : restauration automatique de l'électricité, nettoyage des cartes ouvertes (verges, igor), reset des actions bonus
+- [x] Initialisation des îles dans le plateau + fusion des adjacences îles dans les données globales
+- [x] Rendu visuel des gitans (GI) et incorruptibles (IC) sur la carte
+
+### Critère de validation
+Les gitans bloquent la construction et coûtent cher à traverser, les incorruptibles bloquent les zones, les gangs sont activables, la fin de mandat nettoie les effets temporaires. **FAIT.**
+
+---
+
+## Sprint 8 : Contrats + Polish UX (à venir)
+
+**Objectif** : interface de contrats entre joueurs + améliorations UX.
+
+### Livrables
+- [ ] Interface de saisie de contrats (joueur A ↔ joueur B, termes, durée)
+- [ ] Affichage des contrats actifs dans le panneau de négociation
+- [ ] Rappel de contrats en début de tour
+- [ ] Polish UX global (animations, feedback, ergonomie tablette)
+
+---
+
+## Phases restantes (non encore planifiées en sprints)
+
+**Phase 4 originale (Économie avancée)** -- partiellement couvert par Sprint 4 :
+- [ ] Bonus des administrations (ambassade, douanes, immigration)
+- [ ] Transactions entre joueurs (échanges de ressources, pions, bâtiments)
+
+**Phase 9 originale (Mécaniques restantes)** -- partiellement couvert par Sprint 7 :
 - [ ] Cambriolages : Zurich Bank, Hôtel de police, Casino, Labo
-- [ ] Contrats formalisés (interface de saisie, affichage)
 - [ ] Coupole (vote, sanction)
-- [ ] `VictoryChecker` : vérification des 55 points après chaque tour
-- [ ] Écran de fin de partie (classement, détail des points)
-- [ ] Pions spéciaux complets : flics (activation/désactivation), incorruptibles, gitans (traversée)
+- [ ] 10 effets de gangs supplémentaires à implémenter
 
-### Critère de validation
-Une partie peut se terminer avec un vainqueur déclaré.
-
----
-
-## Phase 10 : Polish et finitions
-
-**Objectif** : le jeu est agréable à utiliser et prêt pour GitHub Pages.
-
-### Livrables
+**Phase 10 (Polish et finitions)** :
 - [ ] Animations de transitions entre phases
-- [ ] Animations des conflits et résolutions
-- [ ] Design visuel cohérent (thème sombre, typographie)
 - [ ] Effets sonores (optionnel)
-- [ ] Tutoriel / aide intégrée (résumé des règles consultable)
+- [ ] Tutoriel / aide intégrée
 - [ ] Gestion de sauvegarde multi-slots
 - [ ] Tests sur tablette (iPad, Android)
 - [ ] Optimisation des performances SVG
 - [ ] README du projet pour GitHub
 - [ ] Déploiement sur GitHub Pages
 
-### Critère de validation
-Le jeu tourne de manière fluide sur tablette, est visuellement soigné, et est jouable de bout en bout.
-
 ---
 
 ## Estimation de charge
 
-| Phase | Complexité | Estimation |
+| Phase / Sprint | Complexité | Statut |
 |-------|-----------|------------|
 | Phase 1 : Plateau SVG | Élevée (cartographie) | **FAIT** |
 | Phase 2 : Configuration | Moyenne | **FAIT** |
 | Phase 3 : Boucle de tour | Élevée (hotseat + ordres) | **FAIT** |
-| Phase 4 : Économie | Moyenne | Moyen |
-| Phase 5 : Conflits | Très élevée (algorithme récursif) | Long |
-| Phase 6 : Cartes Magouille | Élevée (volume + effets variés) | Long |
-| Phase 7 : Élections | Moyenne | Moyen |
-| Phase 8 : Gangs | Moyenne | Moyen |
-| Phase 9 : Finitions mécaniques | Moyenne | Moyen |
-| Phase 10 : Polish | Variable | Variable |
-
-Le projet est **ambitieux**. La carte SVG (phase 1) et le système de conflits (phase 5)
-sont les deux plus gros morceaux techniques.
+| Sprint 4 : Conflits + Flics | Très élevée (algorithme récursif) | **FAIT** |
+| Sprint 5 : Élections + Maire | Moyenne | **FAIT** |
+| Sprint 6 : Cartes Magouille | Élevée (volume + effets variés) | **FAIT** |
+| Sprint 7 : Gitans, Incorruptibles, Gangs | Élevée | **FAIT** |
+| Sprint 8 : Contrats + Polish | Moyenne | En attente |
+| Reste : Économie avancée, Coupole, Cambriolages | Moyenne | En attente |
+| Polish final | Variable | En attente |
