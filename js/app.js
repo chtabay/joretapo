@@ -9,6 +9,7 @@ import { MagouilleEngine } from './magouille-engine.js';
 import { SpecialEntities } from './special-entities.js';
 import { ContractEngine, CONTRACT_TYPES } from './contract-engine.js';
 import { HeistEngine, HEIST_TYPES } from './heist-engine.js';
+import { getShareUrl, generateQRCode, getWhatsAppShareUrl, copyToClipboard, shareViaWebShare, canUseWebShare, parseRestoreFromHash, clearRestoreHash } from './save-export.js';
 
 let gameData = null;
 let cartesDef = null;
@@ -109,7 +110,9 @@ function updateHUD() {
       const contractBadge = pContracts > 0 ? `<span class="hud-contracts-badge">📜${pContracts}</span>` : '';
       return `<div class="hud-player"><span class="hud-player-dot" style="background:${j.couleur}"></span><span>${j.nom}${maireTag}${contractBadge}</span><span class="hud-player-pts">${pts} pts</span><span class="hud-player-gold">${j.ressources.lingots}L</span></div>` +
         `<div class="hud-player-res">🔫${j.ressources.armes} 💊${j.ressources.doses} 🃏${(j.cartes_magouille || []).length}</div>`;
-    }).join('')}</div></div>`;
+    }).join('')}</div>
+    <button class="btn-share" id="hud-share-btn">💾 Partager</button></div>`;
+  document.getElementById('hud-share-btn')?.addEventListener('click', showShareModal);
 }
 
 function refreshMap() {
@@ -1842,6 +1845,45 @@ const GANG_DESCRIPTIONS = {
   }
 };
 
+function showShareModal() {
+  if (!gameState) return;
+  gameState.save();
+  const url = getShareUrl(gameState);
+  const ov = document.getElementById('share-ov');
+  const qrEl = document.getElementById('share-qr');
+  generateQRCode(qrEl, url, 200);
+
+  document.getElementById('share-copy').onclick = async () => {
+    try {
+      await copyToClipboard(url);
+      const btn = document.getElementById('share-copy');
+      const orig = btn.textContent;
+      btn.textContent = '✓ Copié !';
+      setTimeout(() => { btn.textContent = orig; }, 1500);
+    } catch (e) {
+      alert('Impossible de copier');
+    }
+  };
+
+  document.getElementById('share-whatsapp').href = getWhatsAppShareUrl(url);
+  document.getElementById('share-whatsapp').style.display = '';
+
+  const nativeBtn = document.getElementById('share-native');
+  if (canUseWebShare()) {
+    nativeBtn.style.display = '';
+    nativeBtn.onclick = async () => {
+      const ok = await shareViaWebShare('JORETAPO', `Partie Tour ${gameState.tour}`, url);
+      if (ok) ov.classList.add('hidden');
+    };
+  } else {
+    nativeBtn.style.display = 'none';
+  }
+
+  document.getElementById('share-close').onclick = () => ov.classList.add('hidden');
+  ov.onclick = e => { if (e.target === ov) ov.classList.add('hidden'); };
+  ov.classList.remove('hidden');
+}
+
 function showGangInfoModal(quartier) {
   const g = quartier.gang;
   const dur = g.duree === -1 ? 'Permanent' : g.duree === 0 ? 'Instantané' : `${g.duree} tours`;
@@ -1908,6 +1950,18 @@ window._selectZone = id => { if (mapRenderer) mapRenderer.selectZone(id); };
 
 document.addEventListener('DOMContentLoaded', async () => {
   gameData = await loadGameData();
-  renderTitleScreen();
-  renderLegend();
+  const restored = parseRestoreFromHash();
+  if (restored) {
+    const state = new GameState();
+    Object.assign(state, restored);
+    gameState = state;
+    gameState.save();
+    clearRestoreHash();
+    showScreen('screen-game');
+    renderGameScreen();
+    startTurnLoop();
+  } else {
+    renderTitleScreen();
+    renderLegend();
+  }
 });

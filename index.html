@@ -282,6 +282,17 @@
   .gang-modal-howto li { margin-bottom: 4px; }
   .gang-modal-status { font-size: 12px; padding: 8px; border-radius: 4px; margin-bottom: 12px; text-align: center; }
   .gang-modal-status.active { background: rgba(46,204,113,0.1); border: 1px solid #2ecc7144; }
+
+  /* ── Share modal ── */
+  #share-ov { background: rgba(0,0,0,0.8); }
+  .share-container { max-width: 380px; }
+  .share-sub { font-size: 13px; color: #888; margin-bottom: 16px; line-height: 1.4; }
+  .share-qr { display: flex; justify-content: center; padding: 16px; background: #fff; border-radius: 8px; margin-bottom: 16px; min-height: 220px; }
+  .share-qr canvas, .share-qr img { border-radius: 4px; }
+  .share-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+  .share-actions a { text-decoration: none; color: inherit; }
+  .btn-share { padding: 6px 12px; font-size: 12px; background: rgba(138,180,248,0.15); border: 1px solid #5a8ab4; border-radius: 4px; color: #8ab4f8; cursor: pointer; transition: all 0.15s; }
+  .btn-share:hover { background: rgba(138,180,248,0.25); }
   #info-panel .facilite-tag { display: inline-block; padding: 2px 8px; border-radius: 3px; background: #3a2a10; color: #f8d48a; font-size: 11px; font-weight: 600; margin-bottom: 8px; }
   .section-title { font-size: 11px; text-transform: uppercase; color: #666; margin-top: 10px; margin-bottom: 4px; letter-spacing: 1px; }
 
@@ -424,8 +435,25 @@
       <div class="reveal-btn"><button class="btn-primary" id="btn-next-turn">Tour suivant</button></div>
     </div>
   </div>
+
+  <!-- Share / Export -->
+  <div id="share-ov" class="overlay hidden">
+    <div class="share-container modal-content">
+      <h3>💾 Sauvegarder & partager</h3>
+      <p class="share-sub">La partie est sauvegardée localement. Scannez le QR ou partagez le lien pour reprendre sur un autre appareil.</p>
+      <div id="share-qr" class="share-qr"></div>
+      <div class="share-actions">
+        <button class="btn-secondary" id="share-copy">📋 Copier le lien</button>
+        <a id="share-whatsapp" class="btn-secondary" href="#" target="_blank" rel="noopener">WhatsApp</a>
+        <button class="btn-secondary" id="share-native" style="display:none">📤 Partager</button>
+        <button class="btn-primary" id="share-close">Fermer</button>
+      </div>
+    </div>
+  </div>
 </div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.4.4/lz-string.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script type="module" src="js/app.js"></script>
 </body>
 </html>
