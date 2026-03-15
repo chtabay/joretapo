@@ -307,7 +307,14 @@ export class MagouilleEngine {
 
   static getCardDef(gs, uid, cartesDef) {
     MagouilleEngine._ensureIndex(gs, cartesDef);
-    return gs._cartes_index?.[uid] || null;
+    const indexed = gs._cartes_index?.[uid];
+    if (!indexed) return null;
+    const typeId = uid.replace(/_\d+$/, '');
+    const fullType = cartesDef.types.find(t => t.id === typeId);
+    if (fullType && fullType.texte_original && !indexed.texte_original) {
+      indexed.texte_original = fullType.texte_original;
+    }
+    return indexed;
   }
 
   static _ensureIndex(gs, cartesDef) {
