@@ -5,19 +5,23 @@ import { TurnManager, PHASE, GAME_PHASE_LABELS } from './turn-manager.js';
 import { RevenueEngine, BUY_PRICE, CONSTRUCTION_DEFS } from './revenue-engine.js';
 import { ConflictResolver } from './conflict-resolver.js';
 import { MayorEngine, MAYOR_POWERS } from './mayor-engine.js';
+import { MagouilleEngine } from './magouille-engine.js';
 
 let gameData = null;
+let cartesDef = null;
 let gameState = null;
 let mapRenderer = null;
 let turnManager = null;
 let pendingOrders = [];
 
 async function loadGameData() {
-  const [geoRes, adjRes, gameRes] = await Promise.all([
+  const [geoRes, adjRes, gameRes, cartesRes] = await Promise.all([
     fetch('data/quartiers-osm.geojson').then(r => r.json()),
     fetch('data/adjacences-osm.json').then(r => r.json()),
-    fetch('data/quartiers-gameplay.json').then(r => r.json())
+    fetch('data/quartiers-gameplay.json').then(r => r.json()),
+    fetch('data/cartes-magouille.json').then(r => r.json())
   ]);
+  cartesDef = cartesRes;
   const zoneToQuartier = {};
   gameRes.quartiers.forEach(q => { q.zones.forEach(z => { zoneToQuartier[z] = q; }); });
   return { features: geoRes.features, adjacencies: adjRes, gameplay: gameRes, zoneToQuartier };
@@ -124,6 +128,8 @@ function onPhaseChange() {
     case PHASE.ELECTION_CURTAIN: renderElectionCurtain(); break;
     case PHASE.ELECTION_VOTE: renderElectionVote(); break;
     case PHASE.ELECTION_RESULT: renderElectionResult(); break;
+    case PHASE.DRAFT_CURTAIN: renderDraftCurtain(); break;
+    case PHASE.DRAFT_PICK: renderDraftPick(); break;
   }
 }
 
@@ -177,6 +183,9 @@ function renderOrderPanel(gamePhase) {
         ${MayorEngine.canUse(gameState, pid) && MayorEngine.availablePowers(gameState, pid, gamePhase).length > 0 ? `
           <button class="op-btn op-btn-mayor" id="btn-mayor-power">🏛️ Pouvoir du Maire (${gameState.maire.privileges_restants} restant${gameState.maire.privileges_restants > 1 ? 's' : ''})</button>
         ` : ''}
+        ${(j.cartes_magouille?.length || 0) > 0 ? `
+          <button class="op-btn op-btn-magouille" id="btn-play-card">🃏 Jouer une carte (${j.cartes_magouille.length})</button>
+        ` : ''}
       </div>
       <div class="op-list">
         ${pendingOrders.length === 0 ? '<div class="op-empty">Aucun ordre</div>' : ''}
@@ -200,6 +209,7 @@ function renderOrderPanel(gamePhase) {
       panel.querySelector('#btn-elim-flic')?.addEventListener('click', () => showElimFlicModal(pid, refresh));
     }
     panel.querySelector('#btn-mayor-power')?.addEventListener('click', () => showMayorPowerModal(pid, gamePhase, refresh));
+    panel.querySelector('#btn-play-card')?.addEventListener('click', () => showPlayCardModal(pid, gamePhase, refresh));
 
     panel.querySelector('#btn-submit-orders').onclick = () => {
       panel.classList.add('hidden');
@@ -850,6 +860,264 @@ function renderElectionResult() {
   });
 
   ov.classList.remove('hidden');
+}
+
+/* ── Draft Magouille ── */
+function renderDraftCurtain() {
+  const ov = document.getElementById('curtain');
+  const j = turnManager.currentPlayer;
+  ov.querySelector('.curtain-player').textContent = j.nom;
+  ov.querySelector('.curtain-player').style.color = j.couleur;
+  ov.querySelector('.curtain-phase').textContent = '🃏 Tirage de cartes Magouille';
+  ov.querySelector('#btn-curtain-go').onclick = () => {
+    ov.classList.add('hidden');
+    turnManager.confirmDraftCurtain();
+  };
+  ov.classList.remove('hidden');
+}
+
+function renderDraftPick() {
+  const pid = turnManager.currentPlayerId;
+  const j = gameState.joueurs[pid];
+
+  if (!turnManager.draftHands || Object.keys(turnManager.draftHands).length === 0) {
+    if (!gameState.deck_magouille.pile || gameState.deck_magouille.pile.length === 0) {
+      MagouilleEngine.initDeck(gameState, cartesDef);
+    }
+    const hands = MagouilleEngine.draftPhase(gameState, cartesDef);
+    turnManager.setDraftHands(hands);
+  }
+
+  const hand = turnManager.draftHands[pid] || [];
+  const selected = new Set();
+
+  const ov = document.getElementById('election-ov');
+  const body = ov.querySelector('.election-body');
+
+  function refreshDraft() {
+    const cards = hand.map(uid => {
+      const card = MagouilleEngine.getCardDef(gameState, uid, cartesDef);
+      if (!card) return '';
+      const sel = selected.has(uid);
+      const imgSrc = card.image ? `assets/cards/${card.image}.png` : null;
+      return `<div class="draft-card ${sel ? 'draft-selected' : ''}" data-uid="${uid}" role="button" tabindex="0">
+        ${imgSrc ? `<img src="${imgSrc}" class="draft-card-img" onerror="this.style.display='none'">` : '<div class="draft-card-img draft-card-placeholder">🃏</div>'}
+        <div class="draft-card-info">
+          <strong>${card.nom}</strong>
+          <span class="draft-card-desc">${card.description}</span>
+          ${Object.keys(card.cout || {}).length ? `<span class="draft-card-cost">${Object.entries(card.cout).map(([k,v]) => `${v}${k[0].toUpperCase()}`).join(' ')}</span>` : '<span class="draft-card-cost">Gratuit</span>'}
+        </div>
+        ${sel ? '<span class="draft-check">✓</span>' : ''}
+      </div>`;
+    }).join('');
+
+    body.innerHTML = `
+      <div class="election-title">🃏 Cartes Magouille</div>
+      <div class="election-sub"><strong style="color:${j.couleur}">${j.nom}</strong>, choisissez 4 cartes parmi 8</div>
+      <div class="draft-card-list">${cards}</div>
+      <div style="text-align:center;margin-top:8px;font-size:13px;color:#888">${selected.size}/4 sélectionnée(s)</div>
+      <button id="btn-draft-confirm" class="btn-main" style="margin-top:12px" ${selected.size !== 4 ? 'disabled' : ''}>Confirmer mon choix</button>
+    `;
+
+    body.querySelectorAll('.draft-card').forEach(el => {
+      el.addEventListener('click', () => {
+        const uid = el.dataset.uid;
+        if (selected.has(uid)) { selected.delete(uid); }
+        else if (selected.size < 4) { selected.add(uid); }
+        refreshDraft();
+      });
+    });
+
+    body.querySelector('#btn-draft-confirm')?.addEventListener('click', () => {
+      const keptUids = [...selected];
+      MagouilleEngine.keepCards(gameState, pid, keptUids);
+      MagouilleEngine.discardFromDraft(gameState, hand, keptUids);
+      ov.classList.add('hidden');
+      turnManager.submitDraftPick();
+    });
+  }
+
+  refreshDraft();
+  ov.classList.remove('hidden');
+}
+
+/* ── Play Magouille Card (from order panel) ── */
+function showPlayCardModal(pid, currentPhase, refresh) {
+  const j = gameState.joueurs[pid];
+  const hand = j.cartes_magouille || [];
+  if (hand.length === 0) {
+    openModal(`<h3>🃏 Cartes Magouille</h3><p style="color:#888">Vous n'avez aucune carte en main.</p>
+      <div class="modal-actions"><button class="btn-secondary" id="modal-cancel">Fermer</button><button class="btn-primary" id="modal-ok" style="display:none">OK</button></div>`, () => {});
+    return;
+  }
+
+  const cards = hand.map(uid => {
+    const card = MagouilleEngine.getCardDef(gameState, uid, cartesDef);
+    if (!card) return '';
+    const check = MagouilleEngine.canPlay(gameState, pid, uid, currentPhase, cartesDef);
+    return `<button class="op-btn magouille-card-btn" data-uid="${uid}" ${!check.ok ? 'disabled title="' + check.reason + '"' : ''} style="text-align:left;margin-bottom:6px">
+      <strong>${card.nom}</strong>${!check.ok ? ' ⛔' : ''}
+      <br><span style="font-size:11px;color:#aaa">${card.description.substring(0, 80)}…</span>
+      ${Object.keys(card.cout || {}).length ? `<br><span style="font-size:11px;color:#f8c48a">${Object.entries(card.cout).map(([k,v]) => `${v} ${k}`).join(', ')}</span>` : ''}
+    </button>`;
+  }).join('');
+
+  const html = `
+    <h3>🃏 Jouer une carte Magouille</h3>
+    <div class="magouille-card-list">${cards}</div>
+    <div class="modal-actions"><button class="btn-secondary" id="modal-cancel">Annuler</button><button class="btn-primary" id="modal-ok" style="display:none">OK</button></div>
+  `;
+
+  openModal(html, () => {});
+
+  document.querySelectorAll('.magouille-card-btn:not([disabled])').forEach(btn => {
+    btn.addEventListener('click', () => {
+      closeModal();
+      executeCardWithParams(pid, btn.dataset.uid, currentPhase, refresh);
+    });
+  });
+}
+
+function executeCardWithParams(pid, uid, currentPhase, refresh) {
+  const card = MagouilleEngine.getCardDef(gameState, uid, cartesDef);
+  if (!card) return;
+
+  switch (card.effet) {
+    case 'tuer_pion':
+    case 'retirer_pion':
+      showCardTargetPionModal(pid, uid, card, refresh);
+      break;
+
+    case 'retirer_electeurs':
+    case 'rendre_ineligible':
+      showCardTargetPlayerModal(pid, uid, card, refresh);
+      break;
+
+    case 'teleporter_pion':
+      showCardTeleportModal(pid, uid, card, refresh);
+      break;
+
+    case 'couper_electricite':
+      showCardQuartierModal(pid, uid, card, refresh);
+      break;
+
+    case 'deplacer_incorruptible':
+      showCardMoveIncorruptibleModal(pid, uid, card, refresh);
+      break;
+
+    case 'contaminer_prostituees':
+      showCardZoneModal(pid, uid, card, 'Zone de la prostituée à contaminer', refresh);
+      break;
+
+    default: {
+      const result = MagouilleEngine.play(gameState, pid, uid, {}, cartesDef);
+      showMagouilleToast(result.msg);
+      if (refresh) refresh();
+    }
+  }
+}
+
+function showCardTargetPionModal(pid, uid, card, refresh) {
+  const allPions = [];
+  Object.entries(gameState.plateau).forEach(([zid, zone]) => {
+    zone.pions.forEach((p, i) => {
+      if (card.effet === 'retirer_pion' || p.joueur !== pid) {
+        allPions.push({ zone: zid, idx: i, type: p.type, joueur: p.joueur });
+      }
+    });
+  });
+  if (allPions.length === 0) { showMagouilleToast('Aucun pion ciblable'); return; }
+
+  const html = `<h3>🃏 ${card.nom}</h3><label>Pion ciblé :</label>
+    <select id="f-target-pion">${allPions.map((p, i) => `<option value="${i}">${p.type} sur ${p.zone} (${gameState.joueurs[p.joueur]?.nom || 'neutre'})</option>`).join('')}</select>
+    <div class="modal-actions"><button class="btn-secondary" id="modal-cancel">Annuler</button><button class="btn-primary" id="modal-ok">Confirmer</button></div>`;
+  openModal(html, () => {
+    const sel = allPions[Number(document.getElementById('f-target-pion').value)];
+    const result = MagouilleEngine.play(gameState, pid, uid, { zone: sel.zone, pionIdx: sel.idx }, cartesDef);
+    showMagouilleToast(result.msg);
+    if (refresh) refresh();
+  });
+}
+
+function showCardTargetPlayerModal(pid, uid, card, refresh) {
+  const others = gameState.joueurs.filter((_, i) => i !== pid);
+  const html = `<h3>🃏 ${card.nom}</h3><label>Joueur ciblé :</label>
+    <select id="f-target">${others.map(j => `<option value="${j.id}">${j.nom}</option>`).join('')}</select>
+    <div class="modal-actions"><button class="btn-secondary" id="modal-cancel">Annuler</button><button class="btn-primary" id="modal-ok">Confirmer</button></div>`;
+  openModal(html, () => {
+    const cible = Number(document.getElementById('f-target').value);
+    const result = MagouilleEngine.play(gameState, pid, uid, { cible }, cartesDef);
+    showMagouilleToast(result.msg);
+    if (refresh) refresh();
+  });
+}
+
+function showCardTeleportModal(pid, uid, card, refresh) {
+  const myPions = [];
+  Object.entries(gameState.plateau).forEach(([zid, zone]) => {
+    zone.pions.forEach((p, i) => {
+      if (p.joueur === pid) myPions.push({ zone: zid, idx: i, type: p.type });
+    });
+  });
+  if (myPions.length === 0) { showMagouilleToast('Aucun pion à téléporter'); return; }
+  const allZones = Object.keys(gameState.plateau);
+  const html = `<h3>🃏 ${card.nom}</h3>
+    <label>Pion :</label><select id="f-pion">${myPions.map((p, i) => `<option value="${i}">${p.type} sur ${p.zone}</option>`).join('')}</select>
+    <label>Destination :</label><select id="f-dest">${allZones.map(z => `<option value="${z}">${z}</option>`).join('')}</select>
+    <div class="modal-actions"><button class="btn-secondary" id="modal-cancel">Annuler</button><button class="btn-primary" id="modal-ok">Téléporter</button></div>`;
+  openModal(html, () => {
+    const sel = myPions[Number(document.getElementById('f-pion').value)];
+    const result = MagouilleEngine.play(gameState, pid, uid, { fromZone: sel.zone, pionIdx: sel.idx, toZone: document.getElementById('f-dest').value }, cartesDef);
+    showMagouilleToast(result.msg);
+    if (refresh) refresh();
+  });
+}
+
+function showCardQuartierModal(pid, uid, card, refresh) {
+  const quartiers = gameData.gameplay.quartiers;
+  const html = `<h3>🃏 ${card.nom}</h3><label>Quartier :</label>
+    <select id="f-quartier">${quartiers.map(q => `<option value="${q.id}">${q.nom}</option>`).join('')}</select>
+    <div class="modal-actions"><button class="btn-secondary" id="modal-cancel">Annuler</button><button class="btn-primary" id="modal-ok">Confirmer</button></div>`;
+  openModal(html, () => {
+    const result = MagouilleEngine.play(gameState, pid, uid, { quartierId: document.getElementById('f-quartier').value, gameplayData: gameData.gameplay }, cartesDef);
+    showMagouilleToast(result.msg);
+    if (refresh) refresh();
+  });
+}
+
+function showCardMoveIncorruptibleModal(pid, uid, card, refresh) {
+  const incZones = Object.entries(gameState.plateau).filter(([_, z]) => z.pions.some(p => p.type === 'incorruptible')).map(([zid]) => zid);
+  const allZones = Object.keys(gameState.plateau);
+  if (incZones.length === 0) { showMagouilleToast('Aucun incorruptible sur le plateau'); return; }
+  const html = `<h3>🃏 ${card.nom}</h3>
+    <label>Incorruptible actuel :</label><select id="f-from">${incZones.map(z => `<option value="${z}">${z}</option>`).join('')}</select>
+    <label>Nouvelle zone :</label><select id="f-to">${allZones.map(z => `<option value="${z}">${z}</option>`).join('')}</select>
+    <div class="modal-actions"><button class="btn-secondary" id="modal-cancel">Annuler</button><button class="btn-primary" id="modal-ok">Déplacer</button></div>`;
+  openModal(html, () => {
+    const result = MagouilleEngine.play(gameState, pid, uid, { fromZone: document.getElementById('f-from').value, toZone: document.getElementById('f-to').value }, cartesDef);
+    showMagouilleToast(result.msg);
+    if (refresh) refresh();
+  });
+}
+
+function showCardZoneModal(pid, uid, card, label, refresh) {
+  const allZones = Object.keys(gameState.plateau);
+  const html = `<h3>🃏 ${card.nom}</h3><label>${label} :</label>
+    <select id="f-zone">${allZones.map(z => `<option value="${z}">${z}</option>`).join('')}</select>
+    <div class="modal-actions"><button class="btn-secondary" id="modal-cancel">Annuler</button><button class="btn-primary" id="modal-ok">Confirmer</button></div>`;
+  openModal(html, () => {
+    const result = MagouilleEngine.play(gameState, pid, uid, { zone: document.getElementById('f-zone').value, adjacencies: gameData.adjacencies }, cartesDef);
+    showMagouilleToast(result.msg);
+    if (refresh) refresh();
+  });
+}
+
+function showMagouilleToast(msg) {
+  const toast = document.createElement('div');
+  toast.className = 'magouille-toast';
+  toast.textContent = '🃏 ' + msg;
+  document.body.appendChild(toast);
+  setTimeout(() => toast.remove(), 3500);
 }
 
 function renderTurnEnd() {

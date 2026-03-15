@@ -8,7 +8,9 @@ export const PHASE = {
   TURN_END: 'turn_end',
   ELECTION_CURTAIN: 'election_curtain',
   ELECTION_VOTE: 'election_vote',
-  ELECTION_RESULT: 'election_result'
+  ELECTION_RESULT: 'election_result',
+  DRAFT_CURTAIN: 'draft_curtain',
+  DRAFT_PICK: 'draft_pick'
 };
 
 export const GAME_PHASE_LABELS = {
@@ -191,8 +193,35 @@ export class TurnManager {
       this.gs.joueurs[winnerId].privileges_maire_restants = 2;
     }
 
-    this.gs.tour++;
-    this.startTurn();
+    this._beginDraft();
+  }
+
+  _beginDraft() {
+    this.playerQueue = shuffle(this.gs.joueurs.map((_, i) => i));
+    this.currentPlayerIdx = 0;
+    this.draftHands = {};
+    this.phase = PHASE.DRAFT_CURTAIN;
+    this._emit();
+  }
+
+  setDraftHands(hands) {
+    this.draftHands = hands;
+  }
+
+  confirmDraftCurtain() {
+    this.phase = PHASE.DRAFT_PICK;
+    this._emit();
+  }
+
+  submitDraftPick() {
+    this.currentPlayerIdx++;
+    if (this.currentPlayerIdx < this.playerQueue.length) {
+      this.phase = PHASE.DRAFT_CURTAIN;
+    } else {
+      this.gs.tour++;
+      this.startTurn();
+    }
+    this._emit();
   }
 
   get currentPlayerId() { return this.playerQueue[this.currentPlayerIdx]; }
