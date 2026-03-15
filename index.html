@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <title>JoRéTApO</title>
+  <link rel="stylesheet" href="css/main.css">
+  <link rel="stylesheet" href="css/board.css">
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div id="app">
+    <div id="screen-title" class="screen active">
+      <div class="title-container">
+        <h1 class="game-title">JoRéTApO</h1>
+        <p class="game-subtitle">Corruption, magouilles et élections truquées</p>
+        <p class="game-tagline">New York ne s'est pas faite en un jour.<br>Mais elle peut se défaire en un tour.</p>
+        <div class="title-actions">
+          <button class="btn btn-primary" id="btn-new-game">Nouvelle partie</button>
+          <button class="btn btn-secondary" id="btn-view-board">Explorer le plateau</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="screen-board" class="screen">
+      <header id="status-bar">
+        <button class="btn-icon" id="btn-back" title="Retour">&#x2190;</button>
+        <span id="status-info">Exploration du plateau</span>
+        <button class="btn-icon" id="btn-zoom-reset" title="Recentrer">&#x2302;</button>
+      </header>
+      <div id="board-container">
+        <svg id="board-svg" xmlns="http://www.w3.org/2000/svg"></svg>
+      </div>
+      <div id="block-info-panel" class="hidden">
+        <button class="btn-close" id="btn-close-info">&times;</button>
+        <h3 id="info-block-name"></h3>
+        <p id="info-quartier" class="info-quartier"></p>
+        <div id="info-stats" class="info-stats"></div>
+        <div id="info-facilite" class="info-facilite"></div>
+        <div id="info-adjacences" class="info-adjacences"></div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>

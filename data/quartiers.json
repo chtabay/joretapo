@@ -1,0 +1,442 @@
+{
+  "quartiers": [
+    {
+      "id": "bogota",
+      "nom": "Bogota",
+      "points": 9,
+      "disponible_au_lancement": true,
+      "population_par_bloc": 160000,
+      "privileges_depart": {
+        "lingots": 40, "armes": 20, "doses": 0,
+        "prostituees_base": 3, "prostituees_luxe": 0,
+        "trafiquants": 2, "dealers": 0, "cartes_magouille_bonus": 0
+      },
+      "gang": {
+        "nom": "Cartel de Bogota",
+        "effet": "bloquer_ventes_armes",
+        "duree": 5,
+        "usage_unique": true
+      },
+      "blocs": [
+        { "id": "bogota_bogota", "nom": "Bogotá", "p": 7, "d": 2, "a": 1, "facilite": "annexe_zurich_bank",
+          "adjacences": ["bogota_hackensack", "bogota_teaneck"] },
+        { "id": "bogota_teaneck", "nom": "Teaneck", "p": 7, "d": 2, "a": 1, "facilite": "peage",
+          "adjacences": ["bogota_bogota", "bogota_hackensack", "bogota_englewood", "littleferry_ridgefield_park"] },
+        { "id": "bogota_hackensack", "nom": "Hackensack", "p": 7, "d": 2, "a": 1, "facilite": null,
+          "adjacences": ["bogota_bogota", "bogota_teaneck", "bogota_englewood", "littleferry_ridgefield_park"] },
+        { "id": "bogota_englewood", "nom": "Englewood", "p": 7, "d": 2, "a": 1, "facilite": null,
+          "adjacences": ["bogota_hackensack", "bogota_teaneck", "bogota_englewood_cliffs"] },
+        { "id": "bogota_englewood_cliffs", "nom": "Englewood Cliffs", "p": 7, "d": 2, "a": 1, "facilite": null,
+          "adjacences": ["bogota_englewood", "edgewater_fort_lee"] }
+      ]
+    },
+    {
+      "id": "littleferry",
+      "nom": "Little Ferry",
+      "points": 3,
+      "disponible_au_lancement": false,
+      "population_par_bloc": 20000,
+      "privileges_depart": null,
+      "gang": {
+        "nom": "Mafia Créole",
+        "effet": "bloquer_ordres",
+        "duree": 3,
+        "usage_unique": true
+      },
+      "blocs": [
+        { "id": "littleferry_ridgefield_park", "nom": "Ridgefield Park", "p": 3, "d": 2, "a": 1, "facilite": null,
+          "adjacences": ["littleferry_little_ferry", "littleferry_moonachie", "bogota_hackensack", "bogota_teaneck", "edgewater_fairview"] },
+        { "id": "littleferry_little_ferry", "nom": "Little Ferry", "p": 1, "d": 2, "a": 10, "facilite": null,
+          "adjacences": ["littleferry_ridgefield_park", "littleferry_moonachie"] },
+        { "id": "littleferry_moonachie", "nom": "Moonachie", "p": 3, "d": 3, "a": 3, "facilite": null,
+          "adjacences": ["littleferry_ridgefield_park", "littleferry_little_ferry", "edgewater_ridgefield"] }
+      ]
+    },
+    {
+      "id": "edgewater",
+      "nom": "Edgewater",
+      "points": 6,
+      "disponible_au_lancement": true,
+      "population_par_bloc": 200000,
+      "privileges_depart": {
+        "lingots": 20, "armes": 10, "doses": 15,
+        "prostituees_base": 2, "prostituees_luxe": 2,
+        "trafiquants": 3, "dealers": 0, "cartes_magouille_bonus": 0
+      },
+      "gang": {
+        "nom": "Mafia Bulgare",
+        "effet": "eliminer_prostituees_quartier_voisin",
+        "duree": 0,
+        "usage_unique": true
+      },
+      "blocs": [
+        { "id": "edgewater_fort_lee", "nom": "Fort Lee", "p": 3, "d": 2, "a": 5, "facilite": "port",
+          "adjacences": ["edgewater_ridgefield", "bogota_englewood_cliffs", "northbroadway_riverbank_state_park"] },
+        { "id": "edgewater_ridgefield", "nom": "Ridgefield", "p": 3, "d": 3, "a": 3, "facilite": null,
+          "adjacences": ["edgewater_fort_lee", "edgewater_edgewater", "edgewater_fairview", "littleferry_moonachie"] },
+        { "id": "edgewater_edgewater", "nom": "Edgewater", "p": 2, "d": 2, "a": 3, "facilite": null,
+          "adjacences": ["edgewater_ridgefield", "edgewater_fairview", "northbergen_gutenberg"] },
+        { "id": "edgewater_fairview", "nom": "Fairview", "p": 7, "d": 2, "a": 1, "facilite": null,
+          "adjacences": ["edgewater_ridgefield", "edgewater_edgewater", "littleferry_ridgefield_park", "northbergen_union_city"] }
+      ]
+    },
+    {
+      "id": "northbergen",
+      "nom": "North Bergen",
+      "points": 6,
+      "disponible_au_lancement": true,
+      "population_par_bloc": 165000,
+      "privileges_depart": {
+        "lingots": 0, "armes": 20, "doses": 0,
+        "prostituees_base": 3, "prostituees_luxe": 0,
+        "trafiquants": 2, "dealers": 0, "cartes_magouille_bonus": 1
+      },
+      "gang": {
+        "nom": "Yakuzas",
+        "effet": "eliminer_3_pions",
+        "duree": 0,
+        "usage_unique": true
+      },
+      "blocs": [
+        { "id": "northbergen_union_city", "nom": "Union City", "p": 4, "d": 4, "a": 2, "facilite": "annexe_zurich_bank",
+          "adjacences": ["northbergen_gutenberg", "northbergen_weehawken", "edgewater_fairview", "northbroadway_upper_w_side"] },
+        { "id": "northbergen_gutenberg", "nom": "Gutenberg", "p": 3, "d": 4, "a": 2, "facilite": "peage",
+          "adjacences": ["northbergen_union_city", "northbergen_weehawken", "edgewater_edgewater"] },
+        { "id": "northbergen_weehawken", "nom": "Weehawken", "p": 3, "d": 3, "a": 3, "facilite": null,
+          "adjacences": ["northbergen_union_city", "northbergen_gutenberg", "jerseycity_hoboken"] }
+      ]
+    },
+    {
+      "id": "harlem",
+      "nom": "Harlem",
+      "points": 9,
+      "disponible_au_lancement": true,
+      "population_par_bloc": 200000,
+      "privileges_depart": {
+        "lingots": 20, "armes": 10, "doses": 20,
+        "prostituees_base": 0, "prostituees_luxe": 0,
+        "trafiquants": 3, "dealers": 2, "cartes_magouille_bonus": 0
+      },
+      "gang": {
+        "nom": "Gang du Bolito",
+        "effet": "restriction_ethnie_caucasien_asiatique",
+        "duree": -1,
+        "usage_unique": false
+      },
+      "blocs": [
+        { "id": "harlem_inwood_hill_park", "nom": "Inwood Hill Park", "p": 5, "d": 7, "a": 8, "facilite": null,
+          "adjacences": ["harlem_high_bridge_park", "bronx_kings_bridge"] },
+        { "id": "harlem_high_bridge_park", "nom": "High Bridge Park", "p": 5, "d": 4, "a": 7, "facilite": null,
+          "adjacences": ["harlem_inwood_hill_park", "harlem_west_155th_st", "northbroadway_washington_heights", "bronx_tremont"] },
+        { "id": "harlem_west_155th_st", "nom": "West 155th Street", "p": 10, "d": 5, "a": 10, "facilite": null,
+          "adjacences": ["harlem_high_bridge_park", "harlem_lennox_avenue", "harlem_east_harlem", "bronx_high_bridge", "northbroadway_riverbank_state_park"] },
+        { "id": "harlem_lennox_avenue", "nom": "Lennox Avenue", "p": 10, "d": 4, "a": 10, "facilite": "annexe_zurich_bank",
+          "adjacences": ["harlem_west_155th_st", "harlem_east_harlem", "centralpark_ne_central_park"] },
+        { "id": "harlem_east_harlem", "nom": "East Harlem", "p": 10, "d": 5, "a": 9, "facilite": null,
+          "adjacences": ["harlem_west_155th_st", "harlem_lennox_avenue", "bronx_mott_haven", "ile_ward_island"] }
+      ]
+    },
+    {
+      "id": "bronx",
+      "nom": "Bronx",
+      "points": 12,
+      "disponible_au_lancement": true,
+      "population_par_bloc": 215000,
+      "privileges_depart": {
+        "lingots": 20, "armes": 20, "doses": 0,
+        "prostituees_base": 0, "prostituees_luxe": 0,
+        "trafiquants": 3, "dealers": 0, "cartes_magouille_bonus": 0
+      },
+      "gang": {
+        "nom": "St James Boys",
+        "effet": "immunite_restrictions_ethniques",
+        "duree": -1,
+        "usage_unique": false
+      },
+      "blocs": [
+        { "id": "bronx_kings_bridge", "nom": "Kings Bridge", "p": 6, "d": 4, "a": 7, "facilite": "annexe_zurich_bank",
+          "adjacences": ["bronx_tremont", "bronx_high_bridge", "harlem_inwood_hill_park"] },
+        { "id": "bronx_tremont", "nom": "Tremont", "p": 8, "d": 9, "a": 8, "facilite": null,
+          "adjacences": ["bronx_kings_bridge", "bronx_high_bridge", "bronx_morrisania", "harlem_high_bridge_park"] },
+        { "id": "bronx_high_bridge", "nom": "High Bridge", "p": 9, "d": 8, "a": 9, "facilite": "hotel_police",
+          "adjacences": ["bronx_kings_bridge", "bronx_tremont", "bronx_yankee_stadium", "harlem_west_155th_st"] },
+        { "id": "bronx_morrisania", "nom": "Morrisania", "p": 8, "d": 8, "a": 9, "facilite": "peage",
+          "adjacences": ["bronx_tremont", "bronx_yankee_stadium", "bronx_mott_haven"] },
+        { "id": "bronx_yankee_stadium", "nom": "Yankee Stadium", "p": 7, "d": 5, "a": 5, "facilite": null,
+          "adjacences": ["bronx_high_bridge", "bronx_morrisania", "bronx_mott_haven"] },
+        { "id": "bronx_mott_haven", "nom": "Mott Haven", "p": 5, "d": 5, "a": 10, "facilite": null,
+          "adjacences": ["bronx_morrisania", "bronx_yankee_stadium", "bronx_hunts_point", "harlem_east_harlem"] },
+        { "id": "bronx_hunts_point", "nom": "Hunts Point", "p": 5, "d": 5, "a": 10, "facilite": null,
+          "adjacences": ["bronx_mott_haven", "ile_rickers_island"] }
+      ]
+    },
+    {
+      "id": "northbroadway",
+      "nom": "North Broadway",
+      "points": 6,
+      "disponible_au_lancement": true,
+      "population_par_bloc": 100000,
+      "privileges_depart": {
+        "lingots": 200, "armes": 0, "doses": 0,
+        "prostituees_base": 0, "prostituees_luxe": 0,
+        "trafiquants": 0, "dealers": 2, "cartes_magouille_bonus": 0
+      },
+      "gang": {
+        "nom": "Rat Pack",
+        "effet": "voler_action_maire",
+        "duree": 0,
+        "usage_unique": true
+      },
+      "blocs": [
+        { "id": "northbroadway_riverbank_state_park", "nom": "Riverbank State Park", "p": 5, "d": 7, "a": 2, "facilite": null,
+          "adjacences": ["northbroadway_washington_heights", "northbroadway_upper_w_side", "harlem_west_155th_st", "edgewater_fort_lee"] },
+        { "id": "northbroadway_washington_heights", "nom": "Washington Heights", "p": 8, "d": 10, "a": 5, "facilite": null,
+          "adjacences": ["northbroadway_riverbank_state_park", "northbroadway_upper_w_side", "harlem_high_bridge_park"] },
+        { "id": "northbroadway_upper_w_side", "nom": "Upper West Side", "p": 4, "d": 6, "a": 2, "facilite": "port",
+          "adjacences": ["northbroadway_washington_heights", "northbroadway_riverbank_state_park", "northbergen_union_city", "centralpark_nw_central_park", "centralpark_rockefeller"] }
+      ]
+    },
+    {
+      "id": "centralpark",
+      "nom": "Central Park",
+      "points": 6,
+      "disponible_au_lancement": true,
+      "population_par_bloc": 60000,
+      "privileges_depart": {
+        "lingots": 120, "armes": 5, "doses": 0,
+        "prostituees_base": 3, "prostituees_luxe": 0,
+        "trafiquants": 0, "dealers": 2, "cartes_magouille_bonus": 0
+      },
+      "gang": {
+        "nom": "Les Nets",
+        "effet": "actions_supplementaires",
+        "duree": -1,
+        "usage_unique": false
+      },
+      "blocs": [
+        { "id": "centralpark_nw_central_park", "nom": "NW Central Park", "p": 5, "d": 7, "a": 2, "facilite": null,
+          "adjacences": ["centralpark_ne_central_park", "centralpark_rockefeller", "northbroadway_upper_w_side"] },
+        { "id": "centralpark_ne_central_park", "nom": "NE Central Park", "p": 5, "d": 7, "a": 2, "facilite": "ambassade",
+          "adjacences": ["centralpark_nw_central_park", "centralpark_upper_east_side", "harlem_lennox_avenue"] },
+        { "id": "centralpark_rockefeller", "nom": "Rockefeller Center", "p": 4, "d": 1, "a": 2, "facilite": null,
+          "adjacences": ["centralpark_nw_central_park", "centralpark_timesquare", "centralpark_upper_east_side", "northbroadway_upper_w_side"] },
+        { "id": "centralpark_timesquare", "nom": "Timesquare", "p": 3, "d": 1, "a": 2, "facilite": null,
+          "adjacences": ["centralpark_rockefeller", "centralpark_upper_east_side", "greenwich_chelsea"] },
+        { "id": "centralpark_upper_east_side", "nom": "Upper East Side", "p": 2, "d": 2, "a": 2, "facilite": null,
+          "adjacences": ["centralpark_ne_central_park", "centralpark_rockefeller", "centralpark_timesquare", "ile_roosevelt_island"] }
+      ]
+    },
+    {
+      "id": "greenwich",
+      "nom": "Greenwich Village",
+      "points": 6,
+      "disponible_au_lancement": true,
+      "population_par_bloc": 50000,
+      "privileges_depart": {
+        "lingots": 160, "armes": 0, "doses": 0,
+        "prostituees_base": 0, "prostituees_luxe": 4,
+        "trafiquants": 0, "dealers": 0, "cartes_magouille_bonus": 1
+      },
+      "gang": {
+        "nom": "Gang des Natifs Américains",
+        "effet": "casino_gratuit",
+        "duree": 0,
+        "usage_unique": true
+      },
+      "blocs": [
+        { "id": "greenwich_chelsea", "nom": "Chelsea", "p": 4, "d": 2, "a": 4, "facilite": null,
+          "adjacences": ["greenwich_greenwich_village", "greenwich_soho", "centralpark_timesquare"] },
+        { "id": "greenwich_greenwich_village", "nom": "Greenwich Village", "p": 4, "d": 1, "a": 2, "facilite": "annexe_zurich_bank",
+          "adjacences": ["greenwich_chelsea", "greenwich_soho", "greenwich_tribeca", "chinatown_little_italy"] },
+        { "id": "greenwich_soho", "nom": "Soho", "p": 6, "d": 3, "a": 2, "facilite": null,
+          "adjacences": ["greenwich_chelsea", "greenwich_greenwich_village", "greenwich_tribeca", "chinatown_east_village"] },
+        { "id": "greenwich_tribeca", "nom": "Tribeca", "p": 4, "d": 4, "a": 2, "facilite": null,
+          "adjacences": ["greenwich_greenwich_village", "greenwich_soho", "skyline_5_points", "jerseycity_washington_park"] }
+      ]
+    },
+    {
+      "id": "chinatown",
+      "nom": "China Town",
+      "points": 6,
+      "disponible_au_lancement": false,
+      "population_par_bloc": 100000,
+      "privileges_depart": null,
+      "gang": {
+        "nom": "Triades",
+        "effet": "restriction_ethnie_non_asiatique_non_italien",
+        "duree": -1,
+        "usage_unique": false
+      },
+      "blocs": [
+        { "id": "chinatown_little_italy", "nom": "Little Italy", "p": 2, "d": 2, "a": 8, "facilite": null,
+          "adjacences": ["chinatown_east_village", "chinatown_china_town", "greenwich_greenwich_village"] },
+        { "id": "chinatown_east_village", "nom": "East Village", "p": 6, "d": 3, "a": 2, "facilite": null,
+          "adjacences": ["chinatown_little_italy", "chinatown_china_town", "chinatown_lower_east_side", "greenwich_soho"] },
+        { "id": "chinatown_china_town", "nom": "China Town", "p": 5, "d": 6, "a": 8, "facilite": null,
+          "adjacences": ["chinatown_little_italy", "chinatown_east_village", "chinatown_lower_east_side", "skyline_5_points"] },
+        { "id": "chinatown_lower_east_side", "nom": "Lower East Side", "p": 3, "d": 5, "a": 2, "facilite": null,
+          "adjacences": ["chinatown_east_village", "chinatown_china_town", "brooklyn_green_point", "queens_long_island_city"] }
+      ]
+    },
+    {
+      "id": "skyline",
+      "nom": "Skyline",
+      "points": 6,
+      "disponible_au_lancement": false,
+      "population_par_bloc": 15000,
+      "privileges_depart": null,
+      "gang": {
+        "nom": "Lobby des Taxis",
+        "effet": "bloquer_deplacements_manhattan",
+        "duree": 5,
+        "usage_unique": true
+      },
+      "blocs": [
+        { "id": "skyline_5_points", "nom": "Five Points", "p": 7, "d": 2, "a": 1, "facilite": null,
+          "adjacences": ["skyline_world_trade_center", "skyline_financial_district", "greenwich_tribeca", "chinatown_china_town"] },
+        { "id": "skyline_world_trade_center", "nom": "World Trade Center", "p": 7, "d": 2, "a": 1, "facilite": "mairie",
+          "adjacences": ["skyline_5_points", "skyline_financial_district", "skyline_battery"] },
+        { "id": "skyline_financial_district", "nom": "Financial District", "p": 7, "d": 2, "a": 1, "facilite": "zurich_bank",
+          "adjacences": ["skyline_5_points", "skyline_world_trade_center", "skyline_battery", "brooklyn_brooklyn_heights"] },
+        { "id": "skyline_battery", "nom": "Battery", "p": 7, "d": 2, "a": 1, "facilite": null,
+          "adjacences": ["skyline_world_trade_center", "skyline_financial_district", "brooklyn_red_hook", "ile_statue_of_liberty", "jerseycity_liberty_state_park"] }
+      ]
+    },
+    {
+      "id": "jerseycity",
+      "nom": "Jersey City",
+      "points": 6,
+      "disponible_au_lancement": true,
+      "population_par_bloc": 200000,
+      "privileges_depart": {
+        "lingots": 0, "armes": 20, "doses": 0,
+        "prostituees_base": 3, "prostituees_luxe": 0,
+        "trafiquants": 2, "dealers": 0, "cartes_magouille_bonus": 1
+      },
+      "gang": {
+        "nom": "Lobby Juif",
+        "effet": "revente_marchandises",
+        "duree": -1,
+        "usage_unique": false
+      },
+      "blocs": [
+        { "id": "jerseycity_hoboken", "nom": "Hoboken", "p": 3, "d": 4, "a": 4, "facilite": null,
+          "adjacences": ["jerseycity_washington_park", "jerseycity_jersey_city", "northbergen_weehawken"] },
+        { "id": "jerseycity_washington_park", "nom": "Washington Park", "p": 3, "d": 6, "a": 4, "facilite": null,
+          "adjacences": ["jerseycity_hoboken", "jerseycity_jersey_city", "jerseycity_liberty_state_park", "greenwich_tribeca"] },
+        { "id": "jerseycity_jersey_city", "nom": "Jersey City", "p": 5, "d": 5, "a": 5, "facilite": null,
+          "adjacences": ["jerseycity_hoboken", "jerseycity_washington_park", "jerseycity_liberty_state_park"] },
+        { "id": "jerseycity_liberty_state_park", "nom": "Liberty State Park", "p": 3, "d": 4, "a": 2, "facilite": null,
+          "adjacences": ["jerseycity_washington_park", "jerseycity_jersey_city", "skyline_battery", "ile_statue_of_liberty"] }
+      ]
+    },
+    {
+      "id": "queens",
+      "nom": "Queens",
+      "points": 12,
+      "disponible_au_lancement": true,
+      "population_par_bloc": 215000,
+      "privileges_depart": {
+        "lingots": 120, "armes": 0, "doses": 0,
+        "prostituees_base": 0, "prostituees_luxe": 3,
+        "trafiquants": 0, "dealers": 3, "cartes_magouille_bonus": 0
+      },
+      "gang": {
+        "nom": "Camora Napolitaine",
+        "effet": "racket_etablissements",
+        "duree": 0,
+        "usage_unique": true
+      },
+      "blocs": [
+        { "id": "queens_laguardia", "nom": "LaGuardia Airport", "p": 1, "d": 2, "a": 1, "facilite": "aeroport",
+          "adjacences": ["queens_astoria", "queens_flushing_meadows", "ile_rickers_island"] },
+        { "id": "queens_astoria", "nom": "Astoria", "p": 3, "d": 4, "a": 2, "facilite": null,
+          "adjacences": ["queens_laguardia", "queens_long_island_city", "queens_corona"] },
+        { "id": "queens_long_island_city", "nom": "Long Island City", "p": 3, "d": 4, "a": 2, "facilite": null,
+          "adjacences": ["queens_astoria", "queens_jackson_heights", "queens_maspeth", "chinatown_lower_east_side", "brooklyn_green_point", "ile_roosevelt_island"] },
+        { "id": "queens_corona", "nom": "Corona", "p": 3, "d": 4, "a": 2, "facilite": null,
+          "adjacences": ["queens_astoria", "queens_flushing_meadows", "queens_jackson_heights"] },
+        { "id": "queens_flushing_meadows", "nom": "Flushing Meadows", "p": 4, "d": 4, "a": 1, "facilite": null,
+          "adjacences": ["queens_laguardia", "queens_corona", "queens_middle_village"] },
+        { "id": "queens_jackson_heights", "nom": "Jackson Heights", "p": 4, "d": 1, "a": 4, "facilite": "annexe_zurich_bank",
+          "adjacences": ["queens_long_island_city", "queens_corona", "queens_maspeth"] },
+        { "id": "queens_maspeth", "nom": "Maspeth", "p": 5, "d": 4, "a": 4, "facilite": null,
+          "adjacences": ["queens_long_island_city", "queens_jackson_heights", "queens_middle_village", "brooklyn_bushwick"] },
+        { "id": "queens_middle_village", "nom": "Middle Village", "p": 3, "d": 3, "a": 3, "facilite": "peage",
+          "adjacences": ["queens_flushing_meadows", "queens_maspeth", "cypresshill_cypress_hills_cemetery"] }
+      ]
+    },
+    {
+      "id": "brooklyn",
+      "nom": "Brooklyn",
+      "points": 15,
+      "disponible_au_lancement": true,
+      "population_par_bloc": 200000,
+      "privileges_depart": {
+        "lingots": 40, "armes": 5, "doses": 0,
+        "prostituees_base": 2, "prostituees_luxe": 0,
+        "trafiquants": 2, "dealers": 2, "cartes_magouille_bonus": 0
+      },
+      "gang": {
+        "nom": "Syndicat des Dockers",
+        "effet": "bloquer_approvisionnements",
+        "duree": 3,
+        "usage_unique": true
+      },
+      "blocs": [
+        { "id": "brooklyn_green_point", "nom": "Green Point", "p": 3, "d": 2, "a": 2, "facilite": "immigration",
+          "adjacences": ["brooklyn_brooklyn_heights", "brooklyn_bushwick", "brooklyn_atlantic_avenue", "chinatown_lower_east_side", "queens_long_island_city"] },
+        { "id": "brooklyn_brooklyn_heights", "nom": "Brooklyn Heights", "p": 5, "d": 2, "a": 3, "facilite": null,
+          "adjacences": ["brooklyn_green_point", "brooklyn_atlantic_avenue", "brooklyn_red_hook", "skyline_financial_district"] },
+        { "id": "brooklyn_atlantic_avenue", "nom": "Atlantic Avenue", "p": 5, "d": 5, "a": 2, "facilite": "annexe_zurich_bank",
+          "adjacences": ["brooklyn_green_point", "brooklyn_brooklyn_heights", "brooklyn_crown_heights", "brooklyn_bedford_stuyvesant"] },
+        { "id": "brooklyn_red_hook", "nom": "Red Hook", "p": 4, "d": 1, "a": 5, "facilite": "port",
+          "adjacences": ["brooklyn_brooklyn_heights", "brooklyn_flatbush", "brooklyn_greenwood_cemetery", "skyline_battery"] },
+        { "id": "brooklyn_crown_heights", "nom": "Crown Heights", "p": 3, "d": 2, "a": 2, "facilite": null,
+          "adjacences": ["brooklyn_atlantic_avenue", "brooklyn_bedford_stuyvesant", "brooklyn_flatbush"] },
+        { "id": "brooklyn_bedford_stuyvesant", "nom": "Bedford Stuyvesant", "p": 4, "d": 2, "a": 2, "facilite": null,
+          "adjacences": ["brooklyn_atlantic_avenue", "brooklyn_crown_heights", "brooklyn_bushwick", "cypresshill_evergreen_cemetery"] },
+        { "id": "brooklyn_bushwick", "nom": "Bushwick", "p": 3, "d": 2, "a": 2, "facilite": null,
+          "adjacences": ["brooklyn_green_point", "brooklyn_bedford_stuyvesant", "queens_maspeth", "cypresshill_cypress_hills_cemetery"] },
+        { "id": "brooklyn_flatbush", "nom": "Flatbush", "p": 3, "d": 2, "a": 4, "facilite": null,
+          "adjacences": ["brooklyn_red_hook", "brooklyn_crown_heights", "brooklyn_greenwood_cemetery", "brooklyn_canarsie"] },
+        { "id": "brooklyn_greenwood_cemetery", "nom": "Greenwood Cemetery", "p": 2, "d": 1, "a": 2, "facilite": "cimetiere",
+          "adjacences": ["brooklyn_red_hook", "brooklyn_flatbush"] },
+        { "id": "brooklyn_canarsie", "nom": "Canarsie", "p": 2, "d": 1, "a": 2, "facilite": "douanes",
+          "adjacences": ["brooklyn_flatbush", "cypresshill_lutheran_cemetery"] }
+      ]
+    },
+    {
+      "id": "cypresshill",
+      "nom": "Cypress Hill",
+      "points": 3,
+      "disponible_au_lancement": false,
+      "population_par_bloc": 35000,
+      "privileges_depart": null,
+      "gang": {
+        "nom": "Ku Klux Klan",
+        "effet": "restriction_ethnie_non_caucasien",
+        "duree": -1,
+        "usage_unique": false
+      },
+      "blocs": [
+        { "id": "cypresshill_cypress_hills_cemetery", "nom": "Cypress Hills Cemetery", "p": 5, "d": 1, "a": 5, "facilite": "cimetiere",
+          "adjacences": ["cypresshill_evergreen_cemetery", "brooklyn_bushwick", "queens_middle_village"] },
+        { "id": "cypresshill_evergreen_cemetery", "nom": "Evergreen Cemetery", "p": 3, "d": 1, "a": 3, "facilite": "cimetiere",
+          "adjacences": ["cypresshill_cypress_hills_cemetery", "cypresshill_lutheran_cemetery", "brooklyn_bedford_stuyvesant"] },
+        { "id": "cypresshill_lutheran_cemetery", "nom": "Lutheran Cemetery", "p": 3, "d": 1, "a": 4, "facilite": "cimetiere",
+          "adjacences": ["cypresshill_evergreen_cemetery", "brooklyn_canarsie"] }
+      ]
+    }
+  ],
+  "iles": [
+    { "id": "ile_roosevelt_island", "nom": "Franklin D. Roosevelt Island", "points": 0, "facilite": "ile",
+      "adjacences": ["centralpark_upper_east_side", "queens_long_island_city"] },
+    { "id": "ile_ward_island", "nom": "Ward Island Park", "points": 0, "facilite": "ile",
+      "adjacences": ["harlem_east_harlem", "bronx_mott_haven"] },
+    { "id": "ile_rickers_island", "nom": "Rickers Island", "points": 0, "facilite": "ile",
+      "adjacences": ["bronx_hunts_point", "queens_laguardia"] },
+    { "id": "ile_statue_of_liberty", "nom": "Statue of Liberty", "points": 0, "facilite": "ile",
+      "adjacences": ["skyline_battery", "jerseycity_liberty_state_park"] }
+  ]
+}

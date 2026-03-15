@@ -1,0 +1,36 @@
+# Dependencies
+node_modules/
+tools/node_modules/
+tools/package-lock.json
+package-lock.json
+
+# OS
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# IDE
+.cursor/
+.vscode/
+
+# Raw geo data (large, regenerable via build-map.mjs)
+data/geo-raw/
+data/nj-municipalities-raw.geojson
+data/nyc-cd-raw.geojson
+
+# Legacy board game files (kept locally, not in repo)
+01 - REGLE DU JEU/
+02 - PLATEAU/
+03 - CARTES MAGOUILLE/
+04 - ACTION ET APPRO/
+05 - QUARTIER/
+06 - PIONS, PICTOS ET _CONSOMMABLES_/
+archives&tests/
+Pack Joretapo.zip
+joretapo.xls
+Transversal Modularity.xlsx
+liste des actions.xls
+
+# Temp
+*.tmp
+*.log
