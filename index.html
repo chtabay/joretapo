@@ -108,7 +108,7 @@
   .curtain-player { font-size: 48px; font-weight: 700; text-shadow: 0 0 40px currentColor; }
 
   /* ── Order Panel ── */
-  #order-panel { position: fixed; top: 0; right: 0; bottom: 0; width: 340px; background: rgba(10,10,30,0.96); border-left: 1px solid #334; z-index: 50; display: flex; flex-direction: column; padding: 16px; overflow: hidden; backdrop-filter: blur(8px); animation: slideRight 0.3s ease; transition: width 0.25s ease, padding 0.25s ease; }
+  #order-panel { position: fixed; top: 0; right: 0; width: 340px; height: 100vh; height: 100dvh; background: rgba(10,10,30,0.96); border-left: 1px solid #334; z-index: 50; display: flex; flex-direction: column; padding: 16px; overflow: hidden; backdrop-filter: blur(8px); animation: slideRight 0.3s ease; transition: width 0.25s ease, padding 0.25s ease; }
   #order-panel.hidden { display: none; }
   #order-panel.collapsed { width: 48px; padding: 8px 4px; }
   #order-panel.collapsed .op-scroll,
@@ -123,7 +123,7 @@
   .op-header { display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 8px; border-bottom: 2px solid; margin-bottom: 8px; flex-shrink: 0; }
   .op-header > div { display: flex; flex-direction: column; }
   .op-scroll { flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; }
-  .op-footer { flex-shrink: 0; padding-top: 12px; }
+  .op-footer { flex-shrink: 0; padding-top: 12px; padding-bottom: 4px; }
   .op-toggle-map { background: rgba(255,255,255,0.06); border: 1px solid #445; color: #8ab4f8; width: 40px; height: 40px; border-radius: 8px; cursor: pointer; font-size: 18px; flex-shrink: 0; }
   .op-toggle-map:hover { background: rgba(255,255,255,0.1); }
   .op-fab { position: fixed; bottom: 24px; right: 24px; width: 56px; height: 56px; border-radius: 50%; background: #1e3a5f; border: 1px solid #5a8ab4; color: #8ab4f8; font-size: 24px; cursor: pointer; z-index: 45; box-shadow: 0 4px 12px rgba(0,0,0,0.4); }
@@ -575,10 +575,11 @@
     #info-panel { top: 8px; right: 8px; left: 8px; width: auto; max-width: none; padding: 12px; max-height: 50vh; }
     #info-panel.shifted { right: 8px; left: 8px; }
 
-    #order-panel { width: 100%; right: 0; left: 0; padding: 16px; padding-bottom: max(20px, env(safe-area-inset-bottom)); }
-    #order-panel.collapsed { width: 100%; height: auto; padding: 8px 16px; }
+    #order-panel { width: 100%; right: 0; left: 0; top: 0; bottom: 0; height: auto; max-height: 100vh; max-height: 100dvh; padding: 16px; padding-bottom: max(20px, env(safe-area-inset-bottom)); border-left: none; border-bottom: none; }
+    #order-panel.collapsed { width: 100%; height: auto; min-height: 48px; padding: 8px 16px; top: auto; bottom: 0; }
     #order-panel.collapsed .op-header { flex-direction: row; }
     #order-panel.collapsed .op-collapsed-label { writing-mode: horizontal-tb; }
+    #order-panel.collapsed .op-collapse { transform: rotate(90deg); }
     .op-btn { min-height: 44px; padding: 12px 14px; font-size: 14px; }
     .op-submit { min-height: 48px; }
     .op-toggle-map { width: 44px; height: 44px; font-size: 20px; }
