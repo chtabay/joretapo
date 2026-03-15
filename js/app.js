@@ -1466,8 +1466,10 @@ function renderDraftPick() {
           <span class="draft-card-desc">${card.description}</span>
           ${Object.keys(card.cout || {}).length ? `<span class="draft-card-cost">${Object.entries(card.cout).map(([k,v]) => `${v}${k[0].toUpperCase()}`).join(' ')}</span>` : '<span class="draft-card-cost">Gratuit</span>'}
         </div>
-        <button class="draft-card-expand" title="Voir les détails" onclick="event.stopPropagation()">🔍</button>
-        ${sel ? '<span class="draft-check">✓</span>' : ''}
+        <div class="draft-card-actions" onclick="event.stopPropagation()">
+          <button class="draft-card-expand" title="Voir la fiche complète">ℹ️ Détails</button>
+          <button class="draft-card-select">${sel ? '✓ Retirer' : '+ Garder'}</button>
+        </div>
       </div>`;
     }).join('');
 
@@ -1481,8 +1483,16 @@ function renderDraftPick() {
 
     body.querySelectorAll('.draft-card').forEach(el => {
       el.addEventListener('click', (e) => {
-        if (e.target.closest('.draft-card-expand')) return;
+        if (e.target.closest('.draft-card-actions')) return;
         const uid = el.dataset.uid;
+        if (selected.has(uid)) { selected.delete(uid); }
+        else if (selected.size < 4) { selected.add(uid); }
+        refreshDraft();
+      });
+    });
+    body.querySelectorAll('.draft-card-select').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const uid = btn.closest('.draft-card').dataset.uid;
         if (selected.has(uid)) { selected.delete(uid); }
         else if (selected.size < 4) { selected.add(uid); }
         refreshDraft();
@@ -1492,7 +1502,7 @@ function renderDraftPick() {
       btn.addEventListener('click', () => {
         const uid = btn.closest('.draft-card').dataset.uid;
         const card = MagouilleEngine.getCardDef(gameState, uid, cartesDef);
-        if (card) showMagouilleCardDetail(card, false, '', null);
+        if (card) showMagouilleCardDetail(card, false, null, null);
       });
     });
 
@@ -1512,17 +1522,29 @@ function renderDraftPick() {
 function showMagouilleCardDetail(card, canPlay, reason, onPlay) {
   const ov = document.getElementById('magouille-detail-ov');
   if (!ov) return;
+  const isInfoOnly = reason === null && !canPlay;
+
+  ov.querySelector('.magouille-detail-title').textContent = card.nom;
+
+  const texteOriginal = card.texte_original;
+  if (texteOriginal && texteOriginal.length > 0) {
+    ov.querySelector('.magouille-detail-desc').innerHTML = texteOriginal.map(p => `<p>${p}</p>`).join('');
+  } else {
+    ov.querySelector('.magouille-detail-desc').textContent = card.description;
+  }
+
   const conds = (card.conditions || []).map(c => CONDITION_LABELS[c] || c).join(' ; ');
   const coutStr = Object.keys(card.cout || {}).length
     ? Object.entries(card.cout).map(([k, v]) => `${v} ${k}`).join(', ')
     : 'Gratuit';
-  ov.querySelector('.magouille-detail-title').textContent = card.nom;
-  ov.querySelector('.magouille-detail-desc').textContent = card.description;
+
   ov.querySelector('.magouille-detail-meta').innerHTML = `
-    <div><strong>Coût :</strong> ${coutStr}</div>
+    ${!texteOriginal ? `<div><strong>Coût :</strong> ${coutStr}</div>
     ${conds ? `<div><strong>Conditions :</strong> ${conds}</div>` : ''}
-    ${card.phase_jouable ? `<div>Phase jouable : ${card.phase_jouable === 'any' ? 'Toute phase' : card.phase_jouable}</div>` : ''}
-    ${canPlay ? '' : `<div style="color:#e74c3c;margin-top:8px">⛔ ${reason || 'Non jouable'}</div>`}
+    ${card.phase_jouable ? `<div>Phase jouable : ${card.phase_jouable === 'any' ? 'Toute phase' : `Phase ${card.phase_jouable}`}</div>` : ''}
+    ${card.duree ? `<div>Durée : ${card.duree === 'immediat' ? 'Immédiat' : card.duree === 'tour' ? 'Ce tour' : card.duree}</div>` : ''}
+    ${card.repose_sous_pile !== undefined ? `<div>${card.repose_sous_pile ? 'Retourne sous la pile après usage' : 'Retirée du jeu après usage'}</div>` : ''}` : ''}
+    ${!isInfoOnly && !canPlay && reason ? `<div style="color:#e74c3c;margin-top:8px">⛔ ${reason}</div>` : ''}
   `;
   const actionsDiv = ov.querySelector('.magouille-detail-actions');
   if (actionsDiv) {

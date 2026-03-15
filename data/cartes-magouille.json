@@ -11,33 +11,70 @@
       "duree": "tour",
       "repose_sous_pile": true,
       "image": "001",
-      "quantite": 1
+      "quantite": 1,
+      "texte_original": [
+        "Dans le cas où quelqu’un vous accuse d’avoir triché, vous pouvez lui opposer cette carte.",
+        "C’est à ce moment que vous vous souviendrez des efforts qu’à  fourni votre maman pour que vous ayez des manières et saurez vous plier aux règles de la bienséance qui vous suggèrent d’arrêter vos manigances.",
+        "Mais quoi que vous ayez fait vous ne serez pas inquiété pour ces abus ni obligé de rendre ce que vous aurez obtenu par la ruse.",
+        "Attention: une intimidation physique sur un autre joueur visant à le forcer à jouer contre son gré n’est pas de la triche, c’est juste de l’intimidation physique sur un autre joueur visant à le forcer à jouer contre son gré.",
+        "Cette carte ne vous protège qu’à ce tour-ci.",
+        "Reposez-là sous la pile après utilisation.",
+        "LA CARTE TRICHE!"
+      ]
     },
     {
       "id": "anti_carte_triche",
       "nom": "L'Anti-Carte Triche",
       "description": "Annule une carte triche jouée par un autre joueur. Le joueur doit rendre ce qu'il a pris ou remettre en l'état ce qu'il a modifié.",
       "cout": {},
-      "conditions": ["carte_triche_jouee"],
+      "conditions": [
+        "carte_triche_jouee"
+      ],
       "effet": "annuler_carte_triche",
       "phase_jouable": "any",
       "duree": "tour",
       "repose_sous_pile": true,
       "image": "002",
-      "quantite": 1
+      "quantite": 1,
+      "texte_original": [
+        "Dans le cas où quelqu’un présente une carte triche, cette carte l’annule et le joueur doit rendre ce qu’il a pris ou remettre en l’état ce qu’il a modifié.",
+        "Bien-sûr, c’est à vous de vous assurer que tout a bien été remis à sa place; si vous vous rendez-compte dans un tour prochain de votre erreur, il sera trop tard.",
+        "Cette carte n’est valable qu’à ce tour-ci.",
+        "Reposez-là sous la pile après utilisation.",
+        "L’ANTI-CARTE TRICHE!"
+      ]
     },
     {
       "id": "coup_de",
       "nom": "Le Coup de …",
       "description": "Vos sbires fournissent des condoms contaminés à une prostituée de votre choix. Le virus passe de proche en proche, retirant les dames du secteur.",
-      "cout": { "lingots": 1 },
-      "conditions": ["pion_adjacent_prostituee"],
+      "cout": {
+        "lingots": 1
+      },
+      "conditions": [
+        "pion_adjacent_prostituee"
+      ],
       "effet": "contaminer_prostituees",
       "phase_jouable": 4,
       "duree": "immediat",
       "repose_sous_pile": true,
-      "image": null,
-      "quantite": 1
+      "image": "003",
+      "quantite": 1,
+      "texte_original": [
+        "Le coup de ….",
+        "Les trottoirs sont surpeuplés, vos rivaux n’ont déjà que trop profité de leurs positions dans les rues, la qualité de leurs produits est largement discutable tant dans la fraîcheur que dans l’hygiène.",
+        "Alors, au diable l’humanisme benêt, cette carte améliorera la qualité de l’air et n’est qu’une manière de précipiter l’inévitable.",
+        "Un de vos sbires va fournir à une “professionnelle” de votre choix des condoms de protection plastique contaminés avec dieu seul sait avec quoi.",
+        "Ces virus devraient faire des petits et passer de proche en proche, retirant définitivement du marché les dames du secteur.",
+        "Cette carte coûte une action lors de la phase de déplacement et de conquête.  Elle s’applique quand toutes les actions de cette ont été révélées et effectuées.",
+        "Reposez-là sous la pile après utilisation.",
+        "Coût:",
+        "1 lingot",
+        "Conditions nécessaires:",
+        "Avoir un pion sur le bloc à côté de la prostituée à contaminer",
+        "Impacts pratiques:",
+        "La prostituée visée contamine toutes celles qui sont dans les blocs voisins, à leur tour ces dernieres vont contaminer leurs voisines, et ainsi de suite jusqu’à ce que la chaine s’arrête"
+      ]
     },
     {
       "id": "permis_de_tuer",
@@ -50,20 +87,43 @@
       "duree": "tour",
       "repose_sous_pile": true,
       "image": "004",
-      "quantite": 4
+      "quantite": 4,
+      "texte_original": [
+        "Permis de tuer",
+        "Cette carte est une opportunité unique d’abattre un importun gratuitement, dans n’importe quel endroit de la ville sans être inquiété.",
+        "Que ce soit un simple agent de la paix, un incorruptible, un des sbires de vos ennemis ou une de leurs employées, vous n’aurez aucun comptes à rendre à qui que ce soit.",
+        "Cette carte n’est valable qu’à ce tour-ci.",
+        "Reposez-là sous la pile après utilisation."
+      ]
     },
     {
       "id": "maitre_verges",
       "nom": "Carte Maître Vergès",
       "description": "Faites appel au plus grand avocat pour annuler toutes les décisions de justice pénalisantes à votre égard ce tour-ci.",
-      "cout": { "lingots": 140 },
+      "cout": {
+        "lingots": 140
+      },
       "conditions": [],
       "effet": "annuler_justice",
       "phase_jouable": "any",
       "duree": "tour",
       "repose_sous_pile": true,
       "image": "010",
-      "quantite": 2
+      "quantite": 2,
+      "texte_original": [
+        "Carte Maître Vergès",
+        "Le plus grand avocat du monde de la France souhaite vous proposer ses services à titre quasiment gracieux.",
+        "Moyennant une aumône, il vous défendra contre l’injustice avec la même force qu’il l’a fait pour Milosevic, Carlos (l’autre…), Klaus Barbie, Action Directe et bien d’autres encore…",
+        "Faites appel à lui avec cette carte et évitez-vous tout type d’amende ou de saisie, ou bien invalidez auprès de la justice la présence des forces de l’ordre sur vos terres.",
+        "Cette carte n’est valable qu’à ce tour-ci.",
+        "Reposez-là sous la pile après utilisation.",
+        "Coût:",
+        "140 lingots",
+        "Conditions nécessaires:",
+        "Que le besoin se fasse sentir",
+        "Impacts pratiques:",
+        "Permet d’annuler toutes les décisions de justice pénalisantes à votre égard."
+      ]
     },
     {
       "id": "chantage",
@@ -72,25 +132,58 @@
       "cout": {},
       "conditions": [],
       "effet": "retirer_electeurs",
-      "params": { "electeurs": 100000 },
+      "params": {
+        "electeurs": 100000
+      },
       "phase_jouable": "any",
       "duree": "immediat",
       "repose_sous_pile": true,
       "image": "011",
-      "quantite": 2
+      "quantite": 2,
+      "texte_original": [
+        "Carte chantage",
+        "Vous venez de découvrir une vidéo tournée dans un lieu de débauche ou l’on assiste à travers le trou d’une serrure aux ébats adultères d’un de vos rivaux.",
+        "Si ceci est présenté aux médias, cela lui fera faire une chute instantanée de 100 000 votes dans les sondages.",
+        "Rien ne vous empêche de monnayer votre silence.",
+        "Bien sur, une fois présentée, cette carte ne peut plus être réutilisée pour faire chanter à nouveau.",
+        "Reposez-là sous la pile après utilisation.",
+        "Conditions nécessaires:",
+        "Que le besoin se fasse sentir",
+        "Impacts pratiques:",
+        "Quand vous la jouez, vous pouvez retirer 100 000 électeurs au joueur de votre choix.",
+        "Coût:",
+        "Aucun"
+      ]
     },
     {
       "id": "piscine_debordement",
       "nom": "Carte Piscine à débordement",
       "description": "Corrompez le juge : virez un incorruptible de chez vous et placez-le sur le bloc de votre choix.",
-      "cout": { "lingots": 400 },
+      "cout": {
+        "lingots": 400
+      },
       "conditions": [],
       "effet": "deplacer_incorruptible",
       "phase_jouable": "any",
       "duree": "tour",
       "repose_sous_pile": true,
       "image": "014",
-      "quantite": 2
+      "quantite": 2,
+      "texte_original": [
+        "Carte piscine à débordement",
+        "Le juge, habituellement si hostile à votre égard, paraît plus attentif à vos flatteries et rit à vos blagues.",
+        "Ce n’est pas encore un ami proche, mais dans la vie, on peut se rendre service sans avoir fait pousser les spaghettis ensemble.",
+        "Par souci de son bien être, vous lui présentez un ami à vous qui creuse et aménage des piscines de luxe le week-end pour se détendre, et sans demander quoi que ce soit. Heureux de cette nouvelle amitié, il s’inquiète de votre confort et demande à ses incorruptibles de virer leur gros camion bleu sale de votre rue: non seulement ça jure avec les par-terres de fleurs, mais, en plus, ils ont un comportement regrettablement agressif envers vous.",
+        "Il vous propose donc en sus de choisir le lieu de leur prochaine enquête.",
+        "Cette carte n’est valable qu’à ce tour-ci.",
+        "Reposez-là sous la pile après utilisation.",
+        "Coût:",
+        "400 lingots pour la piscine",
+        "Conditions nécessaires:",
+        "Aucune",
+        "Impacts pratiques:",
+        "Possibilité de virer un incorruptible de chez soi et le placer sur le bloc de son choix."
+      ]
     },
     {
       "id": "coupure_electricite",
@@ -99,40 +192,90 @@
       "cout": {},
       "conditions": [],
       "effet": "couper_electricite",
-      "params": { "duree_tours": 3 },
+      "params": {
+        "duree_tours": 3
+      },
       "phase_jouable": 4,
       "duree": "3_tours",
       "repose_sous_pile": true,
       "image": "013",
-      "quantite": 3
+      "quantite": 3,
+      "texte_original": [
+        "Coupure d’électricité",
+        "Vous avez avec cette carte l’opportunité de couper le courant dans le quartier de votre choix et ce pour 3 tours.",
+        "Cela bloquera l’activité des bâtiments de cette case.",
+        "De plus un système de sécurité de banque ou de casino sera affaibli: il en coûtera moitié moins pour procéder à un cambriolage.",
+        "Cette carte n’est valable que pour 3 phases d’action et conquête dont celle où elle est jouée. Elle s’applique avant tous les autres ordres de cette phase.",
+        "Reposez-là sous la pile après utilisation."
+      ]
     },
     {
       "id": "guerre_gangs",
       "nom": "Guerre des gangs",
       "description": "Provoquez un affrontement entre deux gangs ennemis voisins. Les deux gangs sont détruits définitivement.",
-      "cout": { "lingots": 400, "armes": 1 },
-      "conditions": ["gangs_voisins_actifs"],
+      "cout": {
+        "lingots": 400,
+        "armes": 1
+      },
+      "conditions": [
+        "gangs_voisins_actifs"
+      ],
       "sacrifice_pion": true,
       "effet": "detruire_gangs",
       "phase_jouable": 4,
       "duree": "immediat",
       "repose_sous_pile": false,
       "image": "012",
-      "quantite": 2
+      "quantite": 2,
+      "texte_original": [
+        "Guerre des gangs",
+        "Un de vos hommes vole le bombers et la coupe de cheveux du chef d’un des gangs de votre adversaire. Puis, en plein jour, à la vue de tous, il s’en va mettre le feu au QG d’un autre gang ennemi.",
+        "Si tout va bien, les deux gangs devraient se tirer dessus, se sulfater, se découper, s’éventrer et s’exploser jusqu’à se réduire en purée de tripes  et de plomb.",
+        "Cette carte n’est valable qu’une seule fois.",
+        "Retirez la du jeu après utilisation.",
+        "Coût:",
+        "+ 400 lingots",
+        "+ 1 Arme",
+        "+ 1 trafiquant d’armes ou 1 Dealer (qui ne survivra pas)",
+        "Conditions nécessaires:",
+        "Que les gangs soient voisins et activés",
+        "Impacts pratiques:",
+        "Les joueurs qui contrôlaient les 2 gangs désignés n’en sont plus maîtres.  Il n’y aucun moyen de les récupérer ultérieurement. Ni par eux ni par quelqu’un d’autre"
+      ]
     },
     {
       "id": "detournement_fonds",
       "nom": "Détournement de fonds",
       "description": "Étant maire, vous créez des emplois fictifs et récupérez la caisse de l'hôtel de police. Mais vous perdez 500 000 électeurs.",
-      "cout": { "lingots": 140 },
-      "conditions": ["est_maire"],
+      "cout": {
+        "lingots": 140
+      },
+      "conditions": [
+        "est_maire"
+      ],
       "effet": "piocher_caisse_police",
-      "params": { "electeurs_malus": 500000 },
+      "params": {
+        "electeurs_malus": 500000
+      },
       "phase_jouable": "any",
       "duree": "immediat",
       "repose_sous_pile": true,
       "image": "020",
-      "quantite": 1
+      "quantite": 1,
+      "texte_original": [
+        "Détournement de fonds",
+        "Cette carte n’est utilisable que lorsque vous  êtes maire.",
+        "De manière subtile, vous avez créé pour vos  amis  fictifs des emplois fictifs: cela vous permet de payer des salaires qui tombent réellement dans votre poche. Au final, la totalité des caisses publiques viendra grossir votre réserve.",
+        "Le problème est que ces choses finiront par s’ébruiter et vous feront perdre en crédibilité lors des prochaines élections.",
+        "Cette carte vous permet tout simplement de piocher dans les caisses publiques.",
+        "Conditions nécessaires:",
+        "Être maire.",
+        "Impacts pratiques:",
+        "Vous récupérez la caisse de l’hôtel de police.",
+        "Vous perdez 500 000 électeurs pour les prochaines élections.",
+        "Coût:",
+        "140 lingots"
+      ]
     },
     {
       "id": "soutien_public",
@@ -141,119 +284,281 @@
       "cout": {},
       "conditions": [],
       "effet": "retirer_electeurs",
-      "params": { "electeurs": 100000 },
+      "params": {
+        "electeurs": 100000
+      },
       "phase_jouable": "any",
       "duree": "immediat",
       "repose_sous_pile": true,
       "image": "019",
-      "quantite": 4
+      "quantite": 4,
+      "texte_original": [
+        "Offre de soutien public",
+        "En vue des prochaines élections, les personnalités de la ville commencent à prendre parti et apporter leur crédit aux candidats de leur cœur. Même à l’étranger, le débat commence à mobiliser des vedettes, parmi elles, Christophe Maé.",
+        "Sautant sur l’occasion, vous vous faites passer pour l’un de vos concurrents et le convainquez de vous soutenir de tout son cœur.",
+        "Résultat , Christophe commet une chanson à la gloire de votre rival qui perd 100 000 électeurs dans la journée.",
+        "Implacable.",
+        "Coût:",
+        "Aucun",
+        "Conditions nécessaires:",
+        "Aucune",
+        "Impacts pratiques:",
+        "L’adversaire de votre choix perd 100 000 électeurs"
+      ]
     },
     {
       "id": "tuer_christophe",
       "nom": "Permis de tuer… Christophe",
       "description": "Éliminez la star qui vous a fait perdre des électeurs. Vous regagnez immédiatement les 100 000 voix perdues par sa faute.",
       "cout": {},
-      "conditions": ["a_perdu_electeurs_christophe"],
+      "conditions": [
+        "a_perdu_electeurs_christophe"
+      ],
       "effet": "regagner_electeurs",
-      "params": { "electeurs": 100000 },
+      "params": {
+        "electeurs": 100000
+      },
       "phase_jouable": "any",
       "duree": "immediat",
       "repose_sous_pile": true,
       "image": "017",
-      "quantite": 4
+      "quantite": 4,
+      "texte_original": [
+        "Permis de tuer….\u000bChristophe Mae ou Willem à main nues",
+        "Si un jour Christophe Mae ou la Tortue devenait un problème, sachez que cette carte est l’assurance que des personnes reconnaissantes et bien placées sauraient fermer les yeux si jamais vous veniez à l’éliminer.",
+        "Il est évident que malgré tout, des rumeurs courront vous accusant du crime. C’est pourquoi, vous regagnez immédiatement les 100 000 voix que vous aviez perdues par sa faute.",
+        "Coût:",
+        "Aucun (faites-le vous même, c’est  tellement plus agréable)",
+        "Conditions nécessaires:",
+        "Il suffit qu’un des Christophe vous pose problème.",
+        "Impacts pratiques:",
+        "Les problèmes qu’a pu vous causer ce mec sont réglés."
+      ]
     },
     {
       "id": "malencontreux_accident",
       "nom": "Un malencontreux accident",
       "description": "Annulez les effets de la carte magouille d'un adversaire au moment où elle est jouée.",
       "cout": {},
-      "conditions": ["possede_homme_de_main", "carte_magouille_jouee"],
+      "conditions": [
+        "possede_homme_de_main",
+        "carte_magouille_jouee"
+      ],
       "effet": "annuler_magouille",
       "phase_jouable": "any",
       "duree": "immediat",
       "repose_sous_pile": true,
       "image": "016",
-      "quantite": 3
+      "quantite": 3,
+      "texte_original": [
+        "Un malencontreux accident",
+        "L’un de vos adversaires souhaite se lancer dans un projet extrêmement osé, pour ne pas dire inconsidéré.",
+        "Or, il n’a pas les épaules, et l’ambition l’aveugle.",
+        "Du coup, un matin, pendant son jogging, son tibia fit donc la rencontre d’un objet contondant lui infligeant une grande douleur et plusieurs semaines de reconstruction osseuse.",
+        "Mais grand bien lui fit!",
+        "Cette leçon sur la nature éphémère des choses le rappela à des occupations d’épanouissement personnel beaucoup moins pénibles pour lui et son entourage.",
+        "Cette carte n’est valable qu’à ce tour-ci.",
+        "Reposez-là sous la pile après utilisation.",
+        "Conditions nécessaires:",
+        "+ Qu’un joueur joue une carte magouille",
+        "+ Posséder au moins un homme de main",
+        "Impacts pratiques:",
+        "Permet d’annuler les effets de la carte magouille d’un adversaire au moment ou elle est jouée, celle-ci devra être reposée sous la pile sans avoir été utilisée.",
+        "Coût:",
+        "Aucun"
+      ]
     },
     {
       "id": "goudron_plumes",
       "nom": "Du goudron et des plumes",
       "description": "Si un adversaire n'a qu'une seule case sur un quartier que vous possédez à moitié, ses pions sont virés du quartier.",
-      "cout": { "lingots": 2 },
-      "conditions": ["adversaire_1_case_quartier_moitie"],
+      "cout": {
+        "lingots": 2
+      },
+      "conditions": [
+        "adversaire_1_case_quartier_moitie"
+      ],
       "effet": "expulser_quartier",
       "phase_jouable": 4,
       "duree": "immediat",
       "repose_sous_pile": true,
       "image": "015",
-      "quantite": 1
+      "quantite": 1,
+      "texte_original": [
+        "Du goudron et des plumes",
+        "Un coyote s’est aventuré sur vos terres et se dresse ouvertement en rival.",
+        "Or, la qualité des services que vous proposez satisfait  déjà entièrement la population locale qui ne souhaite pas voir s’installer un nouveau commerce.",
+        "Le pauvre homme se fait alors attraper par la peau d les habitants, couvrir de goudron, rouler dans les plumes et reconduire hors du quartier.",
+        "Cette carte n’est valable qu’à ce tour-ci.",
+        "Reposez-là sous la pile après utilisation.",
+        "Coût:",
+        "2 lingots (pour le goudron et les plumes)",
+        "Conditions nécessaires:",
+        "Un de vos adversaire possède 1 seule case sur un quartier que vous possédez au moins à moitié.",
+        "Impacts pratiques:",
+        "Vous pouvez virer ses pions de votre quartier. Les pions repartent de la construction la plus proche."
+      ]
     },
     {
       "id": "chicago",
       "nom": "À la mode Chicago",
       "description": "Vos hommes mitraillent les façades du quartier. Personne ne pourra s'y étendre jusqu'aux prochaines élections.",
-      "cout": { "armes": 3 },
-      "conditions": ["majorite_quartier", "3_hommes_quartier"],
+      "cout": {
+        "armes": 3
+      },
+      "conditions": [
+        "majorite_quartier",
+        "3_hommes_quartier"
+      ],
       "effet": "bloquer_quartier",
       "phase_jouable": 4,
       "duree": "mandat",
       "repose_sous_pile": true,
       "image": "021",
-      "quantite": 1
+      "quantite": 1,
+      "texte_original": [
+        "À la mode Chicago",
+        "Par esprit d’initiative ou bien un réflexe de peur devant l’arrivée de la concurrence dans le quartier, vos hommes récupèrent leurs vieilles pétoires à camembert, la Cadillac V8 Town Sedan qui gît au fond de votre garage et s’en vont mitrailler les façades du quartier.",
+        "Cette démonstration de folie furieuse achève de convaincre vos adversaires qu’il faut attendre un peu avant d’envisager s’étendre dans le quartier… au moins la fin du mandat du maire en cours… en espérant  secrètement que ces fous se soient entretués par maladresse.",
+        "Cette carte est valable à partir du moment où vous la jouez et ce jusqu’aux prochaines élections, ensuite reposez-là sous la pile.",
+        "Coût:",
+        "Armes: 3",
+        "Conditions nécessaires:",
+        "- Que vous possédiez plus de cases que vos adversaires sur un quartier donné.",
+        "- Avoir 3 hommes mini de main sur le quartier",
+        "Impacts pratiques:",
+        "Personne d’autre ne pourra plus s’étendre sur ce quartier tant que la carte sera active. Cela ne les empêchera pas de pouvoir se défendre si vous attaquez une de leurs possessions."
+      ]
     },
     {
       "id": "video_posthume",
       "nom": "Carte Vidéo posthume",
       "description": "Accusez un ancien maire de détournement de fonds par faux témoignage vidéo. Il est inéligible aux prochaines élections.",
-      "cout": { "lingots": 400 },
-      "conditions": ["cible_ancien_maire"],
+      "cout": {
+        "lingots": 400
+      },
+      "conditions": [
+        "cible_ancien_maire"
+      ],
       "sacrifice_pion": true,
       "effet": "rendre_ineligible",
       "phase_jouable": "any",
       "duree": "election",
       "repose_sous_pile": true,
       "image": "026",
-      "quantite": 1
+      "quantite": 1,
+      "texte_original": [
+        "Carte vidéo posthume",
+        "Vous réalisez un faux témoignage vidéo où l’un de vos hommes accuse un ancien maire de détournement de fonds et d’usage de faux-électeurs. Votre homme disparaît dans des conditions étranges et la cassette arrive dans la plupart des rédactions du pays.",
+        "Résultat: le temps d’épuiser tous les recours et de finalement s’en sortir, votre adversaire aura raté les prochaines élections. Il ne pourra pas non plus reporter ses voix sur un autre candidat. Les voix qui auraient du lui revenir sont perdues, elles s’ajouteront aux votes blancs. Dommage pour lui.",
+        "Cette carte n’est valable qu’à ce tour-ci.",
+        "Reposez-là sous la pile après utilisation.",
+        "Coût:",
+        "+ 400 lingots",
+        "+ 1 de vos hommes sera sacrifié",
+        "Conditions nécessaires:",
+        "Que le joueur que vous accusez ait été maire auparavant.",
+        "Impacts pratiques:",
+        "Rend le joueur visé inéligible pour les prochaines élections."
+      ]
     },
     {
       "id": "voter_morts",
       "nom": "Faire voter les morts",
       "description": "200 000 voix de l'au-delà s'ajoutent pour chaque cimetière que vous possédez.",
-      "cout": { "lingots": 100 },
-      "conditions": ["possede_cimetiere"],
+      "cout": {
+        "lingots": 100
+      },
+      "conditions": [
+        "possede_cimetiere"
+      ],
       "effet": "bonus_electeurs_cimetiere",
-      "params": { "electeurs_par_cimetiere": 200000 },
+      "params": {
+        "electeurs_par_cimetiere": 200000
+      },
       "phase_jouable": "any",
       "duree": "election",
       "repose_sous_pile": true,
       "image": "028",
-      "quantite": 2
+      "quantite": 2,
+      "texte_original": [
+        "Faire voter les morts",
+        "Si vous avez des cimetières sur votre territoire, vous les avez très certainement gâtés avec toujours plus de nouveaux arrivants.",
+        "Sachez que ce ne sont pas des ingrats, ils sauront vous rendre la pareille et vous fourniront une partie des voix qui vous manquent pour les prochaines élections.",
+        "200 000 voix de l’au-delà dans chacun de vos cimetières vont s’ajouter à celles des vivants.",
+        "Coût:",
+        "100 lingots",
+        "Conditions nécessaires:",
+        "Il faut posséder un cimetière pour l’activer.",
+        "Impacts pratiques:",
+        "Vous gagnez 200 000 voix par cimetière en plus des voix réelles"
+      ]
     },
     {
       "id": "voleurs_velo",
       "nom": "Vils Voleurs à Vélo",
       "description": "Volez la totalité de la cargaison d'un rival (dope et armes) si vos hommes sont postés à côté d'un port.",
-      "cout": { "lingots": 10 },
-      "conditions": ["4_hommes_pres_port"],
+      "cout": {
+        "lingots": 10
+      },
+      "conditions": [
+        "4_hommes_pres_port"
+      ],
       "effet": "voler_cargaison",
       "phase_jouable": 1,
       "duree": "immediat",
       "repose_sous_pile": true,
       "image": "025",
-      "quantite": 3
+      "quantite": 3,
+      "texte_original": [
+        "Vils Voleurs à Vélo",
+        "Horreur, malheur!",
+        "La totalité de la cargaison de dope et d’armes d’un de vos rivaux a été volée.",
+        "À peine arrivé au port, le bateau a été attaqué par une équipe de 4 malfrats à vélo. Il sont repartis avec des tonnes de dope sur leurs porte-bagages…",
+        "Mais ô surprise!",
+        "Coïncidence incroyable! Vos stocks personnels ont augmenté soudainement de l’équivalent d’un chargement complet!",
+        "Reposez-là sous la pile après utilisation.",
+        "Coût:",
+        "+ 10 lingots (propres: pour les vélos)",
+        "+ 4 hommes disponibles",
+        "Conditions nécessaires:",
+        "Avoir ses hommes postés à coté d’un port.",
+        "Impacts pratiques:",
+        "Récupère toute la cargaison d’un rival (si il a commandé qq chose).",
+        "Se joue juste après la phase de commande"
+      ]
     },
     {
       "id": "roses_connexion",
       "nom": "Roses connexion",
       "description": "Rackettez tous les restaurants de la carte. Chaque adversaire vous paie 10 lingots par restaurant qu'il possède.",
-      "cout": { "lingots": 10 },
+      "cout": {
+        "lingots": 10
+      },
       "conditions": [],
       "effet": "racket_restaurants",
       "phase_jouable": "any",
       "duree": "tour",
       "repose_sous_pile": true,
       "image": "022",
-      "quantite": 1
+      "quantite": 1,
+      "texte_original": [
+        "Roses connexion",
+        "Les restaurants sont bondés, ils deviennent trop rentables pour les autres et pas assez pour vous:",
+        "il est plus que temps d’en profiter!",
+        "Votre plan pour racketter tous les établissements de la ville est machiavélique: sous le prétexte de soutenir les entreprises romantiques défaillantes en proposant à la table des fleurs inodores mais hypoallergéniques, vous allez exercer sur la clientèle une pression psychologique insoutenable…",
+        "Vos armes: regard implorant, viol systématique de l’espace intime, boucles d’oreilles clignotantes, pin’s qui font meuh…",
+        "Les clients craquent, vos adversaires craquent aussi et vous paient pour ficher le camp.",
+        "Cette carte n’est valable qu’à ce tour-ci.",
+        "Reposez-là sous la pile après utilisation.",
+        "Coût:",
+        "+ 10 lingots (pour les vélos)",
+        "+ pas de main d’œuvre (vous le faites vous-même)",
+        "Conditions nécessaires:",
+        "aucune",
+        "Impacts pratiques:",
+        "Les autres joueurs vous donnent 10 lingots pour chaque resto qu’ils possèdent sur la carte"
+      ]
     },
     {
       "id": "igor",
@@ -267,33 +572,77 @@
       "repose_sous_pile": true,
       "carte_ouverte": true,
       "image": "024",
-      "quantite": 4
+      "quantite": 4,
+      "texte_original": [
+        "Igor",
+        "Igor, nettoyeur.",
+        "Laissez cette carte face ouverte devant vous sur le plateau. Elle est valable jusqu’au prochain tirage de cartes magouilles.",
+        "Conditions nécessaires:",
+        "aucune",
+        "Impacts pratiques:",
+        "Libère de posséder un cimetière ou une île déserte pour faire disparaître les corps",
+        "Coût:",
+        "Aucun. Igor est un ami."
+      ]
     },
     {
       "id": "ca_commence",
       "nom": "Ça commence à bien faire",
       "description": "Retirez n'importe quel pion du plateau. Nécessite de posséder un bordel ou d'être maire.",
-      "cout": { "lingots": 400 },
-      "conditions": ["possede_bordel_ou_maire"],
+      "cout": {
+        "lingots": 400
+      },
+      "conditions": [
+        "possede_bordel_ou_maire"
+      ],
       "effet": "retirer_pion",
       "phase_jouable": "any",
       "duree": "immediat",
       "repose_sous_pile": true,
       "image": "023",
-      "quantite": 3
+      "quantite": 3,
+      "texte_original": [
+        "Ca commence à bien faire…",
+        "…  un importun vous fait sortir de vos gonds.",
+        "Il ne comprend pas quand on lui explique, vous allez donc régler le problème en passant par l’armurerie du coin.",
+        "Vous y achetez donc le tromblon qui fait les plus gros trous et un projectile qu’il prendra là où on aura le plus de mal à l’identifier.",
+        "Vous vous en sortez grâce à quelques relations et un peu de chantage.",
+        "Reposez-là sous la pile après utilisation.",
+        "Coût:",
+        "400 lingots",
+        "Conditions nécessaires:",
+        "Posséder un bordel ou être maire",
+        "Impacts pratiques:",
+        "Vous retirez un pion du plateau, n’importe lequel."
+      ]
     },
     {
       "id": "opportuniste",
       "nom": "L'Opportuniste",
       "description": "Après un combat perdu, votre homme tire une balle dans le dos de son adversaire en fuyant. L'ennemi est retiré, votre pion rejoint sa case d'origine.",
       "cout": {},
-      "conditions": ["conflit_en_cours"],
+      "conditions": [
+        "conflit_en_cours"
+      ],
       "effet": "tuer_en_fuite",
       "phase_jouable": 5,
       "duree": "immediat",
       "repose_sous_pile": true,
       "image": "030",
-      "quantite": 1
+      "quantite": 1,
+      "texte_original": [
+        "L’opportuniste",
+        "Votre homme de main, après un combat acharné mais loyal, s’en tire la vie sauve, gracié par son ennemi.",
+        "C’est alors qu’il trouve le courage dans sa fuite de tirer une balle entre le omoplates de son adversaire.",
+        "Néanmoins, il continue à fuir jusqu’à revenir à son point départ.",
+        "Reposez-là sous la pile après utilisation.",
+        "Coût:",
+        "Aucun",
+        "Conditions nécessaires:",
+        "Qu’un conflit engage l’un de vos pions.",
+        "Impacts pratiques:",
+        "Vous pouvez retirer l’autre belligérant du plateau (il est mort). Votre pion rejoint néanmoins sa case d’origine."
+      ]
     },
     {
       "id": "cascader_baseline",
@@ -302,42 +651,95 @@
       "cout": {},
       "conditions": [],
       "effet": "gagner_lingots",
-      "params": { "lingots": 400 },
+      "params": {
+        "lingots": 400
+      },
       "phase_jouable": "any",
       "duree": "immediat",
       "repose_sous_pile": true,
       "image": "029",
-      "quantite": 2
+      "quantite": 2,
+      "texte_original": [
+        "Cascader la baseline",
+        "Pour être compliant avec les requirements, en tenant compte des conditions de modularité transversale appliquée aux transferts récursifs de la synergie des processus de synthétisation, vous avez réussi à challenger la maturité de la validation.",
+        "Vous gagnez 400 lingots",
+        "Normal.",
+        "Cet argent est disponible instantanément.",
+        "Reposez-là sous la pile après utilisation.",
+        "Coût:",
+        "Aucun, enfin je crois…",
+        "Conditions nécessaires:",
+        "Aucune si j’ai bien compris…",
+        "Impacts pratiques:",
+        "Recevez 400 lingots de la banque"
+      ]
     },
     {
       "id": "depigmentation",
       "nom": "Dépigmentation de la peau",
       "description": "Changez votre ethnie en caucasien. Vous gagnez les avantages et inconvénients correspondants. Définitif.",
-      "cout": { "doses": 6 },
+      "cout": {
+        "doses": 6
+      },
       "conditions": [],
       "effet": "changer_ethnie",
-      "params": { "ethnie": "caucasien" },
+      "params": {
+        "ethnie": "caucasien"
+      },
       "phase_jouable": "any",
       "duree": "permanent",
       "carte_ouverte": true,
       "repose_sous_pile": false,
       "image": "027",
-      "quantite": 2
+      "quantite": 2,
+      "texte_original": [
+        "Dépigmentation de la peau réussie",
+        "Vous aimeriez participer aux fêtes du Klu-Klux-Klan, mais vous n’êtes jamais invité sous prétexte que votre couleur de peau jure avec la nappe.",
+        "Mais, opiniâtre comme vous êtes, et vu que les teufs sont super chouettes chez vos amis en toges, vous vous lancez dans un peu de chirurgie et un traitement qui vous fera ternir le teint.",
+        "Vous n’aurez alors aucun problème pour entrer dans les soirées et foutre le feu aux églises de Harlem.",
+        "Laissez cette carte face ouverte devant vous sur le plateau. Ceci est définitif à moins de trouver le moyen de vous faire re-pigmenter la peau.",
+        "Coût:",
+        "+ 6 doses de chnouf (pour l’anesthésie)",
+        "Conditions nécessaires:",
+        "Aucune, même s’il vaut mieux ne pas être déjà de couleur blanche, auquel cas c’est débile. C’est un coup à rentrer nul part.",
+        "Impacts pratiques:",
+        "Vous avez les avantages et les inconvénients d’avoir la peau blanche"
+      ]
     },
     {
       "id": "pigmentation",
       "nom": "Pigmentation de la peau",
       "description": "Changez votre ethnie en afro-américain. Vous gagnez les avantages et inconvénients correspondants. Définitif.",
-      "cout": { "doses": 6 },
+      "cout": {
+        "doses": 6
+      },
       "conditions": [],
       "effet": "changer_ethnie",
-      "params": { "ethnie": "afro_americain" },
+      "params": {
+        "ethnie": "afro_americain"
+      },
       "phase_jouable": "any",
       "duree": "permanent",
       "carte_ouverte": true,
       "repose_sous_pile": false,
       "image": "033",
-      "quantite": 2
+      "quantite": 2,
+      "texte_original": [
+        "Pigmentation de la peau",
+        "Vous vous trouvez le teint trop pâle, vous vous sentez transparent, vous avez le muscle flasque, on vous dit que vous avez le sex-appeal d’un comptable…",
+        "Bref, la vie est injuste avec vous.",
+        "Mais vous en redemandez!!",
+        "Et vous vous faites faire la peau noire!",
+        "Eh oui!",
+        "Ca va salement dégrader vos relations avec vos copains du Klu-Kulx-Klan ça!",
+        "Laissez cette carte face ouverte devant vous sur le plateau. Ceci est définitif à moins de trouver le moyen de vous faire re-pigmenter la peau.",
+        "Conditions nécessaires:",
+        "Aucune",
+        "Impacts pratiques:",
+        "Vous avez les avantages et les inconvénients d’avoir la peau noire.",
+        "Coût:",
+        "+ 6 doses de chnouf (pour l’anesthésie)"
+      ]
     },
     {
       "id": "patrick_sebastien",
@@ -346,13 +748,28 @@
       "cout": {},
       "conditions": [],
       "effet": "changer_ethnie",
-      "params": { "ethnie": "asiatique" },
+      "params": {
+        "ethnie": "asiatique"
+      },
       "phase_jouable": "any",
       "duree": "mandat",
       "carte_ouverte": true,
       "repose_sous_pile": true,
       "image": "031",
-      "quantite": 2
+      "quantite": 2,
+      "texte_original": [
+        "Carte Patrick Sébastien",
+        "Grâce à votre équipe de maquillage, vous vous êtes fait la tête de Patrick Sébastien qui se serait fait la tête de Sim. La transformation est stupéfiante, personne ne vous reconnaît!",
+        "Curieusement, personne ne reconnaît Sim non plus mais désormais vous pouvez vous introduire dans les quartiers n’autorisant que les asiatiques à entrer.",
+        "Néanmoins le maquillage ne tient que jusqu’à la fin du mandat. Vous devrez alors reprendre une vie normale.",
+        "Laissez cette carte face ouverte devant vous sur le plateau, elle est valable jusqu’au prochain tirage de cartes magouilles Reposez-là sous la pile après utilisation.",
+        "Conditions nécessaires:",
+        "Aucune",
+        "Impacts pratiques:",
+        "Vous avez les avantages et les inconvénients d’être asiatique.",
+        "Coût:",
+        "Aucun"
+      ]
     },
     {
       "id": "carte_orange",
@@ -365,33 +782,77 @@
       "duree": "immediat",
       "repose_sous_pile": true,
       "image": "036",
-      "quantite": 3
+      "quantite": 3,
+      "texte_original": [
+        "Carte Orange",
+        "Aucun de vos  hommes n’ayant le permis, ils ne peuvent pas se déplacer rapidement dans la ville.",
+        "Mais il faut parfois savoir prendre sur soi.",
+        "L’un de vos hommes se rend donc volontaire pour compromettre sa dignité et son costume dans les transports en commun.",
+        "Après avoir respiré l’air du métro, huileux de la transpiration de l’Amérique d’en-bas, et avoir été contraint de jeter une paire de gants italiens souillés de s’être trop frottés aux barres de soutien, il arrive malgré tout à destination: en larmes, mais en bonne santé.",
+        "Par compassion , vous lui jurez alors de lui ne plus l’y envoyer. Cette carte n’est donc valable qu’à ce tour-ci.",
+        "Reposez-là sous la pile après utilisation.",
+        "Conditions nécessaires:",
+        "Aucune",
+        "Impacts pratiques:",
+        "Permet d’envoyer l’un de ses pions à l’autre bout de la carte.",
+        "Coût:",
+        "Aucun"
+      ]
     },
     {
       "id": "carte_jeunes",
       "nom": "La Carte Jeunes",
       "description": "Déplacez un groupe de gitans vers l'endroit de votre choix.",
       "cout": {},
-      "conditions": ["possede_bordel"],
+      "conditions": [
+        "possede_bordel"
+      ],
       "effet": "deplacer_gitans",
       "phase_jouable": "any",
       "duree": "immediat",
       "repose_sous_pile": true,
       "image": "035",
-      "quantite": 1
+      "quantite": 1,
+      "texte_original": [
+        "La Carte JeuneS",
+        "Le site que les gitans ont investi vous intéresse. Grâce à votre infiltration des organisations étudiantes, vous leurs rendez la vie impossible en organisant des soirées Staps/Infirmières aux abords du camp:  vols à répétition, tapage nocturne, tout ça est perturbant, mais ils tiennent bon!",
+        "Heureusement, le jour où vous lancez l’organisation d’un paint-ball géant sur leur terrain d’accueil, arrive ce qui doit arriver et la légitime défense n’ayant pas été retenue pour 32 des 72 cas d’étudiants tués cette nuit là, les gitans doivent plier bagage. Quelques photos  d’un juge prises dans un de vos établissements vous permettront même de les envoyer où bon vous chante.",
+        "Cette carte n’est valable qu’à ce tour-ci.",
+        "Reposez-là sous la pile après utilisation.",
+        "Conditions nécessaires:",
+        "Posséder un bordel.",
+        "Impacts pratiques:",
+        "Permet de déplacer un groupe de gitans.",
+        "Coût:",
+        "Aucun"
+      ]
     },
     {
       "id": "retraite_mcbride",
       "nom": "La retraite de McBride",
       "description": "Un des flics en réserve est retiré définitivement du jeu.",
       "cout": {},
-      "conditions": ["flics_en_reserve"],
+      "conditions": [
+        "flics_en_reserve"
+      ],
       "effet": "retirer_flic_reserve",
       "phase_jouable": "any",
       "duree": "immediat",
       "repose_sous_pile": true,
       "image": "034",
-      "quantite": 2
+      "quantite": 2,
+      "texte_original": [
+        "La retraite de McBride",
+        "McBride est trop vieux pour ces conneries, il se retire du circuit et laisse Flannagan, Murphy et les autres continuer à combattre le crime avec leurs petits poings, leur petite casquette bleue et leur petite matraque… …toute petite matraque.",
+        "Cette carte n’est valable qu’à ce tour-ci.",
+        "Reposez-là sous la pile après utilisation.",
+        "Conditions nécessaires:",
+        "Aucune",
+        "Impacts pratiques:",
+        "L’un des flics pas encore placés sur le plateau est retiré définitivement du jeu.",
+        "Coût:",
+        "Aucun"
+      ]
     },
     {
       "id": "secretaire",
@@ -400,35 +861,130 @@
       "cout": {},
       "conditions": [],
       "effet": "bonus_actions",
-      "params": { "actions": 2 },
+      "params": {
+        "actions": 2
+      },
       "phase_jouable": "any",
       "duree": "mandat",
       "carte_ouverte": true,
       "repose_sous_pile": true,
       "image": "032",
-      "quantite": 2
+      "quantite": 2,
+      "texte_original": [
+        "Secrétaire particulière",
+        "Vous écrivez mal et vous ne savez pas vous relire, vous écrivez n’importe quoi quand vous prenez des notes, insulter une subordonnée vous aide à vous concentrer et vous pensez que la bouche de la mère de vos enfants ne doit servir qu’à les embrasser:",
+        "Prenez une secrétaire!",
+        "Vous serez plus efficace.",
+        "Cette carte est valable à partir du moment où vous la jouez et ce jusqu’aux prochaines élections, ensuite reposez-là sous la pile.",
+        "Conditions nécessaires:",
+        "Aucune",
+        "Impacts pratiques:",
+        "Donne droit à 2 actions supplémentaires par tour jusqu’à la fin du mandat (y compris le tour où la carte est jouée)",
+        "Coût:",
+        "Aucun"
+      ]
     },
     {
       "id": "amine_dada",
       "nom": "Carte Amine Dada",
       "description": "Vendez toutes vos armes en stock pour 20 lingots l'unité. L'argent est disponible immédiatement.",
       "cout": {},
-      "conditions": ["possede_lobby_juif"],
+      "conditions": [
+        "possede_lobby_juif"
+      ],
       "effet": "vendre_armes",
-      "params": { "prix_par_arme": 20 },
+      "params": {
+        "prix_par_arme": 20
+      },
       "phase_jouable": "any",
       "duree": "immediat",
       "repose_sous_pile": false,
       "image": "038",
-      "quantite": 2
+      "quantite": 2,
+      "texte_original": [
+        "Carte Amine Dada",
+        "Le président Amine Dada est un ami de la famille. Toujours en guerre contre d’irréductibles peuplades et prêt a rendre service, il saura faire votre bonheur en vous rachetant tout votre stock d’armes avec une mer de diamants pour un prix équivalent à 20 lingots par arme",
+        "Les pierres n’étant pas une denrée facilement échangeable sur le marché vous ne pourrez activer votre réseau qu’un fois que vous aurez trouvé le moyen de les écouler.",
+        "À priori, le spécialiste reconnu dans ce domaine reste le lobby Juif.",
+        "Cette carte n’est valable qu’un fois par partie, sortez la du jeu après utilisation.",
+        "Conditions nécessaires:",
+        "Posséder la carte du lobby juif ((Jersey City)",
+        "Impacts pratiques:",
+        "Vous pouvez vendre les armes que vous avez en stock pour 20 lingots/arme. L’argent est disponible dès le tour où la carte est jouée",
+        "Coût:",
+        "Aucun"
+      ]
     }
   ],
   "culture": [
-    { "id": "niagara", "nom": "Les chutes du Niagara", "image": "005" },
-    { "id": "victoria", "nom": "Les chutes Victoria", "image": "006" },
-    { "id": "salto_angel", "nom": "Le Salto Angel", "image": "007" },
-    { "id": "anna_nicole", "nom": "Anna Nicole-Smith est morte", "image": "008" },
-    { "id": "pied_du_mur", "nom": "C'est au pied du mur…", "image": "009" }
+    {
+      "id": "niagara",
+      "nom": "Les chutes du Niagara",
+      "image": "005",
+      "texte_original": [
+        "Les chutes d'eau les plus larges du monde sont celles du Niagara",
+        "Les chutes du",
+        "Niagara sont un",
+        "ensemble de chutes",
+        "d’eau situées sur la",
+        "rivière Niagara",
+        "dans l’est de",
+        "l’Amérique du Nord,",
+        "à la frontière entre",
+        "les États-Unis et le",
+        "Canada.",
+        "Bien qu’elles ne soient pas particulièrement hautes, les chutes du Niagara sont très larges. Avec un débit de plus de 2 800 m³ chaque seconde, elles sont les chutes les plus puissantes d’Amérique du Nord et certainement les plus connues à travers le monde.",
+        "Selon des légendes amérindiennes, Lelawala, une magnifique jeune femme, fut fiancée par son père à un brave homme qu’elle méprisait. Plutôt que de se marier, Lelawala choisit de se sacrifier à son véritable amour He-No, le dieu du tonnerre qui vivait dans une cave derrière le « fer à cheval ». Elle amena son canoë jusqu’au rapide de la rivière Niagara et fut renversée par-dessus bord. He-No la rattrapa alors qu’elle tombait et leurs esprits seraient liés ensemble à jamais dans le sanctuaire du dieu du tonnerre, à l’abri des chutes."
+      ]
+    },
+    {
+      "id": "victoria",
+      "nom": "Les chutes Victoria",
+      "image": "006",
+      "texte_original": [
+        "Les chutes d'eau ayant le plus gros débit sont les chutes Victoria",
+        "Les chutes Victoria sont l'une des plus spectaculaires chutes d'eau. Elles sont situées sur le fleuve Zambèze , qui constitue à cet endroit la frontière entre la Zambie, à proximité de la ville de Livingstone, et le Zimbabwe. Le fleuve se jette dans la cataracte sur environ 1 700 mètres de largeur, et une hauteur de 128 mètres.",
+        "David Livingstone, l'explorateur écossais, fut le premier européen à observer les chutes en 1855, et les nomma en l'honneur de la Reine Victoria, bien qu'elles étaient connues des populations locales sous le nom de Mosi-oa-Tunya, la « fumée qui gronde »."
+      ]
+    },
+    {
+      "id": "salto_angel",
+      "nom": "Le Salto Angel",
+      "image": "007",
+      "texte_original": [
+        "Salto Angel littéralement",
+        "saut de l'ange - est le nom",
+        "donné aux plus hautes",
+        "chutes d'eau du monde,",
+        "qui atteignent 979 m.",
+        "Ces chutes d'eau phéno-",
+        "ménales ponctuent le",
+        "cours du Rio Carrao, petit",
+        "sous-affluent de l'Orénoque,",
+        "dans l'État de Bolívar au Venezuela.",
+        "Dans le secteur occidental du Parc National Canaima, situé dans la région de La Gran Sabana, se trouve l'Auyan Tepuy, un des plus hauts et des plus célèbres tepuys, montagnes au sommet plat bordées par d'immenses falaises.",
+        "C'est du haut de ce relief que s'élance le cours d'eau, réalisant un premier saut de 807 m (record mondial de chute d'eau en une seule étape), puis après une descente en cascades un deuxième saut d'une quinzaine de mètres. La hauteur totale de la chute (979 m) fait du Salto Angel la plus longue chute d'eau du monde Le Salto Angel doit son nom à Jimmy Angel, l'aviateur américain qui l'aperçut en 1933 alors qu'il était à la recherche de filons d'or. Il revint en 1937 et tenta de poser son avion sur le plateau : l'avion s'enlisa et resta 33 ans au sommet du tepuy. Il a alors été récupéré, restauré et il est désormais visible au musée de l'aviation de Maracay. Jimmy Angel, de son côté, mit 11 jours à pied pour revenir à la civilisation. De nos jours, une réplique de l'avion a été placée au sommet du tepuy",
+        "La chute d'eau la plus haute du monde est le Salto Angel au Venezuela"
+      ]
+    },
+    {
+      "id": "anna_nicole",
+      "nom": "Anna Nicole-Smith est morte",
+      "image": "008",
+      "texte_original": [
+        "Anna Nicole-Smith est morte",
+        "C’est malin, ça flingue le moral de tout le monde ça.",
+        "Ça fout l’ambiance en l’air, bravo."
+      ]
+    },
+    {
+      "id": "pied_du_mur",
+      "nom": "C'est au pied du mur…",
+      "image": "009",
+      "texte_original": [
+        "C’est au pied du mur que l’on voit le mieux le mur"
+      ]
+    }
   ],
   "regles_tirage": {
     "frequence": 10,
