@@ -55,20 +55,24 @@ On peut configurer une partie, tirer les quartiers, voir les pions placés sur l
 **Objectif** : jouer un tour complet en hotseat (sans les conflits).
 
 ### Livrables
-- [ ] `TurnManager` : automate à états pilotant les 5 phases
-- [ ] Mécanisme du rideau hotseat (écrans privés/publics)
-- [ ] Saisie des ordres d'approvisionnement (formulaire tactile)
-- [ ] Saisie des ordres de construction
-- [ ] Révélation des ordres (écran collectif)
-- [ ] `RevenueEngine` : calcul automatique des revenus par pion et construction
-- [ ] Saisie des ordres de déplacement (formulaire tactile)
-- [ ] Exécution des déplacements simples (sans conflit)
-- [ ] Phase de négociation (écran plateau + timer + bouton fin)
-- [ ] Barre d'état (tour, phase, joueur actif)
-- [ ] Sauvegarde automatique en LocalStorage à chaque fin de phase
+- [x] `TurnManager` (js/turn-manager.js) : automate à états pilotant les 5 phases
+- [x] Mécanisme du rideau hotseat (écrans privés/publics, ordre aléatoire)
+- [x] Saisie des ordres d'approvisionnement (modal : point, denrée, quantité)
+- [x] Saisie des ordres de construction (modal : bâtiment, zone)
+- [x] Recrutement de prostituées (modal : point, type, zone de placement)
+- [x] Révélation des ordres Phase 2 (log détaillé + résumé ressources)
+- [x] `RevenueEngine` (js/revenue-engine.js) : revenus prostituées, dealers, trafiquants, constructions
+- [x] Saisie des ordres de déplacement (modal : pion, destination adjacente)
+- [x] Création de pions (modal : dealer/trafiquant, zone)
+- [x] Exécution des déplacements simples (statu quo si conflit)
+- [x] Révélation Phase 5 (log mouvements + résumé)
+- [x] Phase de négociation (écran semi-transparent + bouton fin)
+- [x] HUD en jeu (tour, phase, points et lingots par joueur)
+- [x] Sauvegarde automatique en LocalStorage à chaque transition de phase
+- [x] Écran de fin de tour (résumé points + détection victoire à 55 pts)
 
 ### Critère de validation
-On peut enchaîner les tours : saisir des ordres, voir les revenus, déplacer ses pions.
+On peut enchaîner les tours : saisir des ordres, voir les revenus, déplacer ses pions. **FAIT.**
 
 ---
 
@@ -223,7 +227,7 @@ Le jeu tourne de manière fluide sur tablette, est visuellement soigné, et est 
 |-------|-----------|------------|
 | Phase 1 : Plateau SVG | Élevée (cartographie) | **FAIT** |
 | Phase 2 : Configuration | Moyenne | **FAIT** |
-| Phase 3 : Boucle de tour | Élevée (hotseat + ordres) | Long |
+| Phase 3 : Boucle de tour | Élevée (hotseat + ordres) | **FAIT** |
 | Phase 4 : Économie | Moyenne | Moyen |
 | Phase 5 : Conflits | Très élevée (algorithme récursif) | Long |
 | Phase 6 : Cartes Magouille | Élevée (volume + effets variés) | Long |

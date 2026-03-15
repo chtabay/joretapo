@@ -1,10 +1,14 @@
 import { GameState } from './game-state.js';
 import { MapRenderer, QUARTIER_COLORS, FACILITE_LABELS } from './map-renderer.js';
 import { renderSetupScreen } from './setup.js';
+import { TurnManager, PHASE, GAME_PHASE_LABELS } from './turn-manager.js';
+import { RevenueEngine, BUY_PRICE } from './revenue-engine.js';
 
 let gameData = null;
 let gameState = null;
 let mapRenderer = null;
+let turnManager = null;
+let pendingOrders = [];
 
 async function loadGameData() {
   const [geoRes, adjRes, gameRes] = await Promise.all([
@@ -12,53 +16,37 @@ async function loadGameData() {
     fetch('data/adjacences-osm.json').then(r => r.json()),
     fetch('data/quartiers-gameplay.json').then(r => r.json())
   ]);
-
   const zoneToQuartier = {};
-  gameRes.quartiers.forEach(q => {
-    q.zones.forEach(z => { zoneToQuartier[z] = q; });
-  });
-
-  return {
-    features: geoRes.features,
-    adjacencies: adjRes,
-    gameplay: gameRes,
-    zoneToQuartier
-  };
+  gameRes.quartiers.forEach(q => { q.zones.forEach(z => { zoneToQuartier[z] = q; }); });
+  return { features: geoRes.features, adjacencies: adjRes, gameplay: gameRes, zoneToQuartier };
 }
 
-function showScreen(screenId) {
+function showScreen(id) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-  const screen = document.getElementById(screenId);
-  if (screen) screen.classList.add('active');
+  document.getElementById(id)?.classList.add('active');
 }
 
+function hideAllOverlays() {
+  document.querySelectorAll('.overlay').forEach(o => o.classList.add('hidden'));
+  document.getElementById('order-panel')?.classList.add('hidden');
+}
+
+/* ── Title Screen ── */
 function renderTitleScreen() {
   showScreen('screen-title');
   const hasSave = GameState.hasSave();
-  const btnContinue = document.getElementById('btn-continue');
-  btnContinue.style.display = hasSave ? '' : 'none';
-
+  const btnCont = document.getElementById('btn-continue');
+  btnCont.style.display = hasSave ? '' : 'none';
   document.getElementById('btn-new-game').onclick = () => {
     showScreen('screen-setup');
-    renderSetupScreen(
-      document.getElementById('setup-container'),
-      gameData.gameplay,
-      onGameStart
-    );
+    renderSetupScreen(document.getElementById('setup-container'), gameData.gameplay, onGameStart);
   };
-
-  btnContinue.onclick = () => {
+  btnCont.onclick = () => {
     gameState = GameState.load();
-    if (gameState) {
-      showScreen('screen-game');
-      renderGameScreen();
-    }
+    if (gameState) { showScreen('screen-game'); renderGameScreen(); startTurnLoop(); }
   };
-
   document.getElementById('btn-map-only').onclick = () => {
-    showScreen('screen-game');
-    gameState = null;
-    renderGameScreen();
+    showScreen('screen-game'); gameState = null; renderGameScreen();
   };
 }
 
@@ -67,182 +55,497 @@ function onGameStart(config) {
   gameState.save();
   showScreen('screen-game');
   renderGameScreen();
+  startTurnLoop();
 }
 
+/* ── Map + base game screen ── */
 function renderGameScreen() {
-  const mapContainer = document.getElementById('map-container');
-  mapRenderer = new MapRenderer(mapContainer, gameData);
-
+  const mc = document.getElementById('map-container');
+  mapRenderer = new MapRenderer(mc, gameData);
   if (gameState) {
     mapRenderer.updateOwnership(gameState);
     mapRenderer.renderPions(gameState);
-    renderGameHUD();
-  } else {
-    renderExploreHUD();
   }
-
-  mapRenderer.onZoneSelect = (id) => renderInfoPanel(id);
+  mapRenderer.onZoneSelect = id => renderInfoPanel(id);
+  renderLegend();
+  updateHUD();
 }
 
-function renderGameHUD() {
+function updateHUD() {
   const hud = document.getElementById('stats');
-  hud.innerHTML = `
-    <h3>JORETAPO — Tour ${gameState.tour}</h3>
-    <div id="stats-content">
-      <div class="hud-phase">Phase ${gameState.phase}/5</div>
-      <div class="hud-players">
-        ${gameState.joueurs.map(j => {
-          const pts = gameState.getPlayerPoints(j.id, gameData.gameplay);
-          return `<div class="hud-player">
-            <span class="hud-player-dot" style="background:${j.couleur}"></span>
-            <span>${j.nom}</span>
-            <span class="hud-player-pts">${pts} pts</span>
-            <span class="hud-player-gold">${j.ressources.lingots} L</span>
-          </div>`;
-        }).join('')}
-      </div>
-    </div>`;
-}
-
-function renderExploreHUD() {
-  const totalPts = gameData.gameplay.quartiers.reduce((s, q) => s + q.points, 0);
-  const adjCount = Object.values(gameData.adjacencies).reduce((s, a) => s + a.length, 0) / 2;
-  const availCount = gameData.gameplay.quartiers.filter(q => q.disponible_au_lancement).length;
-  const hud = document.getElementById('stats');
-  hud.innerHTML = `
-    <h3>JORETAPO</h3>
-    <div id="stats-content">
-      <strong>${gameData.features.length}</strong> zones · <strong>15</strong> quartiers<br>
-      <strong>${Math.round(adjCount)}</strong> adjacences · <strong>${totalPts}</strong> pts<br>
-      <strong>${availCount}</strong> dispo · <strong>4</strong> îles
-    </div>`;
-}
-
-function renderInfoPanel(id) {
-  const panel = document.getElementById('info-panel');
-  if (!id) {
-    panel.classList.add('hidden');
+  if (!gameState) {
+    const totalPts = gameData.gameplay.quartiers.reduce((s, q) => s + q.points, 0);
+    const adjCount = Object.values(gameData.adjacencies).reduce((s, a) => s + a.length, 0) / 2;
+    hud.innerHTML = `<h3>JORETAPO</h3><div id="stats-content"><strong>${gameData.features.length}</strong> zones · <strong>15</strong> quartiers<br><strong>${Math.round(adjCount)}</strong> adjacences · <strong>${totalPts}</strong> pts</div>`;
     return;
   }
+  const phaseLabel = GAME_PHASE_LABELS[gameState.phase] || '';
+  hud.innerHTML = `<h3>Tour ${gameState.tour}</h3><div id="stats-content">
+    <div class="hud-phase">${phaseLabel}</div>
+    <div class="hud-players">${gameState.joueurs.map(j => {
+      const pts = gameState.getPlayerPoints(j.id, gameData.gameplay);
+      return `<div class="hud-player"><span class="hud-player-dot" style="background:${j.couleur}"></span><span>${j.nom}</span><span class="hud-player-pts">${pts} pts</span><span class="hud-player-gold">${j.ressources.lingots}L</span></div>`;
+    }).join('')}</div></div>`;
+}
+
+function refreshMap() {
+  if (!gameState || !mapRenderer) return;
+  mapRenderer.updateOwnership(gameState);
+  mapRenderer.renderPions(gameState);
+  updateHUD();
+}
+
+/* ── Turn Loop ── */
+function startTurnLoop() {
+  if (!gameState) return;
+  turnManager = new TurnManager(gameState, gameData.gameplay);
+  turnManager.onChange = onPhaseChange;
+  if (gameState.tour >= 1 && gameState.phase >= 1) {
+    turnManager.startTurn();
+  }
+}
+
+function onPhaseChange() {
+  hideAllOverlays();
+  updateHUD();
+  refreshMap();
+
+  switch (turnManager.phase) {
+    case PHASE.CURTAIN: renderCurtain(); break;
+    case PHASE.ORDERS_SUPPLY: renderOrderPanel(1); break;
+    case PHASE.ORDERS_MOVE: renderOrderPanel(4); break;
+    case PHASE.REVEAL_HARVEST: processAndShowReveal(); break;
+    case PHASE.NEGOTIATION: renderNegotiation(); break;
+    case PHASE.REVEAL_RESOLVE: processAndShowResolve(); break;
+    case PHASE.TURN_END: renderTurnEnd(); break;
+  }
+}
+
+/* ── Curtain ── */
+function renderCurtain() {
+  const ov = document.getElementById('curtain');
+  const j = turnManager.currentPlayer;
+  const phaseNum = gameState.phase;
+  ov.querySelector('.curtain-player').textContent = j.nom;
+  ov.querySelector('.curtain-player').style.color = j.couleur;
+  ov.querySelector('.curtain-phase').textContent = GAME_PHASE_LABELS[phaseNum];
+  const btn = ov.querySelector('#btn-curtain-go');
+  btn.textContent = `Je suis ${j.nom}`;
+  btn.onclick = () => { ov.classList.add('hidden'); turnManager.confirmCurtain(); };
+  ov.classList.remove('hidden');
+}
+
+/* ── Order Panel (Phase 1 & 4) ── */
+function renderOrderPanel(gamePhase) {
+  const panel = document.getElementById('order-panel');
+  const pid = turnManager.currentPlayerId;
+  const j = gameState.joueurs[pid];
+  const maxOrders = turnManager.maxOrdersForPhase(pid);
+  pendingOrders = [];
+
+  function refresh() {
+    const remaining = maxOrders - pendingOrders.length;
+    panel.innerHTML = `
+      <div class="op-header" style="border-color:${j.couleur}">
+        <strong style="color:${j.couleur}">${j.nom}</strong>
+        <span>${GAME_PHASE_LABELS[gamePhase]}</span>
+      </div>
+      <div class="op-resources">
+        <span class="op-res">💰 ${j.ressources.lingots}L</span>
+        <span class="op-res">🔫 ${j.ressources.armes}</span>
+        <span class="op-res">💊 ${j.ressources.doses}</span>
+      </div>
+      <div class="op-budget">${remaining} ordre${remaining > 1 ? 's' : ''} disponible${remaining > 1 ? 's' : ''} (sur ${maxOrders})</div>
+      <div class="op-actions">
+        ${gamePhase === 1 ? `
+          <button class="op-btn" id="btn-add-supply" ${remaining <= 0 ? 'disabled' : ''}>+ Acheter denrées</button>
+          <button class="op-btn" id="btn-add-recruit" ${remaining <= 0 ? 'disabled' : ''}>+ Recruter prostituée</button>
+          <button class="op-btn" id="btn-add-build" ${remaining <= 0 ? 'disabled' : ''}>+ Construire</button>
+        ` : `
+          <button class="op-btn" id="btn-add-move" ${remaining <= 0 ? 'disabled' : ''}>+ Déplacer un pion</button>
+          <button class="op-btn" id="btn-add-create" ${remaining <= 0 ? 'disabled' : ''}>+ Créer dealer/trafiquant</button>
+        `}
+      </div>
+      <div class="op-list">
+        ${pendingOrders.length === 0 ? '<div class="op-empty">Aucun ordre</div>' : ''}
+        ${pendingOrders.map((o, i) => `<div class="op-order"><span>${formatOrder(o)}</span><button class="op-remove" data-idx="${i}">✕</button></div>`).join('')}
+      </div>
+      <button class="btn-primary op-submit" id="btn-submit-orders">Valider mes ordres</button>
+    `;
+
+    panel.querySelectorAll('.op-remove').forEach(b => {
+      b.onclick = () => { pendingOrders.splice(parseInt(b.dataset.idx), 1); refresh(); };
+    });
+
+    if (gamePhase === 1) {
+      panel.querySelector('#btn-add-supply')?.addEventListener('click', () => showSupplyModal(pid, refresh));
+      panel.querySelector('#btn-add-recruit')?.addEventListener('click', () => showRecruitModal(pid, refresh));
+      panel.querySelector('#btn-add-build')?.addEventListener('click', () => showBuildModal(pid, refresh));
+    } else {
+      panel.querySelector('#btn-add-move')?.addEventListener('click', () => showMoveModal(pid, refresh));
+      panel.querySelector('#btn-add-create')?.addEventListener('click', () => showCreateModal(pid, refresh));
+    }
+
+    panel.querySelector('#btn-submit-orders').onclick = () => {
+      panel.classList.add('hidden');
+      turnManager.submitOrders(pendingOrders);
+    };
+  }
+
+  refresh();
+  panel.classList.remove('hidden');
+}
+
+function formatOrder(o) {
+  switch (o.type) {
+    case 'approvisionner': return `${o.quantite} ${o.denree} via ${o.point} (${o.quantite * (BUY_PRICE[o.denree] || 0)}L)`;
+    case 'recruter': return `${o.pion_type.replace(/_/g, ' ')} → ${o.zone_dest} (${BUY_PRICE[o.pion_type]}L)`;
+    case 'construire': return `${o.batiment} sur ${o.zone}`;
+    case 'deplacer': return `${o.pion_type} ${o.from} → ${o.to}`;
+    case 'creer_pion': return `Créer ${o.pion_type} sur ${o.zone}`;
+    default: return JSON.stringify(o);
+  }
+}
+
+/* ── Modals ── */
+function openModal(html, onSubmit) {
+  const modal = document.getElementById('order-modal');
+  modal.querySelector('.modal-body').innerHTML = html;
+  modal.classList.remove('hidden');
+  modal.querySelector('#modal-cancel').onclick = () => modal.classList.add('hidden');
+  modal.querySelector('#modal-ok').onclick = () => { modal.classList.add('hidden'); onSubmit(); };
+}
+
+function showSupplyModal(pid, refresh) {
+  const sps = RevenueEngine.getSupplyPoints(gameData.gameplay).filter(sp => sp.type !== 'camp_gitans' || sp.caps.armes > 0);
+  const denrees = [
+    { id: 'doses', label: 'Doses', prix: 2 },
+    { id: 'armes', label: 'Armes', prix: 4 }
+  ];
+  let sel = { point: sps[0]?.zone || '', denree: 'doses', qty: 1 };
+
+  const html = `
+    <h3>Approvisionnement</h3>
+    <label>Point :</label>
+    <select id="f-point">${sps.map(sp => `<option value="${sp.zone}">${sp.nom} (${sp.type})</option>`).join('')}</select>
+    <label>Denrée :</label>
+    <select id="f-denree">${denrees.map(d => `<option value="${d.id}">${d.label} — ${d.prix}L</option>`).join('')}</select>
+    <label>Quantité :</label>
+    <input type="number" id="f-qty" value="1" min="1" max="20" />
+    <div class="modal-actions"><button class="btn-secondary" id="modal-cancel">Annuler</button><button class="btn-primary" id="modal-ok">Commander</button></div>
+  `;
+
+  openModal(html, () => {
+    const point = document.getElementById('f-point').value;
+    const denree = document.getElementById('f-denree').value;
+    const qty = parseInt(document.getElementById('f-qty').value) || 1;
+    pendingOrders.push({ type: 'approvisionner', point, denree, quantite: qty });
+    refresh();
+  });
+}
+
+function showRecruitModal(pid, refresh) {
+  const sps = RevenueEngine.getSupplyPoints(gameData.gameplay).filter(sp => sp.caps.prost > 0);
+  const ownedZones = Object.entries(gameState.plateau)
+    .filter(([_, z]) => z.proprietaire === pid || z.pions.some(p => p.joueur === pid))
+    .filter(([_, z]) => !z.pions.some(p => p.type === 'prostituee_base' || p.type === 'prostituee_luxe'))
+    .map(([zid]) => zid);
+
+  const html = `
+    <h3>Recruter prostituée</h3>
+    <label>Point :</label>
+    <select id="f-point">${sps.map(sp => `<option value="${sp.zone}">${sp.nom} (${sp.type})</option>`).join('')}</select>
+    <label>Type :</label>
+    <select id="f-ptype">
+      <option value="prostituee_base">Classique — 40L</option>
+      <option value="prostituee_luxe">De luxe — 80L</option>
+    </select>
+    <label>Zone de placement :</label>
+    <select id="f-zone">${ownedZones.map(z => `<option value="${z}">${z} — ${gameData.gameplay.zones[z]?.nom || z}</option>`).join('')}</select>
+    <div class="modal-actions"><button class="btn-secondary" id="modal-cancel">Annuler</button><button class="btn-primary" id="modal-ok">Recruter</button></div>
+  `;
+
+  openModal(html, () => {
+    pendingOrders.push({
+      type: 'recruter',
+      point: document.getElementById('f-point').value,
+      pion_type: document.getElementById('f-ptype').value,
+      zone_dest: document.getElementById('f-zone').value
+    });
+    refresh();
+  });
+}
+
+function showBuildModal(pid, refresh) {
+  const buildable = Object.entries(gameState.plateau)
+    .filter(([_, z]) => (z.proprietaire === pid || z.pions.some(p => p.joueur === pid)) && !z.construction)
+    .map(([zid]) => zid);
+  const types = [
+    { id: 'restaurant', label: 'Restaurant — 80L (40+40)', rev: '14L/tour' },
+    { id: 'tripot', label: 'Tripot — 140L (100+40)', rev: '14L/tour' },
+    { id: 'labo', label: 'Labo — 140L (100+40)', rev: 'Prix drogue ÷2' }
+  ];
+
+  const html = `
+    <h3>Construction</h3>
+    <label>Bâtiment :</label>
+    <select id="f-bat">${types.map(t => `<option value="${t.id}">${t.label} → ${t.rev}</option>`).join('')}</select>
+    <label>Zone :</label>
+    <select id="f-zone">${buildable.map(z => `<option value="${z}">${z} — ${gameData.gameplay.zones[z]?.nom || z}</option>`).join('')}</select>
+    <div class="modal-actions"><button class="btn-secondary" id="modal-cancel">Annuler</button><button class="btn-primary" id="modal-ok">Construire</button></div>
+  `;
+
+  openModal(html, () => {
+    pendingOrders.push({
+      type: 'construire',
+      batiment: document.getElementById('f-bat').value,
+      zone: document.getElementById('f-zone').value
+    });
+    refresh();
+  });
+}
+
+function showMoveModal(pid, refresh) {
+  const myPions = [];
+  Object.entries(gameState.plateau).forEach(([zid, zone]) => {
+    zone.pions.forEach((p, i) => {
+      if (p.joueur === pid) myPions.push({ zid, type: p.type, idx: i });
+    });
+  });
+
+  let selectedPion = myPions[0] || null;
+
+  function getAdjOptions() {
+    if (!selectedPion) return '';
+    return (gameData.adjacencies[selectedPion.zid] || []).map(a =>
+      `<option value="${a}">${a} — ${gameData.gameplay.zones[a]?.nom || a}</option>`
+    ).join('');
+  }
+
+  const html = `
+    <h3>Déplacement</h3>
+    <label>Pion :</label>
+    <select id="f-pion">${myPions.map((p, i) => `<option value="${i}">${p.type.replace(/_/g, ' ')} @ ${p.zid}</option>`).join('')}</select>
+    <label>Destination :</label>
+    <select id="f-dest">${getAdjOptions()}</select>
+    <div class="modal-actions"><button class="btn-secondary" id="modal-cancel">Annuler</button><button class="btn-primary" id="modal-ok">Déplacer</button></div>
+  `;
+
+  openModal(html, () => {
+    const pIdx = parseInt(document.getElementById('f-pion').value);
+    const p = myPions[pIdx];
+    if (!p) return;
+    pendingOrders.push({
+      type: 'deplacer',
+      pion_type: p.type,
+      from: p.zid,
+      to: document.getElementById('f-dest').value
+    });
+    refresh();
+  });
+
+  setTimeout(() => {
+    const selPion = document.getElementById('f-pion');
+    if (selPion) selPion.onchange = () => {
+      selectedPion = myPions[parseInt(selPion.value)] || null;
+      const dest = document.getElementById('f-dest');
+      if (dest) dest.innerHTML = getAdjOptions();
+    };
+  }, 0);
+}
+
+function showCreateModal(pid, refresh) {
+  const ownedZones = Object.entries(gameState.plateau)
+    .filter(([_, z]) => (z.proprietaire === pid || z.pions.some(p => p.joueur === pid)))
+    .filter(([_, z]) => !z.pions.some(p => p.type === 'dealer' || p.type === 'trafiquant'))
+    .map(([zid]) => zid);
+
+  const html = `
+    <h3>Créer un pion</h3>
+    <label>Type :</label>
+    <select id="f-ptype">
+      <option value="dealer">Dealer — 40L + 2 armes</option>
+      <option value="trafiquant">Trafiquant — 80L + 3 armes</option>
+    </select>
+    <label>Zone :</label>
+    <select id="f-zone">${ownedZones.map(z => `<option value="${z}">${z} — ${gameData.gameplay.zones[z]?.nom || z}</option>`).join('')}</select>
+    <div class="modal-actions"><button class="btn-secondary" id="modal-cancel">Annuler</button><button class="btn-primary" id="modal-ok">Créer</button></div>
+  `;
+
+  openModal(html, () => {
+    pendingOrders.push({
+      type: 'creer_pion',
+      pion_type: document.getElementById('f-ptype').value,
+      zone: document.getElementById('f-zone').value
+    });
+    refresh();
+  });
+}
+
+/* ── Reveal (Phase 2) ── */
+function processAndShowReveal() {
+  const supplyLog = RevenueEngine.processSupplyOrders(gameState, turnManager.supplyOrders, gameData.gameplay);
+  const revenueLog = RevenueEngine.calculateRevenues(gameState, gameData.gameplay);
+  gameState.save();
+  refreshMap();
+
+  showRevealOverlay('Révélation & récolte', [...supplyLog, ...revenueLog], () => {
+    turnManager.continueFromReveal();
+  });
+}
+
+/* ── Negotiation (Phase 3) ── */
+function renderNegotiation() {
+  const ov = document.getElementById('negotiation-ov');
+  ov.classList.remove('hidden');
+  document.getElementById('btn-end-nego').onclick = () => {
+    ov.classList.add('hidden');
+    turnManager.endNegotiation();
+  };
+}
+
+/* ── Resolve (Phase 5) ── */
+function processAndShowResolve() {
+  const moveLog = RevenueEngine.processMovements(gameState, turnManager.moveOrders, gameData.gameplay, gameData.adjacencies);
+  gameState.save();
+  refreshMap();
+
+  showRevealOverlay('Résolution des mouvements', moveLog, () => {
+    turnManager.continueFromReveal();
+  });
+}
+
+/* ── Reveal overlay (shared) ── */
+function showRevealOverlay(title, log, onContinue) {
+  const ov = document.getElementById('reveal-ov');
+  ov.querySelector('.reveal-title').textContent = title;
+  const body = ov.querySelector('.reveal-body');
+
+  if (log.length === 0) {
+    body.innerHTML = '<div class="reveal-empty">Aucun événement ce tour.</div>';
+  } else {
+    body.innerHTML = log.map(entry => {
+      const color = entry.pid >= 0 ? gameState.joueurs[entry.pid]?.couleur || '#888' : '#888';
+      const icon = { buy: '📦', rev: '💰', build: '🏗️', move: '🚶', create: '✨', conflict: '⚔️', warn: '⚠️' }[entry.type] || '•';
+      return `<div class="reveal-line" style="border-left:3px solid ${color}"><span class="reveal-icon">${icon}</span>${entry.msg}</div>`;
+    }).join('');
+  }
+
+  const summary = document.createElement('div');
+  summary.className = 'reveal-summary';
+  summary.innerHTML = '<div class="section-title">Ressources après résolution</div>' +
+    gameState.joueurs.map(j =>
+      `<div class="reveal-player"><span class="hud-player-dot" style="background:${j.couleur}"></span><strong>${j.nom}</strong> — ${j.ressources.lingots}L · ${j.ressources.armes}A · ${j.ressources.doses}D</div>`
+    ).join('');
+  body.appendChild(summary);
+
+  ov.querySelector('#btn-reveal-ok').onclick = () => { ov.classList.add('hidden'); onContinue(); };
+  ov.classList.remove('hidden');
+}
+
+/* ── Turn End ── */
+function renderTurnEnd() {
+  const ov = document.getElementById('turnend-ov');
+  const body = ov.querySelector('.turnend-body');
+  body.innerHTML = `<h2>Fin du tour ${gameState.tour}</h2>` +
+    gameState.joueurs.map(j => {
+      const pts = gameState.getPlayerPoints(j.id, gameData.gameplay);
+      return `<div class="reveal-player"><span class="hud-player-dot" style="background:${j.couleur}"></span>
+        <strong>${j.nom}</strong> — <span class="hud-player-pts">${pts} pts</span> · ${j.ressources.lingots}L · ${j.ressources.armes}A · ${j.ressources.doses}D</div>`;
+    }).join('');
+
+  const winner = gameState.joueurs.find(j => gameState.getPlayerPoints(j.id, gameData.gameplay) >= 55);
+  if (winner) {
+    body.innerHTML += `<div class="victory-banner" style="color:${winner.couleur}">🏆 ${winner.nom} remporte la partie avec ${gameState.getPlayerPoints(winner.id, gameData.gameplay)} points !</div>`;
+  }
+
+  ov.querySelector('#btn-next-turn').textContent = winner ? 'Retour au menu' : 'Tour suivant';
+  ov.querySelector('#btn-next-turn').onclick = () => {
+    ov.classList.add('hidden');
+    if (winner) { renderTitleScreen(); } else { turnManager.nextTurn(); }
+  };
+  ov.classList.remove('hidden');
+}
+
+/* ── Info Panel ── */
+function renderInfoPanel(id) {
+  const panel = document.getElementById('info-panel');
+  if (!id) { panel.classList.add('hidden'); return; }
 
   const f = gameData.features.find(f => f.properties.id === id);
   const adj = gameData.adjacencies[id] || [];
   const q = gameData.zoneToQuartier[id];
-  const zoneData = gameData.gameplay.zones[id];
+  const zd = gameData.gameplay.zones[id];
 
-  document.getElementById('info-name').textContent = zoneData ? zoneData.nom : f.properties.nom;
+  document.getElementById('info-name').textContent = zd ? zd.nom : f?.properties.nom || id;
   document.getElementById('info-id').textContent = id;
 
   const qBadge = document.getElementById('info-quartier');
   if (q) {
-    const colors = QUARTIER_COLORS[q.id];
-    qBadge.textContent = q.nom;
-    qBadge.style.background = colors.fill;
-    qBadge.style.color = colors.stroke;
-    qBadge.style.border = `1px solid ${colors.stroke}`;
+    const c = QUARTIER_COLORS[q.id];
+    qBadge.textContent = q.nom; qBadge.style.background = c.fill; qBadge.style.color = c.stroke; qBadge.style.border = `1px solid ${c.stroke}`;
   }
 
-  const faciliteEl = document.getElementById('info-facilite');
-  faciliteEl.innerHTML = zoneData?.facilite
-    ? `<span class="facilite-tag">${FACILITE_LABELS[zoneData.facilite] || zoneData.facilite}</span>`
-    : '';
+  document.getElementById('info-facilite').innerHTML = zd?.facilite
+    ? `<span class="facilite-tag">${FACILITE_LABELS[zd.facilite] || zd.facilite}</span>` : '';
 
-  const indicesEl = document.getElementById('info-indices');
-  if (zoneData) {
-    indicesEl.innerHTML = `
-      <div class="index-box" style="background:rgba(200,100,150,0.2);color:#f8a0c8">
-        ${zoneData.p}<div class="index-label">Prost.</div>
-      </div>
-      <div class="index-box" style="background:rgba(100,200,100,0.2);color:#a0f8a0">
-        ${zoneData.d}<div class="index-label">Drogue</div>
-      </div>
-      <div class="index-box" style="background:rgba(150,150,200,0.2);color:#a0a0f8">
-        ${zoneData.a}<div class="index-label">Armes</div>
-      </div>`;
+  if (zd) {
+    document.getElementById('info-indices').innerHTML = `
+      <div class="index-box" style="background:rgba(200,100,150,0.2);color:#f8a0c8">${zd.p}<div class="index-label">Prost.</div></div>
+      <div class="index-box" style="background:rgba(100,200,100,0.2);color:#a0f8a0">${zd.d}<div class="index-label">Drogue</div></div>
+      <div class="index-box" style="background:rgba(150,150,200,0.2);color:#a0a0f8">${zd.a}<div class="index-label">Armes</div></div>`;
   }
 
-  const statsEl = document.getElementById('info-stats');
   if (q) {
-    statsEl.innerHTML = `
+    document.getElementById('info-stats').innerHTML = `
       <div class="section-title">Quartier : ${q.nom}</div>
       <div class="stat-row"><span class="stat-label">Zones</span><span class="stat-value">${q.zones.length}</span></div>
-      <div class="stat-row"><span class="stat-label">Points victoire</span><span class="stat-value">${q.points}</span></div>
-      <div class="stat-row"><span class="stat-label">Dispo lancement</span><span class="stat-value">${q.disponible_au_lancement ? 'Oui' : 'Non'}</span></div>
-      <div class="stat-row"><span class="stat-label">Pop. / zone</span><span class="stat-value">${(q.population_par_zone / 1000).toFixed(0)}k</span></div>`;
-  } else {
-    statsEl.innerHTML = '';
-  }
-
-  const gangEl = document.getElementById('info-gang');
-  if (q) {
+      <div class="stat-row"><span class="stat-label">Points</span><span class="stat-value">${q.points}</span></div>
+      <div class="stat-row"><span class="stat-label">Pop./zone</span><span class="stat-value">${(q.population_par_zone / 1000).toFixed(0)}k</span></div>`;
     const g = q.gang;
-    const dureeText = g.duree === -1 ? 'permanent' : g.duree === 0 ? 'instantané' : `${g.duree} tours`;
-    gangEl.innerHTML = `
-      <div class="gang-name">${g.nom}</div>
-      <div>Effet : ${g.effet.replace(/_/g, ' ')}</div>
-      <div>Durée : ${dureeText} · ${g.usage_unique ? 'usage unique' : 'réutilisable'}</div>`;
+    const dur = g.duree === -1 ? 'permanent' : g.duree === 0 ? 'instantané' : `${g.duree} tours`;
+    document.getElementById('info-gang').innerHTML = `<div class="gang-name">${g.nom}</div><div>${g.effet.replace(/_/g, ' ')} · ${dur}</div>`;
   } else {
-    gangEl.innerHTML = '';
+    document.getElementById('info-stats').innerHTML = '';
+    document.getElementById('info-gang').innerHTML = '';
   }
 
+  const gameInfoEl = document.getElementById('info-game');
   if (gameState) {
     const zone = gameState.plateau[id];
-    const gameInfoEl = document.getElementById('info-game');
     if (zone && zone.pions.length > 0) {
-      gameInfoEl.innerHTML = `
-        <div class="section-title">Pions présents</div>
-        ${zone.pions.map(p => {
+      gameInfoEl.innerHTML = `<div class="section-title">Pions</div>` +
+        zone.pions.map(p => {
           const j = gameState.joueurs[p.joueur];
-          return `<div class="stat-row">
-            <span class="stat-label" style="color:${j.couleur}">${j.nom}</span>
-            <span class="stat-value">${p.type.replace(/_/g, ' ')}</span>
-          </div>`;
-        }).join('')}`;
-    } else {
-      gameInfoEl.innerHTML = '';
-    }
-  }
+          return `<div class="stat-row"><span class="stat-label" style="color:${j.couleur}">${j.nom}</span><span class="stat-value">${p.type.replace(/_/g, ' ')}</span></div>`;
+        }).join('');
+    } else { gameInfoEl.innerHTML = ''; }
+  } else { gameInfoEl.innerHTML = ''; }
 
-  const adjEl = document.getElementById('info-adj');
-  adjEl.innerHTML = adj.length
-    ? `<div class="section-title">Adjacences (${adj.length})</div>` +
-      adj.map(a => `<span onclick="window._selectZone('${a}')">${a}</span>`).join('')
-    : '<em>Aucune adjacence</em>';
+  document.getElementById('info-adj').innerHTML = adj.length
+    ? `<div class="section-title">Adjacences (${adj.length})</div>` + adj.map(a => `<span onclick="window._selectZone('${a}')">${a}</span>`).join('') : '';
 
   panel.classList.remove('hidden');
 }
 
 function renderLegend() {
-  const legendEl = document.getElementById('legend-items');
-  legendEl.innerHTML = '';
+  const el = document.getElementById('legend-items');
+  el.innerHTML = '';
   let highlightedQ = null;
-
   gameData.gameplay.quartiers.forEach(q => {
-    const colors = QUARTIER_COLORS[q.id];
+    const c = QUARTIER_COLORS[q.id];
     const item = document.createElement('div');
     item.className = 'legend-item';
-    item.innerHTML = `<div class="legend-swatch" style="background:${colors.fill};border-color:${colors.stroke}"></div>` +
-      `<span>${q.nom}</span><span class="legend-info">${q.zones.length}z · ${q.points}pts</span>`;
-
-    item.addEventListener('click', () => {
-      if (highlightedQ === q.id) {
-        highlightedQ = null;
-        mapRenderer.highlightQuartier(null);
-        legendEl.querySelectorAll('.legend-item').forEach(el => el.classList.remove('active'));
-      } else {
-        highlightedQ = q.id;
-        mapRenderer.highlightQuartier(q.id);
-        legendEl.querySelectorAll('.legend-item').forEach(el => el.classList.remove('active'));
-        item.classList.add('active');
-      }
-    });
-    legendEl.appendChild(item);
+    item.innerHTML = `<div class="legend-swatch" style="background:${c.fill};border-color:${c.stroke}"></div><span>${q.nom}</span><span class="legend-info">${q.zones.length}z · ${q.points}pts</span>`;
+    item.onclick = () => {
+      if (highlightedQ === q.id) { highlightedQ = null; mapRenderer.highlightQuartier(null); el.querySelectorAll('.legend-item').forEach(e => e.classList.remove('active')); }
+      else { highlightedQ = q.id; mapRenderer.highlightQuartier(q.id); el.querySelectorAll('.legend-item').forEach(e => e.classList.remove('active')); item.classList.add('active'); }
+    };
+    el.appendChild(item);
   });
 }
 
-window._selectZone = (id) => {
-  if (mapRenderer) mapRenderer.selectZone(id);
-};
+window._selectZone = id => { if (mapRenderer) mapRenderer.selectZone(id); };
 
 document.addEventListener('DOMContentLoaded', async () => {
   gameData = await loadGameData();
