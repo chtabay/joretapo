@@ -8,7 +8,7 @@ export const DICT_ENTRIES = {
     content: `
       <p>Un <strong>tour</strong> représente un cycle complet des 5 phases du jeu.</p>
       <p>Chaque tour, chaque joueur dispose de <strong>5 ordres</strong> au total, répartis entre la phase 1 (approvisionnement, construction) et la phase 4 (déplacements, création de pions).</p>
-      <p><strong>Tous les 10 tours</strong> : élections municipales, tirage de cartes magouille (8→4), et activation des gangs possible à partir du tour 10.</p>
+      <p><strong>Tous les 7 tours</strong> : élections municipales, tirage de cartes magouille (8→4), et activation des gangs possible à partir du tour 7.</p>
     `
   },
   phase: {
@@ -66,7 +66,7 @@ export const DICT_ENTRIES = {
   election: {
     title: 'Élections municipales',
     content: `
-      <p>Les élections ont lieu <strong>tous les 10 tours</strong> (tours 10, 20, 30…).</p>
+      <p>Les élections ont lieu <strong>tous les 7 tours</strong> (tours 7, 14, 21…).</p>
       <p>Chaque joueur vote secrètement pour un candidat. Le poids du vote dépend de la <strong>population</strong> contrôlée (zones avec pions armés ou constructions).</p>
       <p>Le vainqueur devient <strong>maire</strong> et obtient 2 privilèges : taxe, coupure électricité, repositionner flics, exproprier, déplacer gitans, placer incorruptible.</p>
     `

@@ -17,6 +17,19 @@
   #screen-title .title-sub { font-size: 14px; color: #666; letter-spacing: 4px; text-transform: uppercase; }
   .title-buttons { display: flex; flex-direction: column; gap: 12px; margin-top: 32px; }
 
+  /* ── Game Intro ── */
+  .game-intro { display: flex; flex-direction: column; align-items: center; gap: 24px; max-width: 600px; width: 100%; padding: 32px 24px; animation: slideUp 0.5s ease; }
+  .game-intro h1 { font-size: 42px; color: #8ab4f8; letter-spacing: 8px; text-transform: uppercase; }
+  .game-intro-tagline { font-size: 14px; color: #888; letter-spacing: 3px; text-transform: uppercase; text-align: center; }
+  .game-intro-desc { font-size: 15px; color: #ccc; text-align: center; line-height: 1.6; max-width: 480px; }
+  .game-intro-features { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: 100%; }
+  .game-intro-feat { display: flex; align-items: flex-start; gap: 10px; padding: 12px 14px; background: rgba(255,255,255,0.03); border: 1px solid #223; border-radius: 8px; }
+  .game-intro-feat-icon { font-size: 24px; flex-shrink: 0; }
+  .game-intro-feat-text { display: flex; flex-direction: column; gap: 2px; }
+  .game-intro-feat-title { font-size: 13px; font-weight: 700; color: #8ab4f8; }
+  .game-intro-feat-sub { font-size: 11px; color: #888; }
+  .game-intro-rules { font-size: 12px; color: #666; text-align: center; border-top: 1px solid #223; padding-top: 16px; width: 100%; }
+
   /* ── Setup ── */
   #screen-setup { justify-content: center; align-items: center; overflow-y: auto; }
   #setup-container { width: 100%; max-width: 600px; padding: 32px 24px; }
@@ -66,8 +79,21 @@
   .btn-secondary { padding: 12px 32px; background: transparent; border: 1px solid #445; border-radius: 6px; color: #aaa; font-size: 16px; cursor: pointer; transition: background 0.15s; }
   .btn-secondary:hover { background: #223; }
 
+  /* ── Election Progress Bar ── */
+  #election-bar { position: fixed; top: 0; left: 0; right: 0; z-index: 40; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 6px 16px; background: rgba(10,10,30,0.85); backdrop-filter: blur(6px); border-bottom: 1px solid #223; font-size: 11px; color: #888; }
+  #election-bar.hidden { display: none; }
+  .ebar-label { font-size: 10px; letter-spacing: 1px; text-transform: uppercase; color: #666; margin-right: 6px; }
+  .ebar-dots { display: flex; gap: 4px; align-items: center; }
+  .ebar-dot { width: 18px; height: 6px; border-radius: 3px; background: #223; border: 1px solid #334; transition: background 0.3s, box-shadow 0.3s; }
+  .ebar-dot.filled { background: #5a8ab4; border-color: #8ab4f8; }
+  .ebar-dot.current { background: #8ab4f8; border-color: #b0d0ff; box-shadow: 0 0 8px rgba(138,180,248,0.5); }
+  .ebar-dot.election { background: #f8c48a; border-color: #f0a050; animation: pulseGlow 1.5s infinite; }
+  .ebar-info { font-size: 10px; color: #8ab4f8; margin-left: 8px; }
+  .ebar-info.urgent { color: #f8c48a; font-weight: 700; }
+
   /* ── Game Screen ── */
-  #screen-game { flex-direction: column; }
+  #screen-game { flex-direction: column; --player-color: transparent; }
+  #screen-game::after { content: ''; position: absolute; inset: 0; pointer-events: none; z-index: 5; box-shadow: inset 0 0 80px var(--player-color); transition: box-shadow 0.5s ease; }
   #map-container { position: absolute; inset: 0; cursor: grab; touch-action: none; }
   #map-container.dragging { cursor: grabbing; }
   svg { display: block; }
@@ -171,6 +197,19 @@
   .turnend-rank-res { font-size: 11px; color: #888; display: flex; gap: 6px; min-width: 110px; justify-content: flex-end; }
   .turnend-recap { margin-top: 8px; padding: 10px; background: rgba(255,255,255,0.02); border-radius: 6px; }
   .turnend-recap-player { padding: 4px 8px; font-size: 12px; margin-bottom: 3px; border-radius: 3px; }
+
+  /* ── Election Intro ── */
+  #election-intro-ov { background: radial-gradient(ellipse at center, #1a1028 0%, #0a0a1a 70%); flex-direction: column; gap: 0; }
+  .election-intro-container { display: flex; flex-direction: column; align-items: center; gap: 20px; max-width: 520px; width: 90%; animation: slideUp 0.6s ease; }
+  .election-intro-icon { font-size: 72px; animation: pulseGlow 2s infinite; }
+  .election-intro-title { font-size: 36px; font-weight: 800; color: #f8c48a; letter-spacing: 4px; text-transform: uppercase; text-align: center; text-shadow: 0 0 30px rgba(248,196,138,0.3); }
+  .election-intro-subtitle { font-size: 14px; color: #888; text-align: center; letter-spacing: 2px; text-transform: uppercase; }
+  .election-intro-stakes { background: rgba(255,255,255,0.03); border: 1px solid #334; border-radius: 10px; padding: 20px; width: 100%; display: flex; flex-direction: column; gap: 10px; }
+  .election-intro-stake { display: flex; align-items: center; gap: 10px; font-size: 14px; color: #ccc; }
+  .election-intro-stake-icon { font-size: 20px; width: 32px; text-align: center; flex-shrink: 0; }
+  .election-intro-mayor { display: flex; align-items: center; gap: 10px; padding: 12px 16px; background: rgba(248,196,138,0.06); border: 1px solid rgba(248,196,138,0.2); border-radius: 8px; width: 100%; }
+  .election-intro-mayor-label { font-size: 12px; color: #888; text-transform: uppercase; letter-spacing: 1px; }
+  .election-intro-mayor-name { font-size: 18px; font-weight: 700; }
 
   /* ── Election ── */
   .election-container { width: 90%; max-width: 520px; max-height: 80vh; display: flex; flex-direction: column; overflow-y: auto; }
@@ -353,7 +392,7 @@
   .legend-swatch { width: 12px; height: 12px; border-radius: 2px; border: 1px solid rgba(255,255,255,0.2); flex-shrink: 0; }
   .legend-info { color: #666; font-size: 10px; margin-left: auto; }
 
-  #stats { position: fixed; top: 16px; left: 16px; background: rgba(10,10,30,0.92); border: 1px solid #334; border-radius: 8px; padding: 12px 16px; z-index: 10; font-size: 13px; backdrop-filter: blur(8px); }
+  #stats { position: fixed; top: 36px; left: 16px; background: rgba(10,10,30,0.92); border: 1px solid #334; border-radius: 8px; padding: 12px 16px; z-index: 10; font-size: 13px; backdrop-filter: blur(8px); }
   #stats h3 { font-size: 14px; margin-bottom: 4px; color: #8ab4f8; }
   .hud-clickable { cursor: pointer; text-decoration: underline; text-decoration-style: dotted; text-underline-offset: 2px; }
   .hud-clickable:hover { color: #8ab4f8; }
@@ -387,7 +426,12 @@
     .quartier-pick-btn { min-height: 44px; padding: 12px 14px; }
     .draft-slot { min-width: 100%; }
 
-    #stats { top: 8px; left: 8px; padding: 10px 12px; font-size: 11px; max-width: calc(100vw - 20px); }
+    #election-bar { font-size: 10px; padding: 4px 10px; gap: 4px; }
+    .ebar-dot { width: 14px; height: 5px; }
+    .ebar-label { font-size: 9px; }
+    .ebar-info { font-size: 9px; }
+
+    #stats { top: 32px; left: 8px; padding: 10px 12px; font-size: 11px; max-width: calc(100vw - 20px); }
     #stats h3 { font-size: 12px; }
     .hud-phase { font-size: 10px; }
     .hud-player { font-size: 11px; }
@@ -415,6 +459,15 @@
 
     .curtain-turn { font-size: 28px; }
     .curtain-player { font-size: 32px; }
+
+    .election-intro-icon { font-size: 48px; }
+    .election-intro-title { font-size: 24px; letter-spacing: 2px; }
+    .election-intro-container { gap: 14px; padding: 16px; }
+    .election-intro-stakes { padding: 14px; }
+
+    .game-intro h1 { font-size: 28px; letter-spacing: 4px; }
+    .game-intro-features { grid-template-columns: 1fr; }
+    .game-intro-desc { font-size: 14px; }
     .magouille-toast, .mayor-toast, .contract-toast, .coupole-toast, .heist-toast { font-size: 14px; padding: 10px 20px; left: 8px; right: 8px; transform: translateX(0); width: calc(100% - 16px); }
 
     .btn-primary, .btn-secondary { min-height: 44px; padding: 14px 24px; }
@@ -441,6 +494,7 @@
 </div>
 
 <div id="screen-game" class="screen">
+  <div id="election-bar" class="hidden"></div>
   <div id="map-container"></div>
 
   <div id="stats"><h3>JORETAPO</h3><div id="stats-content">Chargement...</div></div>
@@ -503,6 +557,18 @@
       <div class="nego-title">Phase de négociation</div>
       <div class="nego-sub">Discutez entre joueurs : accords, menaces, alliances, contrats…<br>Le plateau est visible derrière cet écran.</div>
       <div class="reveal-btn"><button class="btn-primary" id="btn-end-nego">Fin des négociations</button></div>
+    </div>
+  </div>
+
+  <!-- Election Intro -->
+  <div id="election-intro-ov" class="overlay hidden">
+    <div class="election-intro-container">
+      <div class="election-intro-icon">🗳️</div>
+      <div class="election-intro-title">Élections municipales</div>
+      <div class="election-intro-subtitle"></div>
+      <div class="election-intro-mayor"></div>
+      <div class="election-intro-stakes"></div>
+      <button class="btn-primary" id="btn-election-intro-go" style="margin-top:12px;padding:14px 48px;font-size:18px">Commencer le vote</button>
     </div>
   </div>
 

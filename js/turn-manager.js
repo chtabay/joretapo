@@ -1,3 +1,5 @@
+export const ELECTION_INTERVAL = 7;
+
 export const PHASE = {
   CURTAIN: 'curtain',
   ORDERS_SUPPLY: 'orders_supply',
@@ -6,6 +8,7 @@ export const PHASE = {
   ORDERS_MOVE: 'orders_move',
   REVEAL_RESOLVE: 'reveal_resolve',
   TURN_END: 'turn_end',
+  ELECTION_INTRO: 'election_intro',
   ELECTION_CURTAIN: 'election_curtain',
   ELECTION_VOTE: 'election_vote',
   ELECTION_RESULT: 'election_result',
@@ -108,16 +111,21 @@ export class TurnManager {
   endNegotiation() { this._advance(); this._emit(); }
 
   nextTurn() {
-    if (this.gs.tour > 0 && this.gs.tour % 10 === 0) {
-      this._beginElection();
+    if (this.gs.tour > 0 && this.gs.tour % ELECTION_INTERVAL === 0) {
+      this._beginElectionIntro();
       return;
     }
     this.gs.tour++;
     this.startTurn();
   }
 
-  _beginElection() {
+  _beginElectionIntro() {
     if (this.onEndOfMandate) this.onEndOfMandate();
+    this.phase = PHASE.ELECTION_INTRO;
+    this._emit();
+  }
+
+  confirmElectionIntro() {
     this.votes = {};
     this.playerQueue = shuffle(this.gs.joueurs.map((_, i) => i));
     this.currentPlayerIdx = 0;

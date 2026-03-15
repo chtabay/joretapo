@@ -987,7 +987,7 @@
     }
   ],
   "regles_tirage": {
-    "frequence": 10,
+    "frequence": 7,
     "cartes_piochees": 8,
     "cartes_gardees": 4
   }
