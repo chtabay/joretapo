@@ -1,30 +1,91 @@
 /**
  * Save export / import / share
- * - Export vers URL (compressé LZ)
+ * - Export vers URL (compact + compressé LZ/pako)
  * - QR code pour transfert tablette → autre appareil
  * - Partage WhatsApp, copie lien
  */
 
 const SAVE_HASH_PREFIX = 'restore=';
 
-export function exportToUrl(gameState) {
-  const json = JSON.stringify(gameState.serialize());
-  if (typeof LZString !== 'undefined') {
-    return LZString.compressToEncodedURIComponent(json);
+const KEY_MAP = {
+  plateau: 'p', proprietaire: 'o', pions: 'pi', construction: 'c', electricite: 'e', gitans: 'g',
+  joueurs: 'j', ressources: 'r', lingots: 'l', armes: 'a', doses: 'd', quartier_origine: 'qo',
+  cartes_magouille: 'cm', type: 't', joueur: 'jo', config: 'cfg', tour: 'tr', phase: 'ph',
+  version: 'v', timestamp: 'ts', maire: 'm', deck_magouille: 'dm', flics: 'fl', incorruptibles: 'ic',
+  gangs_actifs: 'ga', contrats: 'ct', coupures_electricite: 'ce', historique: 'h',
+  caisses: 'ca', electeurs_bonus: 'eb', electeurs_malus: 'em', est_maire: 'emr',
+  privileges_maire_restants: 'pmr', gangs_actives: 'gact', nb_coupole_restantes: 'ncr',
+  actions_bonus: 'ab', ordres_phase_courante: 'opc', nom: 'n', couleur: 'co', ethnie: 'et',
+  defaussees: 'df', pile: 'pl', retirees_du_jeu: 'rdj', deployes: 'dp', reserves: 'rs',
+  elimines: 'el', positions: 'pos', joueur_actif_index: 'jai', uid: 'u', gang: 'gn',
+  joueur_id: 'ji', privileges_restants: 'pr', tour_election: 'te', tour_activation: 'ta',
+  joueur_a: 'ja', joueur_b: 'jb', type_contrat: 'tc', description: 'desc', montant: 'mt',
+  duree: 'du', tours_restants: 'trs', actif: 'ac', honore: 'ho', tour_creation: 'tcr',
+  zone: 'z', idx: 'ix'
+};
+const KEY_MAP_REV = Object.fromEntries(Object.entries(KEY_MAP).map(([k, v]) => [v, k]));
+
+function _compactObj(obj, map) {
+  if (obj === null || typeof obj !== 'object') return obj;
+  if (Array.isArray(obj)) return obj.map(x => _compactObj(x, map));
+  const out = {};
+  for (const [k, v] of Object.entries(obj)) {
+    const k2 = map[k] || k;
+    out[k2] = _compactObj(v, map);
   }
-  return encodeURIComponent(btoa(unescape(encodeURIComponent(json))));
+  return out;
+}
+
+function _expandObj(obj, map) {
+  if (obj === null || typeof obj !== 'object') return obj;
+  if (Array.isArray(obj)) return obj.map(x => _expandObj(x, map));
+  const out = {};
+  for (const [k, v] of Object.entries(obj)) {
+    const k2 = map[k] || k;
+    out[k2] = _expandObj(v, map);
+  }
+  return out;
+}
+
+export function exportToUrl(gameState) {
+  const raw = gameState.serialize();
+  const compact = _compactObj(raw, KEY_MAP);
+  const json = JSON.stringify(compact);
+  let encoded;
+  if (typeof pako !== 'undefined') {
+    const compressed = pako.deflate(json, { level: 9 });
+    const b64 = btoa(String.fromCharCode.apply(null, compressed));
+    encoded = 'z1' + b64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  } else if (typeof LZString !== 'undefined') {
+    encoded = LZString.compressToEncodedURIComponent(json);
+  } else {
+    encoded = encodeURIComponent(btoa(unescape(encodeURIComponent(json))));
+  }
+  return encoded;
 }
 
 export function importFromUrl(encoded) {
   if (!encoded) return null;
   let json;
   try {
-    if (typeof LZString !== 'undefined') {
-      json = LZString.decompressFromEncodedURIComponent(encoded);
+    if (encoded.startsWith('z1') && typeof pako !== 'undefined') {
+      const b64 = encoded.slice(2).replace(/-/g, '+').replace(/_/g, '/');
+      const pad = b64.length % 4;
+      const padded = pad ? b64 + '='.repeat(4 - pad) : b64;
+      const binary = atob(padded);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+      json = pako.inflate(bytes, { to: 'string' });
     } else {
-      json = decodeURIComponent(escape(atob(decodeURIComponent(encoded))));
+      if (encoded.includes('%')) encoded = decodeURIComponent(encoded);
+      if (typeof LZString !== 'undefined') {
+        json = LZString.decompressFromEncodedURIComponent(encoded);
+      } else {
+        json = decodeURIComponent(escape(atob(decodeURIComponent(encoded))));
+      }
     }
-    return json ? JSON.parse(json) : null;
+    const parsed = json ? JSON.parse(json) : null;
+    return parsed ? _expandObj(parsed, KEY_MAP_REV) : null;
   } catch (_) {
     return null;
   }
