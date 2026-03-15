@@ -289,8 +289,8 @@ function renderOrderPanel(gamePhase) {
         <div><strong style="color:${j.couleur}">${j.nom}</strong><span>${GAME_PHASE_LABELS[gamePhase]}</span></div>
         <div style="display:flex;gap:4px;align-items:center">
           <button type="button" class="op-toggle-map" id="btn-op-toggle-map" title="Voir la carte">🗺️</button>
-          <button type="button" class="op-collapse" id="btn-op-collapse" title="Réduire le panneau">◀</button>
         </div>
+        <button type="button" class="op-collapse" id="btn-op-collapse" title="Réduire le panneau">▶</button>
         <span class="op-collapsed-label" style="color:${j.couleur}">${j.nom}</span>
       </div>
       <div class="op-scroll">
@@ -338,7 +338,7 @@ function renderOrderPanel(gamePhase) {
     panel.querySelector('#btn-op-collapse')?.addEventListener('click', () => {
       const isCollapsed = panel.classList.toggle('collapsed');
       const btn = panel.querySelector('#btn-op-collapse');
-      if (btn) btn.textContent = isCollapsed ? '▶' : '◀';
+      if (btn) btn.textContent = isCollapsed ? '◀' : '▶';
       const infoPanel = document.getElementById('info-panel');
       if (infoPanel) {
         infoPanel.style.setProperty('--panel-shift', isCollapsed ? '64px' : '356px');

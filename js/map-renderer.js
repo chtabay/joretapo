@@ -226,7 +226,7 @@ export class MapRenderer {
         };
         e.preventDefault();
         const dist = Math.hypot(e.touches[1].clientX - e.touches[0].clientX, e.touches[1].clientY - e.touches[0].clientY);
-        const scale = pinchStart.dist / dist;
+        const scale = dist / pinchStart.dist;
         const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
         const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
         const rect = this.svg.getBoundingClientRect();
