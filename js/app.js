@@ -46,13 +46,13 @@ function showScreen(id) {
   document.getElementById(id)?.classList.add('active');
   if (id !== 'screen-game') {
     document.getElementById('election-topbar')?.classList.remove('active');
-    document.body.style.background = '#0a0a1a';
   }
 }
 
 function hideAllOverlays() {
   document.querySelectorAll('.overlay').forEach(o => o.classList.add('hidden'));
-  document.getElementById('order-panel')?.classList.add('hidden');
+  const op = document.getElementById('order-panel');
+  if (op) { op.classList.add('hidden'); op.classList.remove('collapsed'); }
   document.getElementById('op-fab')?.classList.add('hidden');
   document.getElementById('info-panel')?.classList.remove('shifted');
 }
@@ -139,9 +139,9 @@ function updateElectionTopbar() {
     dots += `<div class="${cls}">${i}</div>`;
     if (i < CYCLE) dots += `<div class="etb-connector${i < posInCycle ? ' done' : ''}"></div>`;
   }
-  bar.innerHTML = `<span class="etb-label">Mandat</span>${dots}<span class="etb-label">🗳️</span><button class="etb-share" id="etb-share-btn" title="Sauvegarder & partager">💾</button>`;
+  bar.innerHTML = `<div class="etb-left"><button class="etb-share" id="etb-share-btn" title="Sauvegarder & partager">💾 Sauver / Partager</button><span class="etb-tour">T${gameState.tour}</span></div>${dots}<div class="etb-right"></div>`;
   bar.classList.add('active');
-  document.getElementById('etb-share-btn')?.addEventListener('click', showShareModal);
+  bar.querySelector('#etb-share-btn')?.addEventListener('click', showShareModal);
 }
 
 function updateHUD() {
@@ -207,30 +207,16 @@ function startTurnLoop() {
   }
 }
 
-function hexToHSL(hex) {
-  let r = parseInt(hex.slice(1, 3), 16) / 255;
-  let g = parseInt(hex.slice(3, 5), 16) / 255;
-  let b = parseInt(hex.slice(5, 7), 16) / 255;
-  const max = Math.max(r, g, b), min = Math.min(r, g, b);
-  let h, s, l = (max + min) / 2;
-  if (max === min) { h = s = 0; } else {
-    const d = max - min;
-    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
-    if (max === r) h = ((g - b) / d + (g < b ? 6 : 0)) / 6;
-    else if (max === g) h = ((b - r) / d + 2) / 6;
-    else h = ((r - g) / d + 4) / 6;
-  }
-  return [Math.round(h * 360), Math.round(s * 100), Math.round(l * 100)];
-}
-
-function setPlayerBackground(player) {
-  const body = document.body;
+function setPlayerTopbar(player) {
+  const bar = document.getElementById('election-topbar');
+  if (!bar) return;
   if (!player) {
-    body.style.background = '#0a0a1a';
+    bar.style.background = 'rgba(10,10,30,0.92)';
+    bar.style.borderBottomColor = '#334';
     return;
   }
-  const [h, s] = hexToHSL(player.couleur);
-  body.style.background = `hsl(${h}, ${Math.min(s, 30)}%, 8%)`;
+  bar.style.background = player.couleur;
+  bar.style.borderBottomColor = player.couleur;
 }
 
 function onPhaseChange() {
@@ -239,10 +225,7 @@ function onPhaseChange() {
   refreshMap();
 
   const hasActivePlayer = [PHASE.CURTAIN, PHASE.ORDERS_SUPPLY, PHASE.ORDERS_MOVE, PHASE.ELECTION_CURTAIN, PHASE.ELECTION_VOTE, PHASE.DRAFT_CURTAIN, PHASE.DRAFT_PICK].includes(turnManager.phase);
-  const activePlayer = hasActivePlayer ? turnManager.currentPlayer : null;
-  setPlayerBackground(activePlayer);
-  const topbar = document.getElementById('election-topbar');
-  if (topbar) topbar.style.borderBottomColor = activePlayer ? activePlayer.couleur : '#334';
+  setPlayerTopbar(hasActivePlayer ? turnManager.currentPlayer : null);
 
   switch (turnManager.phase) {
     case PHASE.CURTAIN: renderCurtain(); break;
@@ -290,7 +273,11 @@ function renderOrderPanel(gamePhase) {
     panel.innerHTML = `
       <div class="op-header" style="border-color:${j.couleur}">
         <div><strong style="color:${j.couleur}">${j.nom}</strong><span>${GAME_PHASE_LABELS[gamePhase]}</span></div>
-        <button type="button" class="op-toggle-map" id="btn-op-toggle-map" title="Voir la carte entre deux instructions">🗺️</button>
+        <div style="display:flex;gap:4px;align-items:center">
+          <button type="button" class="op-toggle-map" id="btn-op-toggle-map" title="Voir la carte">🗺️</button>
+          <button type="button" class="op-collapse" id="btn-op-collapse" title="Réduire le panneau">◀</button>
+        </div>
+        <span class="op-collapsed-label" style="color:${j.couleur}">${j.nom}</span>
       </div>
       <div class="op-scroll">
       <div class="op-resources">
@@ -334,6 +321,17 @@ function renderOrderPanel(gamePhase) {
       document.getElementById('op-fab')?.classList.remove('hidden');
     });
 
+    panel.querySelector('#btn-op-collapse')?.addEventListener('click', () => {
+      const isCollapsed = panel.classList.toggle('collapsed');
+      const btn = panel.querySelector('#btn-op-collapse');
+      if (btn) btn.textContent = isCollapsed ? '▶' : '◀';
+      const infoPanel = document.getElementById('info-panel');
+      if (infoPanel) {
+        infoPanel.style.setProperty('--panel-shift', isCollapsed ? '64px' : '356px');
+        infoPanel.classList.add('shifted');
+      }
+    });
+
     panel.querySelectorAll('.op-remove').forEach(b => {
       b.onclick = () => { pendingOrders.splice(parseInt(b.dataset.idx), 1); refresh(); };
     });
@@ -368,7 +366,7 @@ function renderOrderPanel(gamePhase) {
   }
 
   refresh();
-  panel.classList.remove('hidden');
+  panel.classList.remove('hidden', 'collapsed');
 }
 
 function formatOrder(o) {

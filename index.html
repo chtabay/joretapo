@@ -6,7 +6,7 @@
 <title>JORETAPO</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { background: #0a0a1a; color: #e0e0e0; font-family: 'Segoe UI', system-ui, sans-serif; overflow: hidden; height: 100vh; }
+  body { background: #000; color: #e0e0e0; font-family: 'Segoe UI', system-ui, sans-serif; overflow: hidden; height: 100vh; }
 
   .screen { display: none; position: absolute; inset: 0; }
   .screen.active { display: flex; }
@@ -108,8 +108,18 @@
   .curtain-player { font-size: 48px; font-weight: 700; text-shadow: 0 0 40px currentColor; }
 
   /* ── Order Panel ── */
-  #order-panel { position: fixed; top: 0; right: 0; width: 340px; height: 100vh; background: rgba(10,10,30,0.96); border-left: 1px solid #334; z-index: 50; display: flex; flex-direction: column; padding: 16px; overflow: hidden; backdrop-filter: blur(8px); animation: slideRight 0.3s ease; }
+  #order-panel { position: fixed; top: 0; right: 0; width: 340px; height: 100vh; background: rgba(10,10,30,0.96); border-left: 1px solid #334; z-index: 50; display: flex; flex-direction: column; padding: 16px; overflow: hidden; backdrop-filter: blur(8px); animation: slideRight 0.3s ease; transition: width 0.25s ease, padding 0.25s ease; }
   #order-panel.hidden { display: none; }
+  #order-panel.collapsed { width: 48px; padding: 8px 4px; }
+  #order-panel.collapsed .op-scroll,
+  #order-panel.collapsed .op-footer,
+  #order-panel.collapsed .op-header > div,
+  #order-panel.collapsed .op-toggle-map { display: none; }
+  #order-panel.collapsed .op-header { flex-direction: column; align-items: center; border-bottom: none; padding: 0; margin: 0; gap: 8px; }
+  .op-collapse { background: rgba(255,255,255,0.06); border: 1px solid #445; color: #8ab4f8; width: 32px; height: 32px; border-radius: 6px; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: background 0.15s; }
+  .op-collapse:hover { background: rgba(255,255,255,0.12); }
+  .op-collapsed-label { writing-mode: vertical-lr; text-orientation: mixed; font-size: 12px; font-weight: 700; letter-spacing: 1px; color: #8ab4f8; margin-top: 8px; display: none; }
+  #order-panel.collapsed .op-collapsed-label { display: block; }
   .op-header { display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 8px; border-bottom: 2px solid; margin-bottom: 8px; flex-shrink: 0; }
   .op-header > div { display: flex; flex-direction: column; }
   .op-scroll { flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; }
@@ -303,9 +313,9 @@
   .panel-body { transition: max-height 0.25s ease, opacity 0.2s; overflow: hidden; }
   .panel-body.collapsed { max-height: 0 !important; opacity: 0; margin-top: 0 !important; }
 
-  #info-panel { position: fixed; top: 16px; right: 16px; width: 300px; background: rgba(10,10,30,0.95); border: 1px solid #445; border-radius: 8px; padding: 16px; z-index: 60; backdrop-filter: blur(10px); transition: opacity 0.2s, right 0.3s; max-height: calc(100vh - 32px); overflow-y: auto; box-shadow: 0 4px 24px rgba(0,0,0,0.5); }
+  #info-panel { position: fixed; top: 16px; right: 16px; width: 300px; background: rgba(10,10,30,0.95); border: 1px solid #445; border-radius: 8px; padding: 16px; z-index: 60; backdrop-filter: blur(10px); transition: opacity 0.2s, right 0.3s; max-height: calc(100vh - 32px); overflow-y: auto; box-shadow: 0 4px 24px rgba(0,0,0,0.5); --panel-shift: 356px; }
   #info-panel.hidden { opacity: 0; pointer-events: none; }
-  #info-panel.shifted { right: 356px; }
+  #info-panel.shifted { right: var(--panel-shift, 356px); }
   #info-panel h2 { font-size: 16px; color: #8ab4f8; margin-bottom: 4px; }
   #info-panel .id-badge { display: inline-block; background: #334; padding: 2px 8px; border-radius: 4px; font-family: monospace; font-size: 13px; margin-bottom: 8px; }
   #info-panel .quartier-badge { display: inline-block; padding: 3px 10px; border-radius: 4px; font-size: 12px; font-weight: 600; margin-bottom: 8px; }
@@ -381,25 +391,27 @@
   .legend-swatch { width: 12px; height: 12px; border-radius: 2px; border: 1px solid rgba(255,255,255,0.2); flex-shrink: 0; }
   .legend-info { color: #666; font-size: 10px; margin-left: auto; }
 
-  #stats { position: fixed; top: 52px; left: 16px; background: rgba(10,10,30,0.92); border: 1px solid #334; border-radius: 8px; padding: 12px 16px; z-index: 10; font-size: 13px; backdrop-filter: blur(8px); }
+  #stats { position: fixed; top: 16px; left: 16px; background: rgba(10,10,30,0.92); border: 1px solid #334; border-radius: 8px; padding: 12px 16px; z-index: 10; font-size: 13px; backdrop-filter: blur(8px); transition: top 0.3s; }
+  #election-topbar.active ~ #stats { top: 52px; }
   #stats h3 { font-size: 14px; margin-bottom: 4px; color: #8ab4f8; }
   .hud-clickable { cursor: pointer; text-decoration: underline; text-decoration-style: dotted; text-underline-offset: 2px; }
   .hud-clickable:hover { color: #8ab4f8; }
   .hud-election-progress { font-size: 10px; color: #9b59b6; margin-top: 4px; }
 
   /* ── Election progress bar (top bar) ── */
-  #election-topbar { position: fixed; top: 0; left: 0; right: 0; height: 36px; background: rgba(10,10,30,0.92); border-bottom: 2px solid #334; z-index: 40; display: none; align-items: center; justify-content: center; gap: 6px; backdrop-filter: blur(8px); transition: border-color 0.3s, background 0.3s; }
+  #election-topbar { position: fixed; top: 0; left: 0; right: 0; height: 36px; background: rgba(10,10,30,0.92); border-bottom: 2px solid #334; z-index: 40; display: none; align-items: center; justify-content: center; gap: 6px; backdrop-filter: blur(8px); transition: background 0.4s ease, border-color 0.4s ease; padding: 0 12px; }
   #election-topbar.active { display: flex; }
-  .etb-dot { width: 28px; height: 28px; border-radius: 50%; border: 2px solid #445; background: transparent; display: flex; align-items: center; justify-content: center; font-size: 11px; color: #666; transition: all 0.3s; position: relative; }
-  .etb-dot.done { background: #1e3a5f; border-color: #5a8ab4; color: #8ab4f8; }
-  .etb-dot.current { background: #8ab4f8; border-color: #8ab4f8; color: #0a0a1a; font-weight: 700; box-shadow: 0 0 10px rgba(138,180,248,0.4); }
-  .etb-dot.election { background: #9b59b6; border-color: #c39bd3; color: #fff; font-weight: 700; box-shadow: 0 0 12px rgba(155,89,182,0.5); }
-  .etb-dot.election-next { border-color: #9b59b6; }
-  .etb-label { font-size: 10px; color: #888; margin: 0 4px; }
-  .etb-connector { width: 12px; height: 2px; background: #334; border-radius: 1px; }
-  .etb-connector.done { background: #5a8ab4; }
-  .etb-share { position: absolute; right: 12px; background: none; border: 1px solid #445; color: #888; width: 28px; height: 28px; border-radius: 6px; cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center; transition: all 0.15s; }
-  .etb-share:hover { background: #223; color: #8ab4f8; border-color: #5a8ab4; }
+  .etb-left { position: absolute; left: 10px; display: flex; align-items: center; gap: 6px; }
+  .etb-right { position: absolute; right: 10px; display: flex; align-items: center; gap: 6px; }
+  .etb-share { background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.3); color: #fff; height: 26px; padding: 0 10px; border-radius: 6px; cursor: pointer; font-size: 12px; display: flex; align-items: center; justify-content: center; gap: 4px; transition: background 0.15s; white-space: nowrap; }
+  .etb-share:hover { background: rgba(0,0,0,0.35); }
+  .etb-tour { font-size: 11px; font-weight: 700; color: #fff; white-space: nowrap; }
+  .etb-dot { width: 28px; height: 28px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.3); background: rgba(0,0,0,0.2); display: flex; align-items: center; justify-content: center; font-size: 11px; color: rgba(255,255,255,0.5); transition: all 0.3s; position: relative; }
+  .etb-dot.done { background: rgba(255,255,255,0.25); border-color: rgba(255,255,255,0.5); color: #fff; }
+  .etb-dot.current { background: #fff; border-color: #fff; color: #000; font-weight: 700; box-shadow: 0 0 10px rgba(255,255,255,0.4); }
+  .etb-dot.election-next { border-color: rgba(255,255,255,0.6); border-style: dashed; }
+  .etb-connector { width: 12px; height: 2px; background: rgba(255,255,255,0.2); border-radius: 1px; }
+  .etb-connector.done { background: rgba(255,255,255,0.5); }
   .hud-phase { font-size: 11px; color: #888; margin-bottom: 6px; }
   .hud-players { display: flex; flex-direction: column; gap: 3px; }
   .hud-player { display: flex; align-items: center; gap: 6px; font-size: 12px; }
@@ -429,7 +441,8 @@
     .quartier-pick-btn { min-height: 44px; padding: 12px 14px; }
     .draft-slot { min-width: 100%; }
 
-    #stats { top: 40px; left: 8px; padding: 10px 12px; font-size: 11px; max-width: calc(100vw - 20px); }
+    #stats { top: 8px; left: 8px; padding: 10px 12px; font-size: 11px; max-width: calc(100vw - 20px); }
+    #election-topbar.active ~ #stats { top: 40px; }
     #stats h3 { font-size: 12px; }
     .hud-phase { font-size: 10px; }
     .hud-player { font-size: 11px; }
@@ -443,11 +456,15 @@
     #info-panel.shifted { right: 8px; left: 8px; }
 
     #order-panel { width: 100%; right: 0; left: 0; padding: 16px; padding-bottom: max(20px, env(safe-area-inset-bottom)); }
+    #order-panel.collapsed { width: 100%; height: auto; padding: 8px 16px; }
+    #order-panel.collapsed .op-header { flex-direction: row; }
+    #order-panel.collapsed .op-collapsed-label { writing-mode: horizontal-tb; }
     .op-btn { min-height: 44px; padding: 12px 14px; font-size: 14px; }
     .op-submit { min-height: 48px; }
     .op-toggle-map { width: 44px; height: 44px; font-size: 20px; }
     .op-fab { bottom: max(24px, env(safe-area-inset-bottom)); right: 16px; width: 56px; height: 56px; }
     .op-toggle-map { display: flex; align-items: center; justify-content: center; }
+    .op-collapse { width: 44px; height: 44px; font-size: 20px; }
 
     .modal-content, .reveal-container, .nego-container, .turnend-container, .election-container, .reminder-container, .coupole-container, .pre-election-container { width: 95%; max-width: none; max-height: 85vh; }
 
