@@ -16,7 +16,7 @@ en une **version jouable en ligne**, hébergée sur **GitHub Pages**.
 | Mode de jeu          | **Hotseat** (même écran, on se passe la tablette)         |
 | Support cible        | **Tablette** (tactile, ~10 pouces)                        |
 | Périmètre v1         | **Jeu complet** (toutes les mécaniques)                   |
-| Rendu du plateau     | **Reproduction fidèle** de la carte NYC du jeu original   |
+| Rendu du plateau     | **Carte OSM** : 74 quartiers réels (polygones officiels)  |
 | Hébergement          | **GitHub Pages** (site statique, pas de backend)          |
 | Technologie          | **HTML5 / CSS3 / SVG / JavaScript** (vanilla, pas de framework lourd) |
 
@@ -30,8 +30,8 @@ en une **version jouable en ligne**, hébergée sur **GitHub Pages**.
 | [04 -- Modèle de données](04-modele-de-donnees.md) | Structures JSON des quartiers, cartes, pions, économie |
 | [05 -- Roadmap](05-roadmap.md) | Phasage du développement |
 | [06 -- Décisions gameplay](06-decisions-gameplay.md) | Arbitrages des ambiguïtés des règles pour le numérique |
-| [07 -- Cartographie](07-cartographie-adjacences.md) | Carte des adjacences entre les 72 blocs du plateau (design actuel) |
-| [08 -- Cartographie OSM](08-cartographie-osm.md) | Découpage de référence : 74 quartiers (59 CD + 12 Hudson + 3 Bergen) |
+| [07 -- Cartographie (archive)](07-cartographie-adjacences.md) | Adjacences du design original à 72 blocs (archivé) |
+| [08 -- Cartographie OSM](08-cartographie-osm.md) | **Découpage de référence** : 74 quartiers (59 CD + 12 Hudson + 3 Bergen) |
 
 ## Origine du projet
 
@@ -43,4 +43,4 @@ Le jeu physique original comprend :
 - Des feuilles d'ordres (Actions et Approvisionnements)
 - Des pions et pictos graphiques (bitmaps)
 
-Tous les fichiers sources sont dans les dossiers `01` à `06` et `archives&tests`.
+Les fichiers sources sont conservés localement (dossiers `01` à `06` et `archives&tests`, exclus du repo).

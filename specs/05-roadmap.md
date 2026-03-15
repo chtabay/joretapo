@@ -13,19 +13,18 @@ progressivement.
 **Objectif** : afficher la carte NYC interactive et navigable sur tablette.
 
 ### Livrables
-- [ ] Structure du projet (dossiers, fichiers, index.html)
-- [ ] Carte SVG du plateau NYC (tous les blocs, quartiers, institutions, îles)
-- [ ] Zoom/pan tactile (pinch-to-zoom, glisser)
-- [ ] Tap sur un bloc → popup d'information (nom, quartier, indices P/D/A, facilité)
-- [ ] Code couleur des quartiers
-- [ ] Fichiers JSON de données : `quartiers.json` avec adjacences complètes
-- [ ] Écran d'accueil minimal
-
-### Dépendances
-- Travail de cartographie : déterminer les adjacences entre tous les blocs à partir du plateau original
+- [x] Structure du projet (dossiers, fichiers, index.html)
+- [x] Pipeline cartographique (tools/build-map.mjs)
+- [x] 74 quartiers en GeoJSON (59 CDs + 12 Hudson + 3 Bergen)
+- [x] Adjacences calculées automatiquement (145 paires)
+- [x] Carte SVG générée depuis les polygones réels
+- [x] Zoom/pan (molette + drag)
+- [x] Clic sur un quartier → panneau d'info (nom, ID, type, adjacences)
+- [x] Code couleur par borough / comté
+- [x] Déploiement GitHub Pages
 
 ### Critère de validation
-On peut naviguer sur la carte, zoomer, et toucher chaque bloc pour voir ses infos.
+On peut naviguer sur la carte, zoomer, et cliquer chaque quartier pour voir ses infos. **FAIT.**
 
 ---
 
@@ -218,7 +217,7 @@ Le jeu tourne de manière fluide sur tablette, est visuellement soigné, et est 
 
 | Phase | Complexité | Estimation |
 |-------|-----------|------------|
-| Phase 1 : Plateau SVG | Élevée (cartographie) | Long |
+| Phase 1 : Plateau SVG | Élevée (cartographie) | **FAIT** |
 | Phase 2 : Configuration | Moyenne | Moyen |
 | Phase 3 : Boucle de tour | Élevée (hotseat + ordres) | Long |
 | Phase 4 : Économie | Moyenne | Moyen |

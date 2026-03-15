@@ -8,7 +8,7 @@
 | Pas de serveur       | Pas de base de données, pas d'API, pas de WebSocket       |
 | Tablette tactile     | Interface tactile, taille d'écran ~10", performance fluide |
 | Hotseat              | Toute la logique tourne sur un seul client                |
-| Jeu complet          | Volume de données important (75 cartes, 15 quartiers, etc.) |
+| Jeu complet          | Volume de données important (75 cartes, 74 quartiers, etc.) |
 
 ## Stack technique
 
@@ -16,12 +16,13 @@
 |------------------|------------------------------------|-----------------------------------------|
 | Structure        | HTML5                              | Sémantique, accessible                  |
 | Style            | CSS3 (variables, grid, flexbox)    | Responsive tablette, thème sombre       |
-| Plateau          | SVG interactif                     | Vectoriel, zoomable, cliquable          |
+| Plateau          | SVG généré depuis GeoJSON          | Polygones réels, zoomable, cliquable    |
 | Interactions     | JavaScript vanilla (ES modules)    | Pas de dépendance, performance tablette |
-| Zoom/Pan plateau | Librairie légère (panzoom ou maison)| Pinch-to-zoom tactile                   |
-| Données de jeu   | Fichiers JSON                      | Quartiers, cartes, prix, pions          |
+| Zoom/Pan plateau | Gestion maison (pointer events)    | Pinch-to-zoom tactile                   |
+| Données de jeu   | GeoJSON + fichiers JSON            | Quartiers, cartes, prix, pions          |
 | Persistance      | LocalStorage                       | Sauvegarde de partie en cours           |
 | Build            | Aucun (ou optionnel: esbuild)      | Simplicité, déploiement direct          |
+| Pipeline carto   | Node.js + Turf.js + d3-geo         | Génération des polygones et adjacences  |
 
 **Pas de React, Vue, Angular** : le jeu est un automate à états, pas une app CRUD.
 Du JS bien structuré en modules ES6 sera plus léger et performant.
@@ -30,63 +31,44 @@ Du JS bien structuré en modules ES6 sera plus léger et performant.
 
 ```
 joretapo/
-├── index.html                  # Point d'entrée
-├── css/
-│   ├── main.css                # Styles globaux
-│   ├── board.css               # Styles du plateau
-│   ├── ui.css                  # Styles des panneaux et modales
-│   └── cards.css               # Styles des cartes magouille
-├── js/
-│   ├── main.js                 # Bootstrap, routeur d'écrans
-│   ├── game/
-│   │   ├── GameState.js        # État complet de la partie
-│   │   ├── TurnManager.js      # Gestion des phases d'un tour
-│   │   ├── OrderSystem.js      # Saisie et validation des ordres
-│   │   ├── RevenueEngine.js    # Calcul des revenus
-│   │   ├── ConflictResolver.js # Résolution des conflits
-│   │   ├── ElectionSystem.js   # Élections et pouvoirs du maire
-│   │   ├── CardSystem.js       # Pioche et effets des cartes magouille
-│   │   ├── GangSystem.js       # Activation et effets des gangs
-│   │   ├── EconomyEngine.js    # Achats, ventes, transactions, caisses
-│   │   └── VictoryChecker.js   # Vérification des conditions de victoire
-│   ├── board/
-│   │   ├── BoardRenderer.js    # Rendu SVG du plateau
-│   │   ├── BoardData.js        # Données d'adjacence et de géographie
-│   │   └── PawnRenderer.js     # Affichage des pions sur le plateau
-│   ├── ui/
-│   │   ├── ScreenManager.js    # Navigation entre écrans
-│   │   ├── HotseatCurtain.js   # Écran "rideau" entre joueurs
-│   │   ├── OrderForm.js        # Formulaire de saisie des ordres
-│   │   ├── CardViewer.js       # Affichage et sélection des cartes
-│   │   ├── ElectionBooth.js    # Interface de vote
-│   │   ├── StatusBar.js        # Barre d'état (tour, phase, joueur actif)
-│   │   └── Notifications.js    # Notifications d'événements
-│   └── utils/
-│       ├── SaveManager.js      # Sauvegarde / chargement LocalStorage
-│       └── helpers.js          # Utilitaires divers
+├── index.html                  # Point d'entrée (carte interactive + futur jeu)
 ├── data/
-│   ├── quartiers.json          # Données de tous les quartiers et blocs
-│   ├── cartes-magouille.json   # Données des 75 cartes
-│   ├── pions.json              # Définitions des types de pions
-│   ├── constructions.json      # Définitions des bâtiments
-│   └── institutions.json       # Données des institutions fixes
+│   ├── quartiers-osm.geojson   # 74 polygones (59 CDs + 12 Hudson + 3 Bergen)
+│   ├── adjacences-osm.json     # Adjacences calculées (145 paires)
+│   └── quartiers.json          # Stats de jeu historiques (gangs, indices, à migrer)
 ├── assets/
-│   ├── board/
-│   │   └── nyc-map.svg         # Carte SVG du plateau
-│   ├── icons/                  # Icônes des pions, denrées, bâtiments
-│   └── cards/                  # Visuels des cartes magouille (optionnel)
-├── specs/                      # Ce dossier de documentation
-└── README.md                   # Page GitHub du projet
+│   ├── plateau-osm.svg         # Carte SVG générée par le pipeline
+│   └── carte_v12_traced.svg    # Source historique (référence)
+├── tools/
+│   ├── build-map.mjs           # Pipeline : GeoJSON brut → quartiers + adjacences + SVG
+│   └── package.json            # Dépendances : @turf/turf, d3-geo
+├── specs/                      # Documentation du projet
+└── .gitignore
 ```
 
-## Modules principaux
+### Pipeline cartographique
+
+```
+data/geo-raw/nyc-community-districts.geojson  ─┐
+                                                ├──► tools/build-map.mjs
+data/geo-raw/nj-hudson-bergen.geojson         ─┘
+                                                     │
+                                        ┌────────────┼────────────┐
+                                        ▼            ▼            ▼
+                              quartiers-osm   adjacences-osm   plateau-osm
+                              .geojson        .json            .svg
+```
+
+Les fichiers `geo-raw/` sont dans `.gitignore` (régénérables).
+
+## Modules principaux (à développer)
 
 ### GameState
 
 Objet central qui contient l'intégralité de l'état de la partie :
 
 - `players[]` : joueurs (nom, couleur, ressources, pions, cartes, électeurs)
-- `board` : état de chaque bloc (propriétaire, pions présents, constructions)
+- `board` : état de chaque quartier (propriétaire, pions présents, constructions)
 - `turn` : numéro du tour en cours
 - `phase` : phase en cours (1-5)
 - `mayor` : joueur maire en exercice, privilèges restants

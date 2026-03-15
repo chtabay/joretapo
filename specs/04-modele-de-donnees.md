@@ -1,97 +1,82 @@
 # 04 -- Modèle de données
 
-Toutes les données statiques du jeu sont stockées en **fichiers JSON** dans le dossier `data/`.
+Toutes les données statiques du jeu sont stockées dans le dossier `data/`.
 L'état dynamique d'une partie est géré par l'objet `GameState` (sauvegardé en LocalStorage).
 
 ---
 
 ## Données statiques
 
-### quartiers.json
+### quartiers-osm.geojson (74 quartiers)
+
+Fichier GeoJSON généré par `tools/build-map.mjs` à partir des données officielles NYC et NJ.
+Chaque feature contient un polygone géographique et ses propriétés.
 
 ```json
 {
-  "quartiers": [
+  "type": "FeatureCollection",
+  "features": [
     {
-      "id": "bogota",
-      "nom": "Bogota",
-      "points": 9,
-      "disponible_au_lancement": true,
-      "population_par_bloc": 160000,
-      "privileges_depart": {
-        "lingots": 40,
-        "armes": 20,
-        "doses": 0,
-        "prostituees_base": 3,
-        "prostituees_luxe": 0,
-        "trafiquants": 2,
-        "dealers": 0,
-        "cartes_magouille_bonus": 0
+      "type": "Feature",
+      "properties": {
+        "id": "MN5",
+        "nom": "Midtown, Times Square",
+        "type": "cd",
+        "borough": "Manhattan",
+        "boro_cd": 105
       },
-      "gang": {
-        "nom": "Cartel de Bogota",
-        "description": "Bloque les ventes d'armes de tous les autres joueurs pendant 5 tours.",
-        "usage_unique": true,
-        "effet": "bloquer_ventes_armes",
-        "duree": 5
+      "geometry": { "type": "MultiPolygon", "coordinates": [...] }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "HC05",
+        "nom": "Hoboken",
+        "type": "hc",
+        "county": "Hudson"
       },
-      "blocs": [
-        {
-          "id": "bogota_bogota",
-          "nom": "Bogotá",
-          "indice_p": 7,
-          "indice_d": 2,
-          "indice_a": 1,
-          "facilite": "annexe_zurich_bank",
-          "adjacences": ["bogota_teaneck", "bogota_hackensack"]
-        },
-        {
-          "id": "bogota_teaneck",
-          "nom": "Teaneck",
-          "indice_p": 7,
-          "indice_d": 2,
-          "indice_a": 1,
-          "facilite": "peage",
-          "adjacences": ["bogota_bogota", "bogota_hackensack", "bogota_englewood"]
-        },
-        {
-          "id": "bogota_hackensack",
-          "nom": "Hackensack",
-          "indice_p": 7,
-          "indice_d": 2,
-          "indice_a": 1,
-          "facilite": null,
-          "adjacences": ["bogota_bogota", "bogota_teaneck", "bogota_englewood", "bogota_englewood_cliffs"]
-        },
-        {
-          "id": "bogota_englewood",
-          "nom": "Englewood",
-          "indice_p": 7,
-          "indice_d": 2,
-          "indice_a": 1,
-          "facilite": null,
-          "adjacences": ["bogota_teaneck", "bogota_hackensack", "bogota_englewood_cliffs"]
-        },
-        {
-          "id": "bogota_englewood_cliffs",
-          "nom": "Englewood Cliffs",
-          "indice_p": 7,
-          "indice_d": 2,
-          "indice_a": 1,
-          "facilite": null,
-          "adjacences": ["bogota_hackensack", "bogota_englewood"]
-        }
-      ]
+      "geometry": { "type": "MultiPolygon", "coordinates": [...] }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "BG01",
+        "nom": "Bogota / Nord Bergen",
+        "type": "bg",
+        "county": "Bergen",
+        "municipalities": ["Bogota Borough", "Teaneck Township", "Hackensack", "Englewood", "Englewood Cliffs Borough"]
+      },
+      "geometry": { "type": "MultiPolygon", "coordinates": [...] }
     }
   ]
 }
 ```
 
-**Note** : les `adjacences` entre blocs de quartiers différents devront être déterminées
-d'après la carte du plateau. C'est un travail de cartographie à faire lors du développement
-du plateau SVG.
+**Types de quartiers** : `cd` (Community District NYC), `hc` (Hudson County NJ), `bg` (Bergen County NJ agrégé).
 
-**Structure par quartier** (15 quartiers + îles) :
+**Répartition** : 59 CDs (MN1-12, BX1-12, BK1-18, QN1-14, SI1-3) + 12 Hudson (HC01-12) + 3 Bergen (BG01-03).
+
+### adjacences-osm.json
+
+Adjacences calculées automatiquement à partir des géométries (buffer 50m, Turf.js).
+
+```json
+{
+  "MN5": ["MN2", "MN3", "MN4", "MN6", "MN7", "MN8"],
+  "HC05": ["HC06", "HC10", "HC11"],
+  "BG01": ["BG02", "BG03"]
+}
+```
+
+145 paires d'adjacences au total. Seul QN14 (Rockaways) est isolé (péninsule).
+
+### quartiers.json (référence historique)
+
+> **Ce fichier est conservé comme référence** pour les stats de jeu du plateau original
+> (15 quartiers + 4 îles, 68 blocs). Les données de gameplay (gangs, privilèges de départ,
+> indices P/D/A, facilités) devront être migrées vers le nouveau modèle à 74 quartiers.
+
+Structure originale par quartier :
 
 | Quartier          | Blocs | Pts | Dispo lancement | Gang                    |
 |-------------------|-------|-----|-----------------|-------------------------|

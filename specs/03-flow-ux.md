@@ -4,7 +4,7 @@
 
 - **Tablette tactile** : tout se fait au toucher, gros boutons, zones de tap confortables
 - **Hotseat** : le "rideau" entre joueurs est sacré, aucune fuite d'information
-- **Lisibilité** : le plateau NYC est dense (~70 blocs), il faut pouvoir zoomer et identifier rapidement l'état
+- **Lisibilité** : le plateau NYC est dense (74 quartiers), il faut pouvoir zoomer et identifier rapidement l'état
 - **Autonomie** : le jeu guide les joueurs phase par phase, pas besoin de connaître les règles par cœur
 - **Thème sombre** : ambiance "pègre", cohérente avec l'univers du jeu
 

@@ -1,49 +1,320 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="mobile-web-app-capable" content="yes">
-  <title>JoRéTApO</title>
-  <link rel="stylesheet" href="css/main.css">
-  <link rel="stylesheet" href="css/board.css">
-  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JORETAPO — Carte des quartiers</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #0a0a1a; color: #e0e0e0; font-family: 'Segoe UI', system-ui, sans-serif; overflow: hidden; }
+
+  #map-container {
+    position: absolute; inset: 0;
+    cursor: grab;
+  }
+  #map-container.dragging { cursor: grabbing; }
+
+  svg { display: block; }
+
+  #info-panel {
+    position: fixed; top: 16px; right: 16px;
+    width: 280px; background: rgba(10,10,30,0.92);
+    border: 1px solid #334; border-radius: 8px;
+    padding: 16px; z-index: 10;
+    backdrop-filter: blur(8px);
+    transition: opacity 0.2s;
+  }
+  #info-panel.hidden { opacity: 0; pointer-events: none; }
+  #info-panel h2 { font-size: 16px; color: #8ab4f8; margin-bottom: 4px; }
+  #info-panel .id-badge {
+    display: inline-block; background: #334; padding: 2px 8px;
+    border-radius: 4px; font-family: monospace; font-size: 13px; margin-bottom: 8px;
+  }
+  #info-panel .type-badge {
+    display: inline-block; padding: 2px 8px; border-radius: 4px;
+    font-size: 11px; font-weight: 600; text-transform: uppercase; margin-left: 6px;
+  }
+  .type-cd { background: #1e3a5f; color: #8ab4f8; }
+  .type-hc { background: #5f1e1e; color: #f88a8a; }
+  .type-bg { background: #1e5f1e; color: #8af88a; }
+
+  #info-panel .adj-list { margin-top: 8px; font-size: 12px; }
+  #info-panel .adj-list span {
+    display: inline-block; background: #223; padding: 1px 6px;
+    border-radius: 3px; margin: 2px; cursor: pointer; transition: background 0.15s;
+  }
+  #info-panel .adj-list span:hover { background: #445; }
+
+  #legend {
+    position: fixed; bottom: 16px; left: 16px;
+    background: rgba(10,10,30,0.9); border: 1px solid #334;
+    border-radius: 8px; padding: 12px 16px; z-index: 10;
+    font-size: 12px;
+  }
+  #legend h3 { font-size: 13px; margin-bottom: 6px; color: #aaa; }
+  .legend-item { display: flex; align-items: center; gap: 8px; margin: 3px 0; }
+  .legend-swatch { width: 14px; height: 14px; border-radius: 3px; border: 1px solid #555; }
+
+  #stats {
+    position: fixed; top: 16px; left: 16px;
+    background: rgba(10,10,30,0.9); border: 1px solid #334;
+    border-radius: 8px; padding: 12px 16px; z-index: 10;
+    font-size: 13px;
+  }
+  #stats h3 { font-size: 14px; margin-bottom: 4px; color: #8ab4f8; }
+
+  path.zone {
+    transition: opacity 0.15s, stroke-width 0.15s;
+    cursor: pointer;
+  }
+  path.zone:hover { opacity: 1 !important; stroke-width: 2; }
+  path.zone.selected { stroke: #fff; stroke-width: 2.5; opacity: 1 !important; }
+  path.zone.adjacent { stroke: #ffcc00; stroke-width: 2; opacity: 1 !important; }
+  path.zone.dimmed { opacity: 0.25 !important; }
+</style>
 </head>
 <body>
-  <div id="app">
-    <div id="screen-title" class="screen active">
-      <div class="title-container">
-        <h1 class="game-title">JoRéTApO</h1>
-        <p class="game-subtitle">Corruption, magouilles et élections truquées</p>
-        <p class="game-tagline">New York ne s'est pas faite en un jour.<br>Mais elle peut se défaire en un tour.</p>
-        <div class="title-actions">
-          <button class="btn btn-primary" id="btn-new-game">Nouvelle partie</button>
-          <button class="btn btn-secondary" id="btn-view-board">Explorer le plateau</button>
-        </div>
-      </div>
-    </div>
 
-    <div id="screen-board" class="screen">
-      <header id="status-bar">
-        <button class="btn-icon" id="btn-back" title="Retour">&#x2190;</button>
-        <span id="status-info">Exploration du plateau</span>
-        <button class="btn-icon" id="btn-zoom-reset" title="Recentrer">&#x2302;</button>
-      </header>
-      <div id="board-container">
-        <svg id="board-svg" xmlns="http://www.w3.org/2000/svg"></svg>
-      </div>
-      <div id="block-info-panel" class="hidden">
-        <button class="btn-close" id="btn-close-info">&times;</button>
-        <h3 id="info-block-name"></h3>
-        <p id="info-quartier" class="info-quartier"></p>
-        <div id="info-stats" class="info-stats"></div>
-        <div id="info-facilite" class="info-facilite"></div>
-        <div id="info-adjacences" class="info-adjacences"></div>
-      </div>
-    </div>
-  </div>
+<div id="map-container"></div>
 
-  <script type="module" src="js/main.js"></script>
+<div id="stats">
+  <h3>JORETAPO</h3>
+  <div id="stats-content">Chargement...</div>
+</div>
+
+<div id="legend">
+  <h3>Légende</h3>
+  <div class="legend-item"><div class="legend-swatch" style="background:#1e3a5f"></div> Manhattan</div>
+  <div class="legend-item"><div class="legend-swatch" style="background:#3d1e5f"></div> Bronx</div>
+  <div class="legend-item"><div class="legend-swatch" style="background:#1e5f3d"></div> Brooklyn</div>
+  <div class="legend-item"><div class="legend-swatch" style="background:#5f3d1e"></div> Queens</div>
+  <div class="legend-item"><div class="legend-swatch" style="background:#4a4a1e"></div> Staten Island</div>
+  <div class="legend-item"><div class="legend-swatch" style="background:#5f1e1e"></div> Hudson (NJ)</div>
+  <div class="legend-item"><div class="legend-swatch" style="background:#1e5f1e"></div> Bergen (NJ)</div>
+</div>
+
+<div id="info-panel" class="hidden">
+  <h2 id="info-name">—</h2>
+  <span class="id-badge" id="info-id">—</span>
+  <span class="type-badge" id="info-type">—</span>
+  <div class="adj-list" id="info-adj"></div>
+</div>
+
+<script>
+(async function() {
+  const [geoRes, adjRes] = await Promise.all([
+    fetch('data/quartiers-osm.geojson').then(r => r.json()),
+    fetch('data/adjacences-osm.json').then(r => r.json())
+  ]);
+
+  const features = geoRes.features;
+  const adjacencies = adjRes;
+
+  const boroughFills = {
+    'Manhattan': '#1e3a5f', 'Bronx': '#3d1e5f', 'Brooklyn': '#1e5f3d',
+    'Queens': '#5f3d1e', 'Staten Island': '#4a4a1e'
+  };
+  const typeFills = { hc: '#5f1e1e', bg: '#1e5f1e' };
+  const typeStrokes = { cd: '#5a8ab4', hc: '#b45a5a', bg: '#5ab45a' };
+
+  let minLon = Infinity, maxLon = -Infinity, minLat = Infinity, maxLat = -Infinity;
+  features.forEach(f => {
+    const coords = f.geometry.type === 'MultiPolygon'
+      ? f.geometry.coordinates.flat(2)
+      : f.geometry.coordinates.flat(1);
+    coords.forEach(([lon, lat]) => {
+      if (lon < minLon) minLon = lon;
+      if (lon > maxLon) maxLon = lon;
+      if (lat < minLat) minLat = lat;
+      if (lat > maxLat) maxLat = lat;
+    });
+  });
+
+  const pad = 20;
+  const svgW = 1200;
+  const aspect = (maxLat - minLat) / (maxLon - minLon) / Math.cos((minLat + maxLat) / 2 * Math.PI / 180);
+  const svgH = Math.round(svgW * aspect);
+
+  function project(lon, lat) {
+    const x = pad + ((lon - minLon) / (maxLon - minLon)) * (svgW - 2 * pad);
+    const y = pad + ((maxLat - lat) / (maxLat - minLat)) * (svgH - 2 * pad);
+    return [x, y];
+  }
+
+  function ringToPath(ring) {
+    return ring.map((pt, i) => {
+      const [x, y] = project(pt[0], pt[1]);
+      return `${i === 0 ? 'M' : 'L'}${x.toFixed(1)},${y.toFixed(1)}`;
+    }).join(' ') + ' Z';
+  }
+
+  function featureToD(f) {
+    const g = f.geometry;
+    if (g.type === 'Polygon') return g.coordinates.map(ringToPath).join(' ');
+    if (g.type === 'MultiPolygon') return g.coordinates.map(poly => poly.map(ringToPath).join(' ')).join(' ');
+    return '';
+  }
+
+  function centroid(f) {
+    const coords = f.geometry.type === 'MultiPolygon'
+      ? f.geometry.coordinates.flat(2)
+      : f.geometry.coordinates.flat(1);
+    let sx = 0, sy = 0;
+    coords.forEach(([lon, lat]) => { sx += lon; sy += lat; });
+    return project(sx / coords.length, sy / coords.length);
+  }
+
+  const ns = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(ns, 'svg');
+  svg.setAttribute('viewBox', `0 0 ${svgW} ${svgH}`);
+  svg.setAttribute('width', '100%');
+  svg.setAttribute('height', '100%');
+  svg.style.background = '#0a0a1a';
+
+  const gZones = document.createElementNS(ns, 'g');
+  const gLabels = document.createElementNS(ns, 'g');
+  const pathMap = {};
+
+  features.forEach(f => {
+    const id = f.properties.id;
+    const type = f.properties.type;
+    const fill = type === 'cd' ? (boroughFills[f.properties.borough] || '#2a3a4a') : (typeFills[type] || '#333');
+    const stroke = typeStrokes[type] || '#555';
+
+    const path = document.createElementNS(ns, 'path');
+    path.setAttribute('d', featureToD(f));
+    path.setAttribute('fill', fill);
+    path.setAttribute('stroke', stroke);
+    path.setAttribute('stroke-width', '0.8');
+    path.setAttribute('opacity', '0.85');
+    path.setAttribute('data-id', id);
+    path.classList.add('zone');
+    gZones.appendChild(path);
+    pathMap[id] = path;
+
+    const [cx, cy] = centroid(f);
+    const text = document.createElementNS(ns, 'text');
+    text.setAttribute('x', cx.toFixed(1));
+    text.setAttribute('y', cy.toFixed(1));
+    text.setAttribute('text-anchor', 'middle');
+    text.setAttribute('dominant-baseline', 'central');
+    text.setAttribute('font-size', '5.5');
+    text.setAttribute('fill', 'rgba(255,255,255,0.7)');
+    text.setAttribute('font-family', 'system-ui, sans-serif');
+    text.setAttribute('pointer-events', 'none');
+    text.textContent = id;
+    gLabels.appendChild(text);
+  });
+
+  svg.appendChild(gZones);
+  svg.appendChild(gLabels);
+
+  const container = document.getElementById('map-container');
+  container.appendChild(svg);
+
+  // Stats
+  const cdCount = features.filter(f => f.properties.type === 'cd').length;
+  const hcCount = features.filter(f => f.properties.type === 'hc').length;
+  const bgCount = features.filter(f => f.properties.type === 'bg').length;
+  const adjCount = Object.values(adjacencies).reduce((s, a) => s + a.length, 0) / 2;
+  document.getElementById('stats-content').innerHTML =
+    `${features.length} quartiers<br>${cdCount} CDs · ${hcCount} Hudson · ${bgCount} Bergen<br>${adjCount} adjacences`;
+
+  // Pan & Zoom
+  let viewBox = { x: 0, y: 0, w: svgW, h: svgH };
+  let dragging = false, dragStart = null, vbStart = null;
+
+  function updateViewBox() {
+    svg.setAttribute('viewBox', `${viewBox.x} ${viewBox.y} ${viewBox.w} ${viewBox.h}`);
+  }
+
+  container.addEventListener('wheel', e => {
+    e.preventDefault();
+    const scale = e.deltaY > 0 ? 1.15 : 0.87;
+    const rect = svg.getBoundingClientRect();
+    const mx = (e.clientX - rect.left) / rect.width;
+    const my = (e.clientY - rect.top) / rect.height;
+    const px = viewBox.x + mx * viewBox.w;
+    const py = viewBox.y + my * viewBox.h;
+    viewBox.w *= scale;
+    viewBox.h *= scale;
+    viewBox.x = px - mx * viewBox.w;
+    viewBox.y = py - my * viewBox.h;
+    updateViewBox();
+  }, { passive: false });
+
+  container.addEventListener('pointerdown', e => {
+    if (e.target.classList.contains('zone')) return;
+    dragging = true;
+    container.classList.add('dragging');
+    dragStart = { x: e.clientX, y: e.clientY };
+    vbStart = { ...viewBox };
+    container.setPointerCapture(e.pointerId);
+  });
+  container.addEventListener('pointermove', e => {
+    if (!dragging) return;
+    const rect = svg.getBoundingClientRect();
+    const dx = (e.clientX - dragStart.x) / rect.width * vbStart.w;
+    const dy = (e.clientY - dragStart.y) / rect.height * vbStart.h;
+    viewBox.x = vbStart.x - dx;
+    viewBox.y = vbStart.y - dy;
+    updateViewBox();
+  });
+  container.addEventListener('pointerup', () => {
+    dragging = false;
+    container.classList.remove('dragging');
+  });
+
+  // Selection
+  let selectedId = null;
+  const infoPanel = document.getElementById('info-panel');
+  const featureMap = {};
+  features.forEach(f => { featureMap[f.properties.id] = f; });
+
+  function selectZone(id) {
+    Object.values(pathMap).forEach(p => p.classList.remove('selected', 'adjacent', 'dimmed'));
+
+    if (selectedId === id) {
+      selectedId = null;
+      infoPanel.classList.add('hidden');
+      return;
+    }
+
+    selectedId = id;
+    const f = featureMap[id];
+    const adj = adjacencies[id] || [];
+
+    pathMap[id].classList.add('selected');
+    adj.forEach(a => { if (pathMap[a]) pathMap[a].classList.add('adjacent'); });
+
+    Object.keys(pathMap).forEach(pid => {
+      if (pid !== id && !adj.includes(pid)) pathMap[pid].classList.add('dimmed');
+    });
+
+    document.getElementById('info-name').textContent = f.properties.nom;
+    document.getElementById('info-id').textContent = id;
+    const typeEl = document.getElementById('info-type');
+    typeEl.textContent = f.properties.type === 'cd' ? f.properties.borough :
+                          f.properties.type === 'hc' ? 'Hudson NJ' : 'Bergen NJ';
+    typeEl.className = `type-badge type-${f.properties.type}`;
+
+    const adjEl = document.getElementById('info-adj');
+    adjEl.innerHTML = adj.length
+      ? `<strong>Adjacences (${adj.length}) :</strong><br>` +
+        adj.map(a => `<span onclick="window._selectZone('${a}')">${a}</span>`).join('')
+      : '<em>Aucune adjacence</em>';
+
+    infoPanel.classList.remove('hidden');
+  }
+
+  window._selectZone = selectZone;
+
+  gZones.addEventListener('click', e => {
+    const path = e.target.closest('.zone');
+    if (path) selectZone(path.dataset.id);
+  });
+
+})();
+</script>
 </body>
 </html>

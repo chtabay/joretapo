@@ -1,6 +1,13 @@
-# 07 -- Cartographie des adjacences
+# 07 -- Cartographie des adjacences (ARCHIVE)
 
-## Source
+> **Ce document est archivé.** Il décrit le découpage original à 72 blocs (68 quartiers + 4 îles)
+> du jeu de plateau physique. Le découpage de référence pour la version web est désormais
+> défini dans [08 -- Cartographie OSM](08-cartographie-osm.md) (74 quartiers).
+>
+> Ce fichier est conservé comme référence historique pour les stats de jeu
+> (gangs, privilèges, indices P/D/A) qui seront migrées vers le nouveau modèle.
+
+## Source (original)
 
 Adjacences reconstituées à partir de la carte couleur du plateau
 (`archives&tests/carte couleur 131108 copie.jpg`) et des PDFs du plateau.
