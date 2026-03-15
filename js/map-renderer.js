@@ -180,18 +180,17 @@ export class MapRenderer {
   _setupInteraction() {
     this.viewBox = { x: 0, y: 0, w: this.svgW, h: this.svgH };
     let dragging = false, dragStart = null, vbStart = null;
+    let pinchStart = null;
 
     const updateVB = () => {
       this.svg.setAttribute('viewBox',
         `${this.viewBox.x} ${this.viewBox.y} ${this.viewBox.w} ${this.viewBox.h}`);
     };
 
-    this.container.addEventListener('wheel', e => {
-      e.preventDefault();
-      const scale = e.deltaY > 0 ? 1.15 : 0.87;
+    const zoomAt = (clientX, clientY, scale) => {
       const rect = this.svg.getBoundingClientRect();
-      const mx = (e.clientX - rect.left) / rect.width;
-      const my = (e.clientY - rect.top) / rect.height;
+      const mx = (clientX - rect.left) / rect.width;
+      const my = (clientY - rect.top) / rect.height;
       const px = this.viewBox.x + mx * this.viewBox.w;
       const py = this.viewBox.y + my * this.viewBox.h;
       this.viewBox.w *= scale;
@@ -199,10 +198,56 @@ export class MapRenderer {
       this.viewBox.x = px - mx * this.viewBox.w;
       this.viewBox.y = py - my * this.viewBox.h;
       updateVB();
+    };
+
+    this.container.addEventListener('wheel', e => {
+      e.preventDefault();
+      const scale = e.deltaY > 0 ? 1.15 : 0.87;
+      zoomAt(e.clientX, e.clientY, scale);
     }, { passive: false });
+
+    /* Pinch-to-zoom pour mobile */
+    this.container.addEventListener('touchstart', e => {
+      if (e.touches.length === 2) {
+        pinchStart = {
+          dist: Math.hypot(e.touches[1].clientX - e.touches[0].clientX, e.touches[1].clientY - e.touches[0].clientY),
+          vb: { ...this.viewBox }
+        };
+        vbStart = null; /* annule le pan */
+      } else {
+        pinchStart = null;
+      }
+    }, { passive: true });
+    this.container.addEventListener('touchmove', e => {
+      if (e.touches.length === 2) {
+        if (!pinchStart) pinchStart = {
+          dist: Math.hypot(e.touches[1].clientX - e.touches[0].clientX, e.touches[1].clientY - e.touches[0].clientY),
+          vb: { ...this.viewBox }
+        };
+        e.preventDefault();
+        const dist = Math.hypot(e.touches[1].clientX - e.touches[0].clientX, e.touches[1].clientY - e.touches[0].clientY);
+        const scale = pinchStart.dist / dist;
+        const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+        const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+        const rect = this.svg.getBoundingClientRect();
+        const mx = (midX - rect.left) / rect.width;
+        const my = (midY - rect.top) / rect.height;
+        const px = pinchStart.vb.x + mx * pinchStart.vb.w;
+        const py = pinchStart.vb.y + my * pinchStart.vb.h;
+        this.viewBox.w = pinchStart.vb.w / scale;
+        this.viewBox.h = pinchStart.vb.h / scale;
+        this.viewBox.x = px - mx * this.viewBox.w;
+        this.viewBox.y = py - my * this.viewBox.h;
+        updateVB();
+      }
+    }, { passive: false });
+    this.container.addEventListener('touchend', e => {
+      if (e.touches.length < 2) pinchStart = null;
+    }, { passive: true });
 
     this.container.addEventListener('pointerdown', e => {
       if (e.target.classList.contains('zone')) return;
+      if (e.pointerType === 'touch') return; /* touch géré par touchstart/touchmove */
       dragging = true;
       this.container.classList.add('dragging');
       dragStart = { x: e.clientX, y: e.clientY };
@@ -220,6 +265,26 @@ export class MapRenderer {
       dragging = false;
       this.container.classList.remove('dragging');
     });
+
+    /* Pan au doigt (1 toucher) */
+    this.container.addEventListener('touchstart', e => {
+      if (e.touches.length === 1 && !pinchStart) {
+        dragStart = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+        vbStart = { ...this.viewBox };
+      }
+    }, { passive: true });
+    this.container.addEventListener('touchmove', e => {
+      if (e.touches.length === 1 && vbStart && !pinchStart) {
+        e.preventDefault();
+        const rect = this.svg.getBoundingClientRect();
+        this.viewBox.x = vbStart.x - (e.touches[0].clientX - dragStart.x) / rect.width * vbStart.w;
+        this.viewBox.y = vbStart.y - (e.touches[0].clientY - dragStart.y) / rect.height * vbStart.h;
+        updateVB();
+      }
+    }, { passive: false });
+    this.container.addEventListener('touchend', e => {
+      if (e.touches.length === 0) { vbStart = null; dragStart = null; }
+    }, { passive: true });
 
     this.gZones.addEventListener('click', e => {
       const path = e.target.closest('.zone');

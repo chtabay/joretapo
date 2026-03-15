@@ -10,6 +10,7 @@ import { SpecialEntities } from './special-entities.js';
 import { ContractEngine, CONTRACT_TYPES } from './contract-engine.js';
 import { HeistEngine, HEIST_TYPES } from './heist-engine.js';
 import { getShareUrl, generateQRCode, getWhatsAppShareUrl, copyToClipboard, shareViaWebShare, canUseWebShare, parseRestoreFromHash, clearRestoreHash } from './save-export.js';
+import { showDictionaryEntry, initDictionaryOverlay } from './dictionary.js';
 
 let gameData = null;
 let cartesDef = null;
@@ -48,6 +49,7 @@ function showScreen(id) {
 function hideAllOverlays() {
   document.querySelectorAll('.overlay').forEach(o => o.classList.add('hidden'));
   document.getElementById('order-panel')?.classList.add('hidden');
+  document.getElementById('op-fab')?.classList.add('hidden');
   document.getElementById('info-panel')?.classList.remove('shifted');
 }
 
@@ -91,6 +93,27 @@ function renderGameScreen() {
   updateHUD();
 }
 
+const CONDITION_LABELS = {
+  possede_homme_de_main: 'Posséder un homme de main',
+  carte_magouille_jouee: 'Une carte magouille adverse vient d\'être jouée',
+  pion_adjacent_prostituee: 'Un pion adjacent à une prostituée',
+  carte_triche_jouee: 'Une carte triche vient d\'être jouée',
+  gangs_voisins_actifs: 'Deux gangs ennemis voisins actifs',
+  est_maire: 'Être maire',
+  possede_cimetiere: 'Posséder le cimetière',
+  possede_bordel: 'Posséder un bordel',
+  possede_bordel_ou_maire: 'Posséder un bordel ou être maire',
+  flics_en_reserve: 'Flics en réserve',
+  conflit_en_cours: 'Conflit en cours',
+  possede_lobby_juif: 'Posséder le Lobby Juif',
+  majorite_quartier: 'Majorité dans un quartier',
+  '3_hommes_quartier': '3 hommes dans un quartier',
+  '4_hommes_pres_port': '4 hommes près du port',
+  a_perdu_electeurs_christophe: 'A perdu des électeurs (Chantage Christophe)',
+  adversaire_1_case_quartier_moitie: 'Adversaire à 1 case d\'un quartier à moitié contrôlé',
+  cible_ancien_maire: 'Cible ancien maire'
+};
+
 function updateHUD() {
   const hud = document.getElementById('stats');
   if (!gameState) {
@@ -101,18 +124,35 @@ function updateHUD() {
   }
   const phaseLabel = GAME_PHASE_LABELS[gameState.phase] || '';
   const activeContracts = ContractEngine.getActiveContracts(gameState);
-  hud.innerHTML = `<h3>Tour ${gameState.tour}</h3><div id="stats-content">
-    <div class="hud-phase">${phaseLabel}</div>
+  const nextElection = gameState.tour > 0 ? (10 - (gameState.tour % 10)) % 10 : 10;
+  const electionProgress = nextElection === 0 ? '<div class="hud-election-progress hud-clickable" data-dict="election">🗳️ Élection ce tour !</div>' : `<div class="hud-election-progress hud-clickable" data-dict="election">🗳️ Prochaine élection dans ${nextElection} tour${nextElection > 1 ? 's' : ''}</div>`;
+  hud.innerHTML = `<h3 class="hud-clickable" data-dict="tour" title="Cliquer pour plus d'infos">Tour ${gameState.tour}</h3><div id="stats-content">
+    <div class="hud-phase hud-clickable" data-dict="phase" title="Cliquer pour plus d'infos">${phaseLabel}</div>
+    ${electionProgress}
     <div class="hud-players">${gameState.joueurs.map(j => {
       const pts = gameState.getPlayerPoints(j.id, gameData.gameplay);
       const maireTag = j.est_maire ? ' 🏛️' : '';
       const pContracts = activeContracts.filter(c => c.joueur_a === j.id || c.joueur_b === j.id).length;
       const contractBadge = pContracts > 0 ? `<span class="hud-contracts-badge">📜${pContracts}</span>` : '';
-      return `<div class="hud-player"><span class="hud-player-dot" style="background:${j.couleur}"></span><span>${j.nom}${maireTag}${contractBadge}</span><span class="hud-player-pts">${pts} pts</span><span class="hud-player-gold">${j.ressources.lingots}L</span></div>` +
-        `<div class="hud-player-res">🔫${j.ressources.armes} 💊${j.ressources.doses} 🃏${(j.cartes_magouille || []).length}</div>`;
+      const qOrig = gameData.gameplay.quartiers.find(q => q.id === j.quartier_origine)?.nom || j.quartier_origine;
+      return `<div class="hud-player"><span class="hud-player-dot" style="background:${j.couleur}"></span><span class="hud-clickable" data-dict="joueur" data-pid="${j.id}" title="Cliquer pour plus d'infos">${j.nom}${maireTag}${contractBadge}</span><span class="hud-player-pts hud-clickable" data-dict="pts" title="Cliquer pour plus d'infos">${pts} pts</span><span class="hud-player-gold hud-clickable" data-dict="lingots" title="Cliquer pour plus d'infos">${j.ressources.lingots}L</span></div>` +
+        `<div class="hud-player-res"><span class="hud-clickable" data-dict="ressources" title="Cliquer pour plus d'infos">🔫${j.ressources.armes} 💊${j.ressources.doses} 🃏${(j.cartes_magouille || []).length}</span></div>`;
     }).join('')}</div>
     <button class="btn-share" id="hud-share-btn">💾 Partager</button></div>`;
   document.getElementById('hud-share-btn')?.addEventListener('click', showShareModal);
+  hud.querySelectorAll('.hud-clickable').forEach(el => {
+    el.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const dict = el.dataset.dict;
+      if (dict === 'joueur' && el.dataset.pid != null) {
+        const j = gameState.joueurs[Number(el.dataset.pid)];
+        const qOrig = gameData.gameplay.quartiers.find(q => q.id === j.quartier_origine)?.nom;
+        showDictionaryEntry(dict, { ...j, quartier_origine: qOrig });
+      } else {
+        showDictionaryEntry(dict);
+      }
+    });
+  });
 }
 
 function refreshMap() {
@@ -185,9 +225,10 @@ function renderOrderPanel(gamePhase) {
     const remaining = maxOrders - pendingOrders.length;
     panel.innerHTML = `
       <div class="op-header" style="border-color:${j.couleur}">
-        <strong style="color:${j.couleur}">${j.nom}</strong>
-        <span>${GAME_PHASE_LABELS[gamePhase]}</span>
+        <div><strong style="color:${j.couleur}">${j.nom}</strong><span>${GAME_PHASE_LABELS[gamePhase]}</span></div>
+        <button type="button" class="op-toggle-map" id="btn-op-toggle-map" title="Voir la carte entre deux instructions">🗺️</button>
       </div>
+      <div class="op-scroll">
       <div class="op-resources">
         <span class="op-res">💰 ${j.ressources.lingots}L</span>
         <span class="op-res">🔫 ${j.ressources.armes}</span>
@@ -220,8 +261,14 @@ function renderOrderPanel(gamePhase) {
         ${pendingOrders.length === 0 ? '<div class="op-empty">Aucun ordre</div>' : ''}
         ${pendingOrders.map((o, i) => `<div class="op-order"><span>${formatOrder(o)}</span><button class="op-remove" data-idx="${i}">✕</button></div>`).join('')}
       </div>
-      <button class="btn-primary op-submit" id="btn-submit-orders">Valider mes ordres</button>
+      </div>
+      <div class="op-footer"><button class="btn-primary op-submit" id="btn-submit-orders">Valider mes ordres</button></div>
     `;
+
+    panel.querySelector('#btn-op-toggle-map')?.addEventListener('click', () => {
+      panel.classList.add('hidden');
+      document.getElementById('op-fab')?.classList.remove('hidden');
+    });
 
     panel.querySelectorAll('.op-remove').forEach(b => {
       b.onclick = () => { pendingOrders.splice(parseInt(b.dataset.idx), 1); refresh(); };
@@ -245,8 +292,15 @@ function renderOrderPanel(gamePhase) {
 
     panel.querySelector('#btn-submit-orders').onclick = () => {
       panel.classList.add('hidden');
+      document.getElementById('op-fab')?.classList.add('hidden');
       turnManager.submitOrders(pendingOrders);
     };
+  }
+
+  const fab = document.getElementById('op-fab');
+  if (fab) {
+    fab.classList.add('hidden');
+    fab.onclick = () => { panel.classList.remove('hidden'); fab.classList.add('hidden'); };
   }
 
   refresh();
@@ -1412,6 +1466,7 @@ function renderDraftPick() {
           <span class="draft-card-desc">${card.description}</span>
           ${Object.keys(card.cout || {}).length ? `<span class="draft-card-cost">${Object.entries(card.cout).map(([k,v]) => `${v}${k[0].toUpperCase()}`).join(' ')}</span>` : '<span class="draft-card-cost">Gratuit</span>'}
         </div>
+        <button class="draft-card-expand" title="Voir les détails" onclick="event.stopPropagation()">🔍</button>
         ${sel ? '<span class="draft-check">✓</span>' : ''}
       </div>`;
     }).join('');
@@ -1425,11 +1480,19 @@ function renderDraftPick() {
     `;
 
     body.querySelectorAll('.draft-card').forEach(el => {
-      el.addEventListener('click', () => {
+      el.addEventListener('click', (e) => {
+        if (e.target.closest('.draft-card-expand')) return;
         const uid = el.dataset.uid;
         if (selected.has(uid)) { selected.delete(uid); }
         else if (selected.size < 4) { selected.add(uid); }
         refreshDraft();
+      });
+    });
+    body.querySelectorAll('.draft-card-expand').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const uid = btn.closest('.draft-card').dataset.uid;
+        const card = MagouilleEngine.getCardDef(gameState, uid, cartesDef);
+        if (card) showMagouilleCardDetail(card, false, '', null);
       });
     });
 
@@ -1443,6 +1506,34 @@ function renderDraftPick() {
   }
 
   refreshDraft();
+  ov.classList.remove('hidden');
+}
+
+function showMagouilleCardDetail(card, canPlay, reason, onPlay) {
+  const ov = document.getElementById('magouille-detail-ov');
+  if (!ov) return;
+  const conds = (card.conditions || []).map(c => CONDITION_LABELS[c] || c).join(' ; ');
+  const coutStr = Object.keys(card.cout || {}).length
+    ? Object.entries(card.cout).map(([k, v]) => `${v} ${k}`).join(', ')
+    : 'Gratuit';
+  ov.querySelector('.magouille-detail-title').textContent = card.nom;
+  ov.querySelector('.magouille-detail-desc').textContent = card.description;
+  ov.querySelector('.magouille-detail-meta').innerHTML = `
+    <div><strong>Coût :</strong> ${coutStr}</div>
+    ${conds ? `<div><strong>Conditions :</strong> ${conds}</div>` : ''}
+    ${card.phase_jouable ? `<div>Phase jouable : ${card.phase_jouable === 'any' ? 'Toute phase' : card.phase_jouable}</div>` : ''}
+    ${canPlay ? '' : `<div style="color:#e74c3c;margin-top:8px">⛔ ${reason || 'Non jouable'}</div>`}
+  `;
+  const actionsDiv = ov.querySelector('.magouille-detail-actions');
+  if (actionsDiv) {
+    actionsDiv.innerHTML = canPlay
+      ? `<button class="btn-primary" id="magouille-detail-play">Jouer cette carte</button>`
+      : '';
+    ov.querySelector('#magouille-detail-play')?.addEventListener('click', () => {
+      ov.classList.add('hidden');
+      if (onPlay) onPlay();
+    });
+  }
   ov.classList.remove('hidden');
 }
 
@@ -1460,25 +1551,33 @@ function showPlayCardModal(pid, currentPhase, refresh) {
     const card = MagouilleEngine.getCardDef(gameState, uid, cartesDef);
     if (!card) return '';
     const check = MagouilleEngine.canPlay(gameState, pid, uid, currentPhase, cartesDef);
-    return `<button class="op-btn magouille-card-btn" data-uid="${uid}" ${!check.ok ? 'disabled title="' + check.reason + '"' : ''} style="text-align:left;margin-bottom:6px">
+    return `<button class="op-btn magouille-card-btn" data-uid="${uid}" data-canplay="${check.ok}" data-reason="${(check.reason || '').replace(/"/g, '&quot;')}" style="text-align:left;margin-bottom:6px">
       <strong>${card.nom}</strong>${!check.ok ? ' ⛔' : ''}
-      <br><span style="font-size:11px;color:#aaa">${card.description.substring(0, 80)}…</span>
-      ${Object.keys(card.cout || {}).length ? `<br><span style="font-size:11px;color:#f8c48a">${Object.entries(card.cout).map(([k,v]) => `${v} ${k}`).join(', ')}</span>` : ''}
+      <br><span style="font-size:12px;color:#bbb">${card.description.substring(0, 90)}…</span>
+      ${Object.keys(card.cout || {}).length ? `<br><span style="font-size:12px;color:#f8c48a">${Object.entries(card.cout).map(([k,v]) => `${v} ${k}`).join(', ')}</span>` : ''}
     </button>`;
   }).join('');
 
   const html = `
     <h3>🃏 Jouer une carte Magouille</h3>
+    <p style="font-size:12px;color:#888;margin-bottom:8px">Cliquez sur une carte pour voir les détails complets, puis « Jouer » pour l'utiliser.</p>
     <div class="magouille-card-list">${cards}</div>
     <div class="modal-actions"><button class="btn-secondary" id="modal-cancel">Annuler</button><button class="btn-primary" id="modal-ok" style="display:none">OK</button></div>
   `;
 
   openModal(html, () => {});
 
-  document.querySelectorAll('.magouille-card-btn:not([disabled])').forEach(btn => {
+  document.querySelectorAll('.magouille-card-btn').forEach(btn => {
     btn.addEventListener('click', () => {
-      closeModal();
-      executeCardWithParams(pid, btn.dataset.uid, currentPhase, refresh);
+      const uid = btn.dataset.uid;
+      const card = MagouilleEngine.getCardDef(gameState, uid, cartesDef);
+      if (!card) return;
+      const canPlay = btn.dataset.canplay === 'true';
+      const reason = btn.dataset.reason || '';
+      showMagouilleCardDetail(card, canPlay, reason, () => {
+        closeModal();
+        executeCardWithParams(pid, uid, currentPhase, refresh);
+      });
     });
   });
 }
@@ -1948,7 +2047,15 @@ function renderLegend() {
 
 window._selectZone = id => { if (mapRenderer) mapRenderer.selectZone(id); };
 
+function initOverlays() {
+  initDictionaryOverlay();
+  const magOv = document.getElementById('magouille-detail-ov');
+  magOv?.addEventListener('click', e => { if (e.target === magOv) magOv.classList.add('hidden'); });
+  document.getElementById('magouille-detail-close')?.addEventListener('click', () => magOv?.classList.add('hidden'));
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
+  initOverlays();
   gameData = await loadGameData();
   const restored = parseRestoreFromHash();
   if (restored) {

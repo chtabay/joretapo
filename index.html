@@ -68,7 +68,7 @@
 
   /* ── Game Screen ── */
   #screen-game { flex-direction: column; }
-  #map-container { position: absolute; inset: 0; cursor: grab; }
+  #map-container { position: absolute; inset: 0; cursor: grab; touch-action: none; }
   #map-container.dragging { cursor: grabbing; }
   svg { display: block; }
 
@@ -91,9 +91,18 @@
   .curtain-player { font-size: 48px; font-weight: 700; text-shadow: 0 0 40px currentColor; }
 
   /* ── Order Panel ── */
-  #order-panel { position: fixed; top: 0; right: 0; width: 340px; height: 100vh; background: rgba(10,10,30,0.96); border-left: 1px solid #334; z-index: 50; display: flex; flex-direction: column; padding: 16px; overflow-y: auto; backdrop-filter: blur(8px); animation: slideRight 0.3s ease; }
+  #order-panel { position: fixed; top: 0; right: 0; width: 340px; height: 100vh; background: rgba(10,10,30,0.96); border-left: 1px solid #334; z-index: 50; display: flex; flex-direction: column; padding: 16px; overflow: hidden; backdrop-filter: blur(8px); animation: slideRight 0.3s ease; }
   #order-panel.hidden { display: none; }
-  .op-header { padding-bottom: 8px; border-bottom: 2px solid; margin-bottom: 8px; }
+  .op-header { display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 8px; border-bottom: 2px solid; margin-bottom: 8px; flex-shrink: 0; }
+  .op-header > div { display: flex; flex-direction: column; }
+  .op-scroll { flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+  .op-footer { flex-shrink: 0; padding-top: 12px; }
+  .op-toggle-map { background: rgba(255,255,255,0.06); border: 1px solid #445; color: #8ab4f8; width: 40px; height: 40px; border-radius: 8px; cursor: pointer; font-size: 18px; flex-shrink: 0; }
+  .op-toggle-map:hover { background: rgba(255,255,255,0.1); }
+  .op-fab { position: fixed; bottom: 24px; right: 24px; width: 56px; height: 56px; border-radius: 50%; background: #1e3a5f; border: 1px solid #5a8ab4; color: #8ab4f8; font-size: 24px; cursor: pointer; z-index: 45; box-shadow: 0 4px 12px rgba(0,0,0,0.4); }
+  .op-fab:hover { background: #2a4a7f; }
+  .op-fab.hidden { display: none !important; }
+  @media (min-width: 769px) { .op-toggle-map { display: none; } }
   .op-header strong { font-size: 18px; display: block; }
   .op-header span { font-size: 12px; color: #888; }
   .op-resources { display: flex; gap: 12px; padding: 8px 0; font-size: 14px; }
@@ -108,23 +117,25 @@
   .op-order { display: flex; justify-content: space-between; align-items: center; background: #1a1a2e; padding: 6px 10px; border-radius: 4px; font-size: 13px; }
   .op-remove { background: none; border: none; color: #e74c3c; cursor: pointer; font-size: 16px; padding: 2px 6px; }
   .op-hint { font-size: 11px; color: #666; font-style: italic; padding: 4px 2px; border-top: 1px solid #223; margin-top: 4px; }
-  .op-submit { margin-top: auto; width: 100%; }
+  .op-submit { width: 100%; }
 
   /* ── Modal ── */
   #order-modal { background: rgba(0,0,0,0.7); z-index: 200; }
-  .modal-content { background: #151528; border: 1px solid #445; border-radius: 10px; padding: 20px; width: 90%; max-width: 420px; }
+  .modal-content { background: #151528; border: 1px solid #445; border-radius: 10px; padding: 20px; width: 90%; max-width: 420px; display: flex; flex-direction: column; max-height: 90vh; overflow-y: auto; }
+  .modal-body { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; }
+  .modal-actions { flex-shrink: 0; margin-top: 16px; padding-top: 12px; border-top: 1px solid #334; }
   .modal-body h3 { font-size: 18px; color: #8ab4f8; margin-bottom: 12px; }
   .modal-cost-preview { margin-top: 10px; padding: 10px 14px; background: rgba(248,196,138,0.08); border: 1px solid #554422; border-radius: 6px; font-size: 14px; color: #f8c48a; }
   .modal-body label { display: block; font-size: 12px; text-transform: uppercase; color: #888; margin-top: 10px; margin-bottom: 4px; }
   .modal-body select, .modal-body input[type="number"] { width: 100%; padding: 8px 10px; background: #0d0d1e; border: 1px solid #334; border-radius: 4px; color: #e0e0e0; font-size: 14px; }
   .modal-body select:focus, .modal-body input:focus { outline: none; border-color: #5a8ab4; }
   .modal-prereq { font-size: 12px; color: #e74c3c; padding: 4px 0; min-height: 18px; }
-  .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 16px; }
+  .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 16px; flex-shrink: 0; position: sticky; bottom: 0; background: #151528; padding-top: 12px; z-index: 1; }
   .modal-actions .btn-primary, .modal-actions .btn-secondary { padding: 8px 20px; font-size: 14px; }
 
   /* ── Reveal Overlay ── */
   #reveal-ov, #negotiation-ov, #turnend-ov { background: rgba(5,5,20,0.95); flex-direction: column; }
-  .reveal-container, .nego-container, .turnend-container { width: 90%; max-width: 560px; max-height: 80vh; display: flex; flex-direction: column; }
+  .reveal-container, .nego-container, .turnend-container { width: 90%; max-width: 560px; max-height: 80vh; display: flex; flex-direction: column; overflow-y: auto; }
   .reveal-title, .nego-title { font-size: 24px; color: #8ab4f8; margin-bottom: 16px; text-align: center; }
   .reveal-body { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; padding-right: 8px; }
   .reveal-line { padding: 6px 10px; font-size: 13px; border-radius: 4px; background: rgba(255,255,255,0.02); animation: slideUp 0.2s ease both; }
@@ -141,7 +152,7 @@
   .reveal-empty { color: #555; font-style: italic; text-align: center; padding: 24px; }
   .reveal-summary { margin-top: 16px; padding-top: 12px; border-top: 1px solid #334; }
   .reveal-player { display: flex; align-items: center; gap: 8px; font-size: 13px; padding: 3px 0; }
-  .reveal-btn { text-align: center; margin-top: 20px; }
+  .reveal-btn { text-align: center; margin-top: 20px; position: sticky; bottom: 0; background: rgba(5,5,20,0.98); padding: 16px 0; }
   .victory-banner { font-size: 22px; font-weight: 700; text-align: center; padding: 20px; margin-top: 12px; animation: pulseGlow 2s infinite; border-radius: 8px; background: rgba(138,180,248,0.05); }
 
   /* ── Turn End ── */
@@ -166,9 +177,12 @@
   .election-title { font-size: 26px; color: #f8c48a; margin-bottom: 16px; text-align: center; letter-spacing: 2px; }
   .election-sub { font-size: 13px; color: #888; text-align: center; margin-bottom: 16px; }
   .vote-candidates { display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px; }
-  .vote-candidate { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border: 2px solid #334; border-radius: 8px; background: rgba(255,255,255,0.02); cursor: pointer; transition: all 0.2s; }
-  .vote-candidate:hover { background: rgba(255,255,255,0.06); border-color: #556; }
-  .vote-candidate.selected { border-color: #f8c48a; background: rgba(248,196,138,0.08); }
+  .vote-candidate { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border: 2px solid #445; border-radius: 8px; background: #1a1a2e; cursor: pointer; transition: all 0.2s; }
+  .vote-candidate:hover { background: #252540; border-color: #556; }
+  .vote-candidate.selected { border-color: #f8c48a; background: rgba(248,196,138,0.15); }
+  .btn-main { padding: 14px 28px; background: #1e3a5f; border: 1px solid #5a8ab4; border-radius: 6px; color: #8ab4f8; font-size: 16px; font-weight: 600; cursor: pointer; min-height: 48px; width: 100%; }
+  .btn-main:hover:not(:disabled) { background: #2a4a7f; }
+  .btn-main:disabled { opacity: 0.4; cursor: default; }
   .vote-candidate-dot { width: 14px; height: 14px; border-radius: 50%; flex-shrink: 0; }
   .vote-candidate-name { font-size: 16px; font-weight: 600; }
   .vote-candidate-info { font-size: 12px; color: #888; margin-left: auto; }
@@ -176,23 +190,28 @@
   .election-result-row { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 6px; background: rgba(255,255,255,0.02); }
   .election-bar { height: 6px; border-radius: 3px; transition: width 0.6s ease; }
   .election-winner-banner { font-size: 20px; font-weight: 700; text-align: center; padding: 16px; margin-top: 12px; color: #f8c48a; animation: pulseGlow 2s infinite; border-radius: 8px; background: rgba(248,196,138,0.05); }
+  .election-body .btn-main { position: sticky; bottom: 0; background: rgba(5,5,20,0.98); padding-top: 12px; margin-top: 12px; }
 
   /* ── Draft Magouille ── */
   .draft-card-list { display: flex; flex-direction: column; gap: 8px; max-height: 50vh; overflow-y: auto; padding-right: 4px; }
-  .draft-card { display: flex; gap: 10px; padding: 10px; border: 2px solid #334; border-radius: 8px; background: rgba(255,255,255,0.02); cursor: pointer; transition: all 0.2s; position: relative; }
-  .draft-card:hover { background: rgba(255,255,255,0.06); border-color: #556; }
-  .draft-card.draft-selected { border-color: #9b59b6; background: rgba(155,89,182,0.1); }
+  .draft-card { display: flex; gap: 10px; padding: 12px; border: 2px solid #445; border-radius: 8px; background: #1a1a2e; cursor: pointer; transition: all 0.2s; position: relative; }
+  .draft-card:hover { background: #252540; border-color: #556; }
+  .draft-card.draft-selected { border-color: #9b59b6; background: rgba(155,89,182,0.2); }
   .draft-card-img { width: 64px; height: 48px; object-fit: cover; border-radius: 4px; flex-shrink: 0; }
   .draft-card-placeholder { display: flex; align-items: center; justify-content: center; background: #1a1a2e; font-size: 24px; }
   .draft-card-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-  .draft-card-info strong { font-size: 13px; color: #eee; }
-  .draft-card-desc { font-size: 11px; color: #888; line-height: 1.3; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+  .draft-card-info strong { font-size: 14px; color: #eee; }
+  .draft-card-desc { font-size: 12px; color: #bbb; line-height: 1.4; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
   .draft-card-cost { font-size: 11px; color: #f8c48a; }
   .draft-check { position: absolute; top: 6px; right: 8px; color: #9b59b6; font-size: 18px; font-weight: 700; }
+  .draft-card-expand { position: absolute; top: 8px; right: 36px; background: rgba(155,89,182,0.2); border: 1px solid #9b59b6; border-radius: 4px; padding: 4px 8px; cursor: pointer; font-size: 14px; z-index: 1; }
+  .draft-card-expand:hover { background: rgba(155,89,182,0.4); }
 
   /* ── Magouille Play ── */
   .op-btn-magouille { background: rgba(155,89,182,0.12) !important; border-color: #9b59b6 !important; color: #c39bd3 !important; }
   .op-btn-magouille:hover { background: rgba(155,89,182,0.2) !important; }
+  .magouille-card-btn { background: #1a1a2e !important; border: 1px solid #445 !important; padding: 12px 14px !important; text-align: left !important; }
+  .magouille-card-btn:hover:not([disabled]) { background: #252540 !important; border-color: #9b59b6 !important; }
   .magouille-toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: #1a1a2e; color: #c39bd3; padding: 12px 24px; border-radius: 8px; border: 1px solid #9b59b6; font-weight: 600; z-index: 10000; animation: slideUp 0.4s ease, fadeIn 0.4s ease; pointer-events: none; }
 
   /* ── Mayor ── */
@@ -217,7 +236,8 @@
   .contract-cancel:hover { background: rgba(231,76,60,0.1); }
 
   /* ── Coupole ── */
-  .coupole-container { width: 90%; max-width: 480px; }
+  .coupole-container { width: 90%; max-width: 480px; max-height: 85vh; overflow-y: auto; display: flex; flex-direction: column; }
+  .coupole-body { flex: 1; min-height: 0; overflow-y: auto; }
   .coupole-title { font-size: 22px; color: #e74c3c; text-align: center; margin-bottom: 12px; }
   .coupole-sub { font-size: 13px; color: #888; text-align: center; margin-bottom: 16px; }
   .coupole-vote-row { display: flex; align-items: center; gap: 10px; padding: 8px 12px; background: rgba(255,255,255,0.03); border: 1px solid #334; border-radius: 6px; margin-bottom: 6px; }
@@ -231,6 +251,7 @@
   .coupole-result { text-align: center; padding: 16px; margin-top: 8px; border-radius: 8px; font-size: 16px; font-weight: 600; }
   .coupole-result.guilty { color: #e74c3c; background: rgba(231,76,60,0.08); }
   .coupole-result.acquitted { color: #2ecc71; background: rgba(46,204,113,0.08); }
+  .coupole-body .btn-primary { position: sticky; bottom: 0; background: rgba(5,5,20,0.98); padding-top: 12px; margin-top: 16px; }
   .contract-toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: #1a2a1e; color: #2ecc71; padding: 12px 24px; border-radius: 8px; border: 1px solid #2ecc71; font-weight: 600; z-index: 10000; animation: slideUp 0.4s ease, fadeIn 0.4s ease; pointer-events: none; }
   .coupole-toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: #2a1a1a; color: #e74c3c; padding: 12px 24px; border-radius: 8px; border: 1px solid #e74c3c; font-weight: 600; z-index: 10000; animation: slideUp 0.4s ease, fadeIn 0.4s ease; pointer-events: none; }
 
@@ -285,9 +306,29 @@
 
   /* ── Share modal ── */
   #share-ov { background: rgba(0,0,0,0.8); }
-  .share-container { max-width: 380px; }
+  .share-container { max-width: 380px; overflow-y: auto; }
   .share-sub { font-size: 13px; color: #888; margin-bottom: 16px; line-height: 1.4; }
   .share-qr { display: flex; justify-content: center; padding: 16px; background: #fff; border-radius: 8px; margin-bottom: 16px; min-height: 220px; }
+  .share-actions { flex-shrink: 0; position: sticky; bottom: 0; background: #151528; padding-top: 12px; }
+
+  /* ── Dictionnaire / Aide ── */
+  #dict-ov { background: rgba(0,0,0,0.8); z-index: 300; }
+  .dict-container { background: #151528; border: 1px solid #445; border-radius: 10px; padding: 24px; width: 90%; max-width: 480px; max-height: 85vh; overflow-y: auto; }
+  .dict-title { font-size: 20px; color: #8ab4f8; margin-bottom: 16px; }
+  .dict-body { font-size: 14px; line-height: 1.6; color: #ccc; }
+  .dict-body p { margin-bottom: 12px; }
+  .dict-body ol, .dict-body ul { margin: 8px 0 12px 20px; }
+  .dict-body li { margin-bottom: 4px; }
+  .dict-table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 13px; }
+  .dict-table th, .dict-table td { padding: 6px 10px; border: 1px solid #334; text-align: left; }
+  .dict-table th { background: #1a1a2e; color: #8ab4f8; }
+  .dict-player-card { padding: 10px; margin-bottom: 12px; border-left: 4px solid; background: rgba(255,255,255,0.03); border-radius: 4px; }
+
+  /* ── Carte magouille détail (agrandie) ── */
+  .magouille-detail-container { background: #151528; border: 1px solid #9b59b6; border-radius: 10px; padding: 20px; width: 90%; max-width: 420px; max-height: 85vh; overflow-y: auto; }
+  .magouille-detail-title { font-size: 18px; color: #c39bd3; margin-bottom: 12px; }
+  .magouille-detail-desc { font-size: 14px; line-height: 1.5; color: #ddd; margin-bottom: 12px; }
+  .magouille-detail-meta { font-size: 12px; color: #888; }
   .share-qr canvas, .share-qr img { border-radius: 4px; }
   .share-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
   .share-actions a { text-decoration: none; color: inherit; }
@@ -307,6 +348,9 @@
 
   #stats { position: fixed; top: 16px; left: 16px; background: rgba(10,10,30,0.92); border: 1px solid #334; border-radius: 8px; padding: 12px 16px; z-index: 10; font-size: 13px; backdrop-filter: blur(8px); }
   #stats h3 { font-size: 14px; margin-bottom: 4px; color: #8ab4f8; }
+  .hud-clickable { cursor: pointer; text-decoration: underline; text-decoration-style: dotted; text-underline-offset: 2px; }
+  .hud-clickable:hover { color: #8ab4f8; }
+  .hud-election-progress { font-size: 10px; color: #9b59b6; margin-top: 4px; }
   .hud-phase { font-size: 11px; color: #888; margin-bottom: 6px; }
   .hud-players { display: flex; flex-direction: column; gap: 3px; }
   .hud-player { display: flex; align-items: center; gap: 6px; font-size: 12px; }
@@ -322,6 +366,55 @@
   path.zone.adjacent { stroke: #ffcc00; stroke-width: 2; opacity: 1 !important; }
   path.zone.dimmed { opacity: 0.25 !important; }
   path.zone.quartier-highlight { opacity: 1 !important; stroke-width: 1.5; }
+
+  /* ── Mobile (usage secondaire, ne modifie pas le design tablette) ── */
+  @media (max-width: 768px) {
+    #screen-title h1 { font-size: 36px; letter-spacing: 6px; }
+    .title-sub { font-size: 12px; }
+    .title-buttons { gap: 10px; margin-top: 20px; }
+    .title-buttons .btn-primary, .title-buttons .btn-secondary { min-height: 44px; padding: 14px 24px; font-size: 15px; }
+
+    #setup-container { padding: 20px 16px; }
+    .setup-header h1 { font-size: 24px; }
+    .nb-btn { min-height: 44px; padding: 12px; }
+    .quartier-pick-btn { min-height: 44px; padding: 12px 14px; }
+    .draft-slot { min-width: 100%; }
+
+    #stats { top: 8px; left: 8px; padding: 10px 12px; font-size: 11px; max-width: calc(100vw - 20px); }
+    #stats h3 { font-size: 12px; }
+    .hud-phase { font-size: 10px; }
+    .hud-player { font-size: 11px; }
+    .hud-player-gold { min-width: 42px; }
+
+    #legend { bottom: 8px; left: 8px; padding: 10px 12px; font-size: 10px; max-width: calc(100vw - 20px); max-height: 40vh; }
+    #legend h3 { font-size: 12px; }
+    .panel-toggle { width: 32px; height: 32px; min-width: 32px; min-height: 32px; }
+
+    #info-panel { top: 8px; right: 8px; left: 8px; width: auto; max-width: none; padding: 12px; max-height: 50vh; }
+    #info-panel.shifted { right: 8px; left: 8px; }
+
+    #order-panel { width: 100%; right: 0; left: 0; padding: 16px; padding-bottom: max(20px, env(safe-area-inset-bottom)); }
+    .op-btn { min-height: 44px; padding: 12px 14px; font-size: 14px; }
+    .op-submit { min-height: 48px; }
+    .op-toggle-map { width: 44px; height: 44px; font-size: 20px; }
+    .op-fab { bottom: max(24px, env(safe-area-inset-bottom)); right: 16px; width: 56px; height: 56px; }
+    .op-toggle-map { display: flex; align-items: center; justify-content: center; }
+
+    .modal-content, .reveal-container, .nego-container, .turnend-container, .election-container, .reminder-container, .coupole-container { width: 95%; max-width: none; max-height: 85vh; }
+    .share-container { max-width: none; width: 95%; }
+    .share-qr { min-height: 180px; padding: 12px; }
+    .share-actions { gap: 10px; }
+    .btn-share { min-height: 44px; padding: 10px 16px; font-size: 14px; }
+
+    .curtain-turn { font-size: 28px; }
+    .curtain-player { font-size: 32px; }
+    .magouille-toast, .mayor-toast, .contract-toast, .coupole-toast, .heist-toast { font-size: 14px; padding: 10px 20px; left: 8px; right: 8px; transform: translateX(0); width: calc(100% - 16px); }
+
+    .btn-primary, .btn-secondary { min-height: 44px; padding: 14px 24px; }
+    .confirm-buttons .btn-primary, .confirm-buttons .btn-secondary { min-height: 44px; }
+    .reveal-btn { padding-bottom: max(16px, env(safe-area-inset-bottom)); }
+    .modal-actions { padding-bottom: env(safe-area-inset-bottom, 0); }
+  }
 </style>
 </head>
 <body>
@@ -372,6 +465,7 @@
 
   <!-- Order Panel (Phase 1 & 4) -->
   <div id="order-panel" class="hidden"></div>
+  <button type="button" id="op-fab" class="op-fab hidden" title="Mes ordres">📋</button>
 
   <!-- Modal -->
   <div id="order-modal" class="overlay hidden">
@@ -401,7 +495,7 @@
     <div class="nego-container">
       <div class="nego-title">Phase de négociation</div>
       <div class="nego-sub">Discutez entre joueurs : accords, menaces, alliances, contrats…<br>Le plateau est visible derrière cet écran.</div>
-      <button class="btn-primary" id="btn-end-nego">Fin des négociations</button>
+      <div class="reveal-btn"><button class="btn-primary" id="btn-end-nego">Fin des négociations</button></div>
     </div>
   </div>
 
@@ -433,6 +527,26 @@
     <div class="turnend-container">
       <div class="turnend-body"></div>
       <div class="reveal-btn"><button class="btn-primary" id="btn-next-turn">Tour suivant</button></div>
+    </div>
+  </div>
+
+  <!-- Dictionnaire du jeu -->
+  <div id="dict-ov" class="overlay hidden">
+    <div class="dict-container" onclick="event.stopPropagation()">
+      <h2 class="dict-title"></h2>
+      <div class="dict-body"></div>
+      <div style="margin-top:20px"><button class="btn-primary" id="dict-close">Fermer</button></div>
+    </div>
+  </div>
+
+  <!-- Carte magouille détail (clic pour agrandir) -->
+  <div id="magouille-detail-ov" class="overlay hidden">
+    <div class="magouille-detail-container" onclick="event.stopPropagation()">
+      <h3 class="magouille-detail-title"></h3>
+      <div class="magouille-detail-desc"></div>
+      <div class="magouille-detail-meta"></div>
+      <div class="magouille-detail-actions" style="margin-top:16px;display:flex;gap:10px"></div>
+      <button class="btn-secondary" id="magouille-detail-close" style="margin-top:12px">Fermer</button>
     </div>
   </div>
 
