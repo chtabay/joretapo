@@ -266,8 +266,21 @@
   #info-panel .adj-list { margin-top: 8px; font-size: 12px; }
   #info-panel .adj-list span { display: inline-block; background: #223; padding: 1px 6px; border-radius: 3px; margin: 2px; cursor: pointer; transition: background 0.15s; }
   #info-panel .adj-list span:hover { background: #445; }
-  #info-panel .gang-info { margin-top: 8px; padding: 8px; background: rgba(255,255,255,0.05); border-radius: 4px; font-size: 12px; }
+  #info-panel .gang-info { margin-top: 8px; padding: 8px; background: rgba(255,255,255,0.05); border-radius: 4px; font-size: 12px; transition: background 0.15s; }
+  #info-panel .gang-info:hover { background: rgba(248,196,138,0.12); }
   #info-panel .gang-name { font-weight: 700; color: #f8c48a; margin-bottom: 4px; }
+  .gang-more { font-size: 10px; color: #8ab4f8; margin-top: 4px; text-decoration: underline; opacity: 0.7; }
+  .gang-more:hover { opacity: 1; }
+  .gang-modal-quartier { font-size: 13px; color: #aaa; margin-bottom: 12px; }
+  .gang-modal-effect { font-size: 14px; color: #ddd; line-height: 1.5; padding: 12px; background: rgba(248,196,138,0.08); border-left: 3px solid #f8c48a; border-radius: 4px; margin-bottom: 12px; }
+  .gang-modal-details { margin-bottom: 12px; }
+  .gang-modal-details .stat-row { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; font-size: 13px; border-bottom: 1px solid #222; }
+  .gang-modal-details .stat-row:last-child { border-bottom: none; }
+  .gang-modal-howto { background: rgba(138,180,248,0.06); border-radius: 6px; padding: 12px; margin-bottom: 12px; }
+  .gang-modal-howto ol { margin: 8px 0 0; padding-left: 20px; font-size: 13px; color: #bbb; line-height: 1.6; }
+  .gang-modal-howto li { margin-bottom: 4px; }
+  .gang-modal-status { font-size: 12px; padding: 8px; border-radius: 4px; margin-bottom: 12px; text-align: center; }
+  .gang-modal-status.active { background: rgba(46,204,113,0.1); border: 1px solid #2ecc7144; }
   #info-panel .facilite-tag { display: inline-block; padding: 2px 8px; border-radius: 3px; background: #3a2a10; color: #f8d48a; font-size: 11px; font-weight: 600; margin-bottom: 8px; }
   .section-title { font-size: 11px; text-transform: uppercase; color: #666; margin-top: 10px; margin-bottom: 4px; letter-spacing: 1px; }
 

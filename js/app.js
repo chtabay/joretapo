@@ -268,8 +268,10 @@ function openModal(html, onSubmit) {
   const modal = document.getElementById('order-modal');
   modal.querySelector('.modal-body').innerHTML = html;
   modal.classList.remove('hidden');
-  modal.querySelector('#modal-cancel').onclick = () => closeModal();
-  modal.querySelector('#modal-ok').onclick = () => { closeModal(); onSubmit(); };
+  const cancelBtn = modal.querySelector('#modal-cancel');
+  if (cancelBtn) cancelBtn.onclick = () => closeModal();
+  const okBtn = modal.querySelector('#modal-ok');
+  if (okBtn && onSubmit) okBtn.onclick = () => { closeModal(); onSubmit(); };
 }
 
 function closeModal() {
@@ -1712,7 +1714,10 @@ function renderInfoPanel(id) {
       <div class="stat-row"><span class="stat-label">Pop./zone</span><span class="stat-value">${(q.population_par_zone / 1000).toFixed(0)}k</span></div>`;
     const g = q.gang;
     const dur = g.duree === -1 ? 'permanent' : g.duree === 0 ? 'instantané' : `${g.duree} tours`;
-    document.getElementById('info-gang').innerHTML = `<div class="gang-name">${g.nom}</div><div>${g.effet.replace(/_/g, ' ')} · ${dur}</div>`;
+    const gangEl = document.getElementById('info-gang');
+    gangEl.innerHTML = `<div class="gang-name">${g.nom}</div><div>${g.effet.replace(/_/g, ' ')} · ${dur}</div><div class="gang-more">ℹ Plus d'infos</div>`;
+    gangEl.style.cursor = 'pointer';
+    gangEl.onclick = () => showGangInfoModal(q);
   } else {
     document.getElementById('info-stats').innerHTML = '';
     document.getElementById('info-gang').innerHTML = '';
@@ -1754,6 +1759,114 @@ function renderInfoPanel(id) {
     ? `<div class="section-title">Adjacences (${adj.length})</div>` + adj.map(a => `<span onclick="window._selectZone('${a}')">${a}</span>`).join('') : '';
 
   panel.classList.remove('hidden');
+}
+
+const GANG_DESCRIPTIONS = {
+  bloquer_ventes_armes: {
+    desc: 'Bloque toutes les ventes d\'armes sur les points d\'approvisionnement pendant la durée de l\'effet. Aucun joueur ne peut acheter d\'armes.',
+    icon: '🔫'
+  },
+  eliminer_3_pions: {
+    desc: 'Éliminez immédiatement jusqu\'à 3 pions ennemis de votre choix, partout sur le plateau. Effet instantané et dévastateur.',
+    icon: '💀'
+  },
+  revente_marchandises: {
+    desc: 'Permet de revendre vos doses et armes à tout moment au prix du marché. Effet permanent tant que vous contrôlez le quartier.',
+    icon: '💱'
+  },
+  bloquer_ordres: {
+    desc: 'Bloque tous les ordres d\'un joueur ciblé pendant la durée de l\'effet. Le joueur ne peut plus passer aucun ordre.',
+    icon: '🚫'
+  },
+  restriction_ethnie_caucasien_asiatique: {
+    desc: 'Interdit le recrutement de pions caucasiens et asiatiques dans tout le quartier. Restriction permanente tant que le gang est actif.',
+    icon: '🚷'
+  },
+  voler_action_maire: {
+    desc: 'Volez une action de maire au joueur qui en est le titulaire. Si personne n\'est maire, l\'effet est perdu.',
+    icon: '🏛️'
+  },
+  actions_supplementaires: {
+    desc: 'Vous octroie 2 ordres supplémentaires par tour, de manière permanente. Un avantage stratégique majeur.',
+    icon: '⚡'
+  },
+  restriction_ethnie_non_asiatique_non_italien: {
+    desc: 'Interdit le recrutement de pions non-asiatiques et non-italiens dans le quartier. Restriction permanente.',
+    icon: '🚷'
+  },
+  immunite_restrictions_ethniques: {
+    desc: 'Immunise tous vos pions contre les restrictions ethniques imposées par les autres gangs. Effet permanent.',
+    icon: '🛡️'
+  },
+  eliminer_prostituees_quartier_voisin: {
+    desc: 'Élimine toutes les prostituées ennemies dans un quartier voisin de votre choix. Effet instantané.',
+    icon: '💃'
+  },
+  racket_etablissements: {
+    desc: 'Percevez immédiatement les revenus de tous les établissements d\'un quartier ciblé, même s\'ils ne vous appartiennent pas.',
+    icon: '💰'
+  },
+  casino_gratuit: {
+    desc: 'Construisez un casino gratuitement sur une zone que vous contrôlez. Normalement le casino coûte extrêmement cher.',
+    icon: '🎰'
+  },
+  bloquer_approvisionnements: {
+    desc: 'Bloque tous les approvisionnements (denrées, armes, doses) pendant la durée de l\'effet. Aucun joueur ne peut s\'approvisionner.',
+    icon: '📦'
+  },
+  restriction_ethnie_non_caucasien: {
+    desc: 'Interdit le recrutement de pions non-caucasiens dans le quartier. Restriction permanente tant que le gang est actif.',
+    icon: '🚷'
+  },
+  bloquer_deplacements_manhattan: {
+    desc: 'Bloque tous les déplacements de pions vers Manhattan pendant la durée de l\'effet. Un blocus stratégique redoutable.',
+    icon: '🚕'
+  }
+};
+
+function showGangInfoModal(quartier) {
+  const g = quartier.gang;
+  const dur = g.duree === -1 ? 'Permanent' : g.duree === 0 ? 'Instantané' : `${g.duree} tours`;
+  const info = GANG_DESCRIPTIONS[g.effet] || { desc: g.effet.replace(/_/g, ' '), icon: '🔫' };
+
+  let statusHtml = '';
+  if (gameState) {
+    const gangActif = gameState.gangs_actifs[quartier.id];
+    if (gangActif) {
+      const owner = gameState.joueurs[gangActif.joueur];
+      statusHtml = `<div class="gang-modal-status active"><span style="color:${owner.couleur}">✔ Activé par ${owner.nom}</span> (tour ${gangActif.tour_activation})</div>`;
+    } else {
+      const owner = gameState.getQuartierOwner(quartier.id, gameData.gameplay);
+      if (owner !== null) {
+        const j = gameState.joueurs[owner];
+        const canActivate = gameState.tour >= 10;
+        statusHtml = `<div class="gang-modal-status"><span style="color:${j.couleur}">${j.nom}</span> contrôle ce quartier${canActivate ? ' — <strong>peut activer</strong>' : ' — activable après le tour 10'}</div>`;
+      } else {
+        statusHtml = `<div class="gang-modal-status">Aucun joueur ne contrôle ce quartier</div>`;
+      }
+    }
+  }
+
+  const html = `
+    <h3>${info.icon} ${g.nom}</h3>
+    <div class="gang-modal-quartier">Quartier : <strong>${quartier.nom}</strong> (${quartier.zones.length} zones, ${quartier.points} pts)</div>
+    <div class="gang-modal-effect">${info.desc}</div>
+    <div class="gang-modal-details">
+      <div class="stat-row"><span class="stat-label">Durée</span><span class="stat-value">${dur}</span></div>
+      <div class="stat-row"><span class="stat-label">Usage unique</span><span class="stat-value">${g.usage_unique ? 'Oui — une seule activation' : 'Non — réutilisable'}</span></div>
+    </div>
+    <div class="gang-modal-howto">
+      <div class="section-title">Comment obtenir un gang ?</div>
+      <ol>
+        <li><strong>Contrôler toutes les zones</strong> du quartier (avoir au moins un pion ou être propriétaire de chaque zone)</li>
+        <li><strong>Attendre le tour 10</strong> — les gangs ne sont activables qu'à partir du 10ᵉ tour</li>
+        <li><strong>Utiliser une action</strong> pendant la phase d'ordres pour activer le gang</li>
+      </ol>
+    </div>
+    ${statusHtml}
+    <div class="modal-actions"><button class="btn-primary" id="modal-cancel">Fermer</button></div>`;
+
+  openModal(html, null);
 }
 
 function renderLegend() {
