@@ -83,8 +83,9 @@
   .overlay:not(.hidden) .reveal-container, .overlay:not(.hidden) .nego-container, .overlay:not(.hidden) .turnend-container, .overlay:not(.hidden) .modal-content { animation: slideUp 0.3s ease; }
 
   /* ── Curtain ── */
-  #curtain { background: #0a0a1a; flex-direction: column; gap: 24px; }
+  #curtain { background: #0a0a1a; flex-direction: column; gap: 20px; }
   #curtain:not(.hidden) { animation: fadeIn 0.4s ease; }
+  .curtain-turn { font-size: 42px; font-weight: 800; color: #8ab4f8; letter-spacing: 3px; opacity: 0.7; }
   .curtain-phase { font-size: 14px; color: #666; letter-spacing: 2px; text-transform: uppercase; }
   .curtain-label { font-size: 18px; color: #888; }
   .curtain-player { font-size: 48px; font-weight: 700; text-shadow: 0 0 40px currentColor; }
@@ -141,6 +142,23 @@
   .reveal-player { display: flex; align-items: center; gap: 8px; font-size: 13px; padding: 3px 0; }
   .reveal-btn { text-align: center; margin-top: 20px; }
   .victory-banner { font-size: 22px; font-weight: 700; text-align: center; padding: 20px; margin-top: 12px; animation: pulseGlow 2s infinite; border-radius: 8px; background: rgba(138,180,248,0.05); }
+
+  /* ── Turn End ── */
+  .turnend-header { text-align: center; margin-bottom: 16px; }
+  .turnend-tour { font-size: 36px; font-weight: 800; color: #8ab4f8; letter-spacing: 2px; }
+  .turnend-subtitle { font-size: 13px; color: #666; text-transform: uppercase; letter-spacing: 3px; }
+  .turnend-rankings { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
+  .turnend-rank { display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: rgba(255,255,255,0.03); border-left: 4px solid; border-radius: 6px; }
+  .turnend-rank:first-child { background: rgba(255,215,0,0.06); }
+  .turnend-rank-medal { font-size: 20px; width: 28px; text-align: center; }
+  .turnend-rank-info { flex: 1; }
+  .turnend-rank-name { font-weight: 700; font-size: 15px; }
+  .turnend-rank-detail { font-size: 11px; color: #666; }
+  .turnend-rank-pts { font-size: 22px; font-weight: 800; color: #f8c48a; font-family: monospace; }
+  .turnend-rank-pts small { font-size: 11px; font-weight: 400; }
+  .turnend-rank-res { font-size: 11px; color: #888; display: flex; gap: 6px; min-width: 110px; justify-content: flex-end; }
+  .turnend-recap { margin-top: 8px; padding: 10px; background: rgba(255,255,255,0.02); border-radius: 6px; }
+  .turnend-recap-player { padding: 4px 8px; font-size: 12px; margin-bottom: 3px; border-radius: 3px; }
 
   /* ── Election ── */
   .election-container { width: 90%; max-width: 520px; max-height: 80vh; display: flex; flex-direction: column; overflow-y: auto; }
@@ -232,8 +250,9 @@
   .panel-body { transition: max-height 0.25s ease, opacity 0.2s; overflow: hidden; }
   .panel-body.collapsed { max-height: 0 !important; opacity: 0; margin-top: 0 !important; }
 
-  #info-panel { position: fixed; top: 16px; right: 16px; width: 300px; background: rgba(10,10,30,0.92); border: 1px solid #334; border-radius: 8px; padding: 16px; z-index: 10; backdrop-filter: blur(8px); transition: opacity 0.2s; max-height: calc(100vh - 32px); overflow-y: auto; }
+  #info-panel { position: fixed; top: 16px; right: 16px; width: 300px; background: rgba(10,10,30,0.95); border: 1px solid #445; border-radius: 8px; padding: 16px; z-index: 60; backdrop-filter: blur(10px); transition: opacity 0.2s, right 0.3s; max-height: calc(100vh - 32px); overflow-y: auto; box-shadow: 0 4px 24px rgba(0,0,0,0.5); }
   #info-panel.hidden { opacity: 0; pointer-events: none; }
+  #info-panel.shifted { right: 356px; }
   #info-panel h2 { font-size: 16px; color: #8ab4f8; margin-bottom: 4px; }
   #info-panel .id-badge { display: inline-block; background: #334; padding: 2px 8px; border-radius: 4px; font-family: monospace; font-size: 13px; margin-bottom: 8px; }
   #info-panel .quartier-badge { display: inline-block; padding: 3px 10px; border-radius: 4px; font-size: 12px; font-weight: 600; margin-bottom: 8px; }
@@ -336,6 +355,7 @@
 
   <!-- Curtain -->
   <div id="curtain" class="overlay hidden">
+    <div class="curtain-turn"></div>
     <div class="curtain-phase"></div>
     <div class="curtain-label">Passez la tablette à</div>
     <div class="curtain-player"></div>

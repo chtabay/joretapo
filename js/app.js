@@ -16,6 +16,7 @@ let gameState = null;
 let mapRenderer = null;
 let turnManager = null;
 let pendingOrders = [];
+let turnLog = [];
 
 async function loadGameData() {
   const [geoRes, adjRes, gameRes, cartesRes] = await Promise.all([
@@ -46,6 +47,7 @@ function showScreen(id) {
 function hideAllOverlays() {
   document.querySelectorAll('.overlay').forEach(o => o.classList.add('hidden'));
   document.getElementById('order-panel')?.classList.add('hidden');
+  document.getElementById('info-panel')?.classList.remove('shifted');
 }
 
 /* ── Title Screen ── */
@@ -157,6 +159,7 @@ function renderCurtain() {
   const ov = document.getElementById('curtain');
   const j = turnManager.currentPlayer;
   const phaseNum = gameState.phase;
+  ov.querySelector('.curtain-turn').textContent = `Tour ${gameState.tour}`;
   ov.querySelector('.curtain-player').textContent = j.nom;
   ov.querySelector('.curtain-player').style.color = j.couleur;
   ov.querySelector('.curtain-phase').textContent = GAME_PHASE_LABELS[phaseNum];
@@ -169,6 +172,7 @@ function renderCurtain() {
 /* ── Order Panel (Phase 1 & 4) ── */
 function renderOrderPanel(gamePhase) {
   const panel = document.getElementById('order-panel');
+  document.getElementById('info-panel')?.classList.add('shifted');
   const pid = turnManager.currentPlayerId;
   const j = gameState.joueurs[pid];
   const maxOrders = turnManager.maxOrdersForPhase(pid);
@@ -396,15 +400,16 @@ function showMoveModal(pid, refresh) {
 
   function getAdjOptions() {
     if (!selectedPion) return '';
-    return (gameData.adjacencies[selectedPion.zid] || []).map(a =>
-      `<option value="${a}">${a} — ${gameData.gameplay.zones[a]?.nom || a}</option>`
-    ).join('');
+    return (gameData.adjacencies[selectedPion.zid] || []).map(a => {
+      const zn = gameData.gameplay.zones[a]?.nom || a;
+      return `<option value="${a}">${a} — ${zn}</option>`;
+    }).join('');
   }
 
   const html = `
     <h3>Déplacement</h3>
     <label>Pion :</label>
-    <select id="f-pion">${myPions.map((p, i) => `<option value="${i}">${p.type.replace(/_/g, ' ')} @ ${p.zid}</option>`).join('')}</select>
+    <select id="f-pion">${myPions.map((p, i) => `<option value="${i}">${p.type.replace(/_/g, ' ')} @ ${p.zid} — ${gameData.gameplay.zones[p.zid]?.nom || ''}</option>`).join('')}</select>
     <label>Destination :</label>
     <select id="f-dest">${getAdjOptions()}</select>
     <label style="margin-top:10px;display:flex;align-items:center;gap:8px;cursor:pointer">
@@ -1211,6 +1216,7 @@ function processAndShowResolve() {
 
 /* ── Reveal overlay (shared) ── */
 function showRevealOverlay(title, log, onContinue) {
+  turnLog.push(...log);
   const ov = document.getElementById('reveal-ov');
   ov.querySelector('.reveal-title').textContent = title;
   const body = ov.querySelector('.reveal-body');
@@ -1505,7 +1511,7 @@ function showCardTargetPionModal(pid, uid, card, refresh) {
   if (allPions.length === 0) { showMagouilleToast('Aucun pion ciblable'); return; }
 
   const html = `<h3>🃏 ${card.nom}</h3><label>Pion ciblé :</label>
-    <select id="f-target-pion">${allPions.map((p, i) => `<option value="${i}">${p.type} sur ${p.zone} (${gameState.joueurs[p.joueur]?.nom || 'neutre'})</option>`).join('')}</select>
+    <select id="f-target-pion">${allPions.map((p, i) => `<option value="${i}">${p.type} sur ${p.zone} — ${gameData.gameplay.zones[p.zone]?.nom || ''} (${gameState.joueurs[p.joueur]?.nom || 'neutre'})</option>`).join('')}</select>
     <div class="modal-actions"><button class="btn-secondary" id="modal-cancel">Annuler</button><button class="btn-primary" id="modal-ok">Confirmer</button></div>`;
   openModal(html, () => {
     const sel = allPions[Number(document.getElementById('f-target-pion').value)];
@@ -1538,8 +1544,8 @@ function showCardTeleportModal(pid, uid, card, refresh) {
   if (myPions.length === 0) { showMagouilleToast('Aucun pion à téléporter'); return; }
   const allZones = Object.keys(gameState.plateau);
   const html = `<h3>🃏 ${card.nom}</h3>
-    <label>Pion :</label><select id="f-pion">${myPions.map((p, i) => `<option value="${i}">${p.type} sur ${p.zone}</option>`).join('')}</select>
-    <label>Destination :</label><select id="f-dest">${allZones.map(z => `<option value="${z}">${z}</option>`).join('')}</select>
+    <label>Pion :</label><select id="f-pion">${myPions.map((p, i) => `<option value="${i}">${p.type} sur ${p.zone} — ${gameData.gameplay.zones[p.zone]?.nom || ''}</option>`).join('')}</select>
+    <label>Destination :</label><select id="f-dest">${allZones.map(z => `<option value="${z}">${z} — ${gameData.gameplay.zones[z]?.nom || z}</option>`).join('')}</select>
     <div class="modal-actions"><button class="btn-secondary" id="modal-cancel">Annuler</button><button class="btn-primary" id="modal-ok">Téléporter</button></div>`;
   openModal(html, () => {
     const sel = myPions[Number(document.getElementById('f-pion').value)];
@@ -1601,15 +1607,51 @@ function renderTurnEnd() {
   const body = ov.querySelector('.turnend-body');
   const active = ContractEngine.getActiveContracts(gameState);
 
-  body.innerHTML = `<h2>Fin du tour ${gameState.tour}</h2>` +
-    gameState.joueurs.map(j => {
-      const pts = gameState.getPlayerPoints(j.id, gameData.gameplay);
-      return `<div class="reveal-player"><span class="hud-player-dot" style="background:${j.couleur}"></span>
-        <strong>${j.nom}</strong> — <span class="hud-player-pts">${pts} pts</span> · ${j.ressources.lingots}L · ${j.ressources.armes}A · ${j.ressources.doses}D</div>`;
-    }).join('');
+  const rankings = gameState.joueurs.map(j => ({
+    ...j,
+    pts: gameState.getPlayerPoints(j.id, gameData.gameplay)
+  })).sort((a, b) => b.pts - a.pts);
+
+  let html = `<div class="turnend-header">
+    <div class="turnend-tour">Tour ${gameState.tour}</div>
+    <div class="turnend-subtitle">Bilan de fin de tour</div>
+  </div>`;
+
+  html += `<div class="turnend-rankings">` +
+    rankings.map((j, i) => {
+      const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}.`;
+      const zones = Object.values(gameState.plateau).filter(z => z.proprietaire === j.id).length;
+      const quartiers = gameData.gameplay.quartiers.filter(q => gameState.getQuartierOwner(q.id, gameData.gameplay) === j.id);
+      return `<div class="turnend-rank" style="border-color:${j.couleur}">
+        <div class="turnend-rank-medal">${medal}</div>
+        <div class="turnend-rank-info">
+          <div class="turnend-rank-name" style="color:${j.couleur}">${j.nom}</div>
+          <div class="turnend-rank-detail">${zones} zones · ${quartiers.length} quartier${quartiers.length > 1 ? 's' : ''}</div>
+        </div>
+        <div class="turnend-rank-pts">${j.pts} <small>pts</small></div>
+        <div class="turnend-rank-res">💰${j.ressources.lingots} 🔫${j.ressources.armes} 💊${j.ressources.doses}</div>
+      </div>`;
+    }).join('') + `</div>`;
+
+  if (turnLog.length > 0) {
+    const byPlayer = {};
+    turnLog.forEach(e => {
+      const k = e.pid >= 0 ? e.pid : -1;
+      if (!byPlayer[k]) byPlayer[k] = [];
+      byPlayer[k].push(e);
+    });
+    html += `<div class="turnend-recap"><div class="section-title">Récapitulatif du tour (${turnLog.length} événements)</div>`;
+    for (const [pid, entries] of Object.entries(byPlayer)) {
+      const joueur = pid >= 0 ? gameState.joueurs[pid] : null;
+      const name = joueur ? joueur.nom : 'Général';
+      const color = joueur ? joueur.couleur : '#888';
+      html += `<div class="turnend-recap-player" style="border-left:3px solid ${color}"><strong style="color:${color}">${name}</strong> · ${entries.length} action${entries.length > 1 ? 's' : ''}</div>`;
+    }
+    html += `</div>`;
+  }
 
   if (active.length > 0) {
-    body.innerHTML += `<div class="section-title" style="margin-top:12px">📜 Contrats actifs (${active.length})</div>` +
+    html += `<div class="section-title" style="margin-top:12px">📜 Contrats actifs (${active.length})</div>` +
       active.map(c => {
         const jA = gameState.joueurs[c.joueur_a];
         const jB = gameState.joueurs[c.joueur_b];
@@ -1620,13 +1662,15 @@ function renderTurnEnd() {
 
   const winner = gameState.joueurs.find(j => gameState.getPlayerPoints(j.id, gameData.gameplay) >= 55);
   if (winner) {
-    body.innerHTML += `<div class="victory-banner" style="color:${winner.couleur}">🏆 ${winner.nom} remporte la partie avec ${gameState.getPlayerPoints(winner.id, gameData.gameplay)} points !</div>`;
+    html += `<div class="victory-banner" style="color:${winner.couleur}">🏆 ${winner.nom} remporte la partie avec ${gameState.getPlayerPoints(winner.id, gameData.gameplay)} points !</div>`;
   }
+
+  body.innerHTML = html;
 
   ov.querySelector('#btn-next-turn').textContent = winner ? 'Retour au menu' : 'Tour suivant';
   ov.querySelector('#btn-next-turn').onclick = () => {
     ov.classList.add('hidden');
-    if (winner) { renderTitleScreen(); } else { turnManager.nextTurn(); }
+    if (winner) { renderTitleScreen(); } else { turnLog = []; turnManager.nextTurn(); }
   };
   ov.classList.remove('hidden');
 }

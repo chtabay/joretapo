@@ -114,6 +114,7 @@ export class MapRenderer {
     this.svg.style.background = '#0a0a1a';
 
     this.gZones = document.createElementNS(NS, 'g');
+    this.gQuartierBorders = document.createElementNS(NS, 'g');
     this.gLabels = document.createElementNS(NS, 'g');
     this.pionsGroup = document.createElementNS(NS, 'g');
 
@@ -138,18 +139,36 @@ export class MapRenderer {
       const [cx, cy] = this._centroid(f);
       const text = document.createElementNS(NS, 'text');
       text.setAttribute('x', cx.toFixed(1));
-      text.setAttribute('y', cy.toFixed(1));
+      text.setAttribute('y', (cy - 1.5).toFixed(1));
       text.setAttribute('text-anchor', 'middle');
       text.setAttribute('dominant-baseline', 'central');
-      text.setAttribute('font-size', '5.5');
-      text.setAttribute('fill', 'rgba(255,255,255,0.7)');
+      text.setAttribute('font-size', '5');
+      text.setAttribute('fill', 'rgba(255,255,255,0.8)');
       text.setAttribute('font-family', 'system-ui, sans-serif');
+      text.setAttribute('font-weight', '600');
       text.setAttribute('pointer-events', 'none');
       text.textContent = id;
       this.gLabels.appendChild(text);
+
+      const zoneData = this.gameplay.zones[id];
+      if (zoneData) {
+        const shortName = zoneData.nom.split(',')[0].trim();
+        const sub = document.createElementNS(NS, 'text');
+        sub.setAttribute('x', cx.toFixed(1));
+        sub.setAttribute('y', (cy + 2).toFixed(1));
+        sub.setAttribute('text-anchor', 'middle');
+        sub.setAttribute('dominant-baseline', 'central');
+        sub.setAttribute('font-size', '2.8');
+        sub.setAttribute('fill', 'rgba(255,255,255,0.45)');
+        sub.setAttribute('font-family', 'system-ui, sans-serif');
+        sub.setAttribute('pointer-events', 'none');
+        sub.textContent = shortName;
+        this.gLabels.appendChild(sub);
+      }
     });
 
     this.svg.appendChild(this.gZones);
+    this.svg.appendChild(this.gQuartierBorders);
     this.svg.appendChild(this.gLabels);
     this.svg.appendChild(this.pionsGroup);
 
@@ -257,7 +276,56 @@ export class MapRenderer {
         path.setAttribute('stroke-width', '1.2');
       } else {
         path.setAttribute('fill', path.getAttribute('data-base-fill'));
+        const q = this.zoneToQuartier[zid];
+        const colors = q ? QUARTIER_COLORS[q.id] : { stroke: '#555' };
+        path.setAttribute('stroke', colors.stroke);
         path.setAttribute('stroke-width', '0.8');
+      }
+    });
+
+    this._updateQuartierDomination(gameState);
+  }
+
+  _updateQuartierDomination(gameState) {
+    while (this.gQuartierBorders.firstChild) this.gQuartierBorders.removeChild(this.gQuartierBorders.firstChild);
+
+    this.gameplay.quartiers.forEach(q => {
+      const owner = gameState.getQuartierOwner(q.id, this.gameplay);
+      if (owner === null) return;
+
+      const joueur = gameState.joueurs[owner];
+      if (!joueur) return;
+
+      q.zones.forEach(zid => {
+        const path = this.pathMap[zid];
+        if (!path) return;
+        const border = document.createElementNS(NS, 'path');
+        border.setAttribute('d', path.getAttribute('d'));
+        border.setAttribute('fill', 'none');
+        border.setAttribute('stroke', joueur.couleur);
+        border.setAttribute('stroke-width', '3');
+        border.setAttribute('opacity', '0.9');
+        border.setAttribute('pointer-events', 'none');
+        border.setAttribute('stroke-dasharray', '6,2');
+        this.gQuartierBorders.appendChild(border);
+      });
+
+      const firstFeature = this.featureMap[q.zones[0]];
+      if (firstFeature) {
+        const [cx, cy] = this._centroid(firstFeature);
+        const badge = document.createElementNS(NS, 'text');
+        badge.setAttribute('x', cx.toFixed(1));
+        badge.setAttribute('y', (cy - 8).toFixed(1));
+        badge.setAttribute('text-anchor', 'middle');
+        badge.setAttribute('dominant-baseline', 'central');
+        badge.setAttribute('font-size', '4');
+        badge.setAttribute('fill', joueur.couleur);
+        badge.setAttribute('font-family', 'system-ui, sans-serif');
+        badge.setAttribute('font-weight', '700');
+        badge.setAttribute('pointer-events', 'none');
+        badge.setAttribute('opacity', '0.85');
+        badge.textContent = `★ ${joueur.nom}`;
+        this.gQuartierBorders.appendChild(badge);
       }
     });
   }
