@@ -400,18 +400,35 @@ function closeModal() {
 
 function showSupplyModal(pid, refresh) {
   const sps = RevenueEngine.getSupplyPoints(gameData.gameplay).filter(sp => sp.type !== 'camp_gitans' || sp.caps.armes > 0);
-  const denrees = [
-    { id: 'doses', label: 'Doses', prix: 2 },
-    { id: 'armes', label: 'Armes', prix: 4 }
+  const allDenrees = [
+    { id: 'doses', label: 'Doses', prix: 2, capKey: 'doses' },
+    { id: 'armes', label: 'Armes', prix: 4, capKey: 'armes' }
   ];
   const j = gameState.joueurs[pid];
+
+  function getDenreesForPoint(pointId) {
+    const sp = sps.find(s => s.zone === pointId);
+    if (!sp) return [];
+    const isGitan = pointId.startsWith('ile_');
+    return allDenrees.filter(d => (sp.caps[d.capKey] || 0) > 0).map(d => ({
+      ...d,
+      stock: sp.caps[d.capKey] === Infinity ? '∞' : sp.caps[d.capKey],
+      prix: d.id === 'armes' && isGitan ? BUY_PRICE.armes_gitans : d.prix
+    }));
+  }
 
   const html = `
     <h3>Approvisionnement</h3>
     <label>Point :</label>
-    <select id="f-point">${sps.map(sp => `<option value="${sp.zone}">${sp.nom} (${sp.type})</option>`).join('')}</select>
+    <select id="f-point">${sps.map(sp => {
+      const avail = [];
+      if (sp.caps.armes > 0) avail.push('🔫');
+      if (sp.caps.doses > 0) avail.push('💊');
+      return `<option value="${sp.zone}">${sp.nom} (${sp.type}) ${avail.join(' ')}</option>`;
+    }).join('')}</select>
     <label>Denrée :</label>
-    <select id="f-denree">${denrees.map(d => `<option value="${d.id}">${d.label} — ${d.prix}L / unité</option>`).join('')}</select>
+    <select id="f-denree"></select>
+    <div id="f-stock-info" style="font-size:12px;color:#888;margin-top:2px"></div>
     <label>Quantité :</label>
     <input type="number" id="f-qty" value="1" min="1" max="20" />
     <div id="f-cost-preview" class="modal-cost-preview"></div>
@@ -422,25 +439,44 @@ function showSupplyModal(pid, refresh) {
     const point = document.getElementById('f-point').value;
     const denree = document.getElementById('f-denree').value;
     const qty = parseInt(document.getElementById('f-qty').value) || 1;
+    if (!denree) return;
     pendingOrders.push({ type: 'approvisionner', point, denree, quantite: qty });
     refresh();
   });
 
+  function updateDenreeOptions() {
+    const pointId = document.getElementById('f-point').value;
+    const denrees = getDenreesForPoint(pointId);
+    const sel = document.getElementById('f-denree');
+    sel.innerHTML = denrees.map(d => `<option value="${d.id}">${d.label} — ${d.prix}L/u (stock: ${d.stock})</option>`).join('');
+    const info = document.getElementById('f-stock-info');
+    if (denrees.length === 0) {
+      info.innerHTML = '<span style="color:#e74c3c">⚠ Aucune denrée disponible à ce point</span>';
+    } else {
+      info.textContent = denrees.map(d => `${d.label}: ${d.stock} dispo`).join(' · ');
+    }
+    const okBtn = document.getElementById('modal-ok');
+    if (okBtn) okBtn.disabled = denrees.length === 0;
+    updateCostPreview();
+  }
+
   function updateCostPreview() {
+    const pointId = document.getElementById('f-point').value;
     const denreeId = document.getElementById('f-denree').value;
     const qty = parseInt(document.getElementById('f-qty').value) || 1;
+    const denrees = getDenreesForPoint(pointId);
     const d = denrees.find(x => x.id === denreeId);
-    const total = d.prix * qty;
-    const alreadySpent = pendingOrders.filter(o => o.type === 'approvisionner' || o.type === 'construire' || o.type === 'recruter' || o.type === 'deployer_flic')
-      .reduce((s, o) => s + (o._cost || 0), 0);
     const el = document.getElementById('f-cost-preview');
+    if (!d) { el.innerHTML = ''; return; }
+    const total = d.prix * qty;
     const warn = total > j.ressources.lingots ? ' <span style="color:#e74c3c">⚠ Fonds insuffisants</span>' : '';
     el.innerHTML = `💰 <strong>${qty} × ${d.prix}L = ${total}L</strong> <span style="color:#888">(solde : ${j.ressources.lingots}L)</span>${warn}`;
   }
 
+  document.getElementById('f-point').addEventListener('change', updateDenreeOptions);
   document.getElementById('f-denree').addEventListener('change', updateCostPreview);
   document.getElementById('f-qty').addEventListener('input', updateCostPreview);
-  updateCostPreview();
+  updateDenreeOptions();
 }
 
 function showRecruitModal(pid, refresh) {
@@ -2001,7 +2037,15 @@ function renderInfoPanel(id) {
   } else { gameInfoEl.innerHTML = ''; }
 
   document.getElementById('info-adj').innerHTML = adj.length
-    ? `<div class="section-title">Adjacences (${adj.length})</div>` + adj.map(a => `<span onclick="window._selectZone('${a}')">${a}</span>`).join('') : '';
+    ? `<div class="section-title">Adjacences (${adj.length})</div>` + adj.map(a => {
+      const aq = gameData.zoneToQuartier[a];
+      const aName = gameData.gameplay.zones[a]?.nom || a;
+      if (aq) {
+        const ac = QUARTIER_COLORS[aq.id];
+        return `<span onclick="window._selectZone('${a}')" style="background:${ac.fill};color:${ac.stroke};border:1px solid ${ac.stroke}" title="${aq.nom}">${aName}</span>`;
+      }
+      return `<span onclick="window._selectZone('${a}')">${aName}</span>`;
+    }).join('') : '';
 
   panel.classList.remove('hidden');
 }
