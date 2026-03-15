@@ -127,6 +127,62 @@ Bergen County n'est pas découpé en 70 municipalités ; il est regroupé en 3 z
 
 ---
 
+## 15 quartiers de jeu (regroupement)
+
+Les 74 zones sont regroupées en **15 quartiers de jeu**, préservant la mécanique
+à 2 niveaux du jeu original (quartier = objectif de contrôle, zone = case jouable).
+
+### NJ (4 quartiers)
+
+| Quartier | Id | Zones | Détail |
+|----------|----|-------|--------|
+| Bergen | bergen | BG01, BG02, BG03 | ex-Bogota + Little Ferry + Edgewater |
+| North Hudson | north_hudson | HC03, HC08, HC10, HC11, HC12 | Guttenberg → West New York |
+| Jersey City | jersey_city | HC01, HC05, HC06 | Bayonne, Hoboken, Jersey City |
+| Meadowlands | meadowlands | HC02, HC04, HC07, HC09 | arrière-pays industriel |
+
+### Manhattan (4 quartiers)
+
+| Quartier | Id | Zones | Détail |
+|----------|----|-------|--------|
+| Harlem | harlem | MN10, MN11, MN12 | Central Harlem → Inwood |
+| Upper Manhattan | upper_manhattan | MN7, MN8, MN9 | Upper West/East Side, Morningside |
+| Midtown | midtown | MN4, MN5, MN6 | Chelsea → Murray Hill |
+| Lower Manhattan | lower_manhattan | MN1, MN2, MN3 | Financial District → East Village |
+
+### Bronx (2 quartiers)
+
+| Quartier | Id | Zones | Détail |
+|----------|----|-------|--------|
+| South Bronx | south_bronx | BX1–BX6 | Mott Haven → East Tremont |
+| North Bronx | north_bronx | BX7–BX12 | Kingsbridge → Woodlawn |
+
+### Queens (2 quartiers)
+
+| Quartier | Id | Zones | Détail |
+|----------|----|-------|--------|
+| West Queens | west_queens | QN1–QN5 | Astoria → Maspeth |
+| East Queens | east_queens | QN6–QN14 | Forest Hills → Rockaways |
+
+### Brooklyn (2 quartiers)
+
+| Quartier | Id | Zones | Détail |
+|----------|----|-------|--------|
+| North Brooklyn | north_brooklyn | BK1–BK6, BK8, BK9, BK16 | Williamsburg → Brownsville |
+| South Brooklyn | south_brooklyn | BK7, BK10–BK15, BK17, BK18 | Sunset Park → Canarsie |
+
+### Staten Island (1 quartier)
+
+| Quartier | Id | Zones | Détail |
+|----------|----|-------|--------|
+| Staten Island | staten_island | SI1, SI2, SI3 | North Shore → South Shore |
+
+### Données de jeu
+
+Voir `data/quartiers-gameplay.json` pour les gangs, points, privilèges et indices P/D/A.
+
+---
+
 ## Approche : découpe précise à partir des données géographiques
 
 ### Principe

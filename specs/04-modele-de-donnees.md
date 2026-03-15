@@ -70,32 +70,93 @@ Adjacences calculées automatiquement à partir des géométries (buffer 50m, Tu
 
 145 paires d'adjacences au total. Seul QN14 (Rockaways) est isolé (péninsule).
 
-### quartiers.json (référence historique)
+### quartiers-gameplay.json (modèle de jeu v2)
 
-> **Ce fichier est conservé comme référence** pour les stats de jeu du plateau original
-> (15 quartiers + 4 îles, 68 blocs). Les données de gameplay (gangs, privilèges de départ,
-> indices P/D/A, facilités) devront être migrées vers le nouveau modèle à 74 quartiers.
+Fichier central regroupant les 74 zones géographiques en **15 quartiers de jeu**,
+avec les stats de gameplay migrées depuis l'ancien plateau.
 
-Structure originale par quartier :
+**Structure à 2 niveaux** :
 
-| Quartier          | Blocs | Pts | Dispo lancement | Gang                    |
-|-------------------|-------|-----|-----------------|-------------------------|
-| Bogota            | 5     | 9   | Oui             | Cartel de Bogota        |
-| Harlem            | 5     | 9   | Oui             | Gang du Bolito          |
-| Skyline           | 4     | 6   | Non             | Lobby des Taxis         |
-| China Town        | 4     | 6   | Non             | Triades                 |
-| Central Park      | 5     | 6   | Oui             | Les Nets                |
-| Brooklyn          | 10    | 15  | Oui             | Syndicat des Dockers    |
-| Queens            | 8     | 12  | Oui             | Camora Napolitaine      |
-| Bronx             | 7     | 12  | Oui             | St James Boys           |
-| North Broadway    | 3     | 6   | Oui             | Rat Pack                |
-| Greenwich Village | 4     | 6   | Oui             | Natifs Américains       |
-| Cypress Hill      | 3     | 3   | Non             | Ku Klux Klan            |
-| Edgewater         | 4     | 6   | Oui             | Mafia Bulgare           |
-| North Bergen      | 3     | 6   | Oui             | Yakuzas                 |
-| Jersey City       | 4     | 6   | Oui             | Lobby Juif              |
-| Little Ferry      | 3     | 3   | Non             | Mafia Créole            |
-| Îles (×4)         | 1 chacune | 0 | Non          | --                      |
+- **Quartier** : unité de contrôle territorial (15 au total). Possède un gang, des points
+  de victoire, des privilèges de départ. Un joueur « possède » un quartier s'il a un pion
+  ou construction sur chaque zone du quartier.
+- **Zone** : case jouable (74 au total). Possède des indices P/D/A et une facilité optionnelle.
+  Les adjacences sont dans `adjacences-osm.json` et les géométries dans `quartiers-osm.geojson`.
+
+```json
+{
+  "meta": { "version": "2.0", "description": "..." },
+  "quartiers": [
+    {
+      "id": "bergen",
+      "nom": "Bergen",
+      "zones": ["BG01", "BG02", "BG03"],
+      "points": 6,
+      "disponible_au_lancement": true,
+      "population_par_zone": 140000,
+      "privileges_depart": {
+        "lingots": 40, "armes": 20, "doses": 0,
+        "prostituees_base": 3, "prostituees_luxe": 0,
+        "trafiquants": 2, "dealers": 0, "cartes_magouille_bonus": 0
+      },
+      "gang": {
+        "nom": "Cartel de Bogota",
+        "effet": "bloquer_ventes_armes",
+        "duree": 5,
+        "usage_unique": true
+      }
+    }
+  ],
+  "zones": {
+    "BG01": { "nom": "Bogota / Nord Bergen", "p": 5, "d": 3, "a": 3, "facilite": "annexe_zurich_bank" },
+    "MN1":  { "nom": "Financial District, Tribeca", "p": 3, "d": 2, "a": 1, "facilite": "zurich_bank" }
+  },
+  "iles": [
+    { "id": "ile_roosevelt", "nom": "Roosevelt Island", "points": 0, "facilite": "ile", "adjacences": ["MN8", "QN1"] }
+  ]
+}
+```
+
+**15 quartiers de jeu** :
+
+| Quartier          | Zones | Pts | Dispo | Gang                    |
+|-------------------|-------|-----|-------|-------------------------|
+| Bergen            | 3     | 6   | Oui   | Cartel de Bogota        |
+| North Hudson      | 5     | 9   | Oui   | Yakuzas                 |
+| Jersey City       | 3     | 6   | Oui   | Lobby Juif              |
+| Meadowlands       | 4     | 6   | Non   | Mafia Créole            |
+| Harlem            | 3     | 6   | Oui   | Gang du Bolito          |
+| Upper Manhattan   | 3     | 6   | Oui   | Rat Pack                |
+| Midtown           | 3     | 6   | Oui   | Les Nets                |
+| Lower Manhattan   | 3     | 6   | Non   | Triades                 |
+| South Bronx       | 6     | 9   | Oui   | St James Boys           |
+| North Bronx       | 6     | 9   | Oui   | Mafia Bulgare           |
+| West Queens       | 5     | 9   | Oui   | Camora Napolitaine      |
+| East Queens       | 9     | 15  | Non   | Natifs Américains       |
+| North Brooklyn    | 9     | 15  | Oui   | Syndicat des Dockers    |
+| South Brooklyn    | 9     | 15  | Oui   | Ku Klux Klan            |
+| Staten Island     | 3     | 6   | Non   | Lobby des Taxis         |
+
+**24 facilités** réparties sur les 74 zones :
+
+| Facilité            | Zones                                    |
+|---------------------|------------------------------------------|
+| zurich_bank         | MN1                                      |
+| mairie              | MN5                                      |
+| hotel_police        | BX4                                      |
+| aeroport            | QN7                                      |
+| ambassade           | MN8                                      |
+| immigration         | BK1                                      |
+| douanes             | BK18                                     |
+| annexe_zurich_bank  | BG01, HC10, MN2, MN9, QN3, BK8          |
+| port                | BG02, HC01, BK6                          |
+| peage               | BG03, HC09, BX3, QN5                     |
+| cimetiere           | BK5, BK12, BK16, QN9                    |
+
+### quartiers.json (référence historique — archivé)
+
+> Ancien modèle à 15 quartiers / 68 blocs / 4 îles. Remplacé par `quartiers-gameplay.json`.
+> Conservé uniquement pour traçabilité.
 
 ### cartes-magouille.json
 
@@ -262,19 +323,19 @@ Structure originale par quartier :
     {
       "id": "zurich_bank",
       "nom": "Central Zurich Bank",
-      "bloc": "skyline_financial_district",
+      "zone": "MN1",
       "fonction": "Récolte l'argent des constructions"
     },
     {
       "id": "hotel_police",
       "nom": "Hôtel de Police",
-      "bloc": "bronx_high_bridge",
+      "zone": "BX4",
       "fonction": "Stocke amendes, récolte créations de pions et bakchichs"
     },
     {
       "id": "mairie",
       "nom": "Mairie",
-      "bloc": "skyline_world_trade_center",
+      "zone": "MN5",
       "fonction": "Siège du pouvoir"
     }
   ]
@@ -327,8 +388,8 @@ Structure complète de l'objet `GameState` sauvegardé en LocalStorage :
   ],
 
   "plateau": {
-    "blocs": {
-      "bronx_mott_haven": {
+    "zones": {
+      "BX1": {
         "proprietaire": 0,
         "pions": [
           { "type": "dealer", "joueur": 0 }
@@ -337,7 +398,7 @@ Structure complète de l'objet `GameState` sauvegardé en LocalStorage :
         "electricite": true,
         "gitans": false
       },
-      "bronx_high_bridge": {
+      "BX4": {
         "proprietaire": null,
         "pions": [],
         "construction": null,
@@ -366,7 +427,7 @@ Structure complète de l'objet `GameState` sauvegardé en LocalStorage :
 
   "flics": {
     "deployes": [
-      { "bloc": "bronx_morrisania", "joueur": 1, "actif": true }
+      { "zone": "BX3", "joueur": 1, "actif": true }
     ],
     "reserves": 5,
     "elimines": 0
@@ -374,13 +435,13 @@ Structure complète de l'objet `GameState` sauvegardé en LocalStorage :
 
   "incorruptibles": {
     "deployes": [
-      { "bloc": "queens_astoria" }
+      { "zone": "QN1" }
     ],
     "elimines": 0
   },
 
   "gitans": {
-    "positions": ["ile_roosevelt", "ile_rickers", "ile_ward", "ile_liberty"]
+    "positions": ["ile_roosevelt", "ile_rikers", "ile_ward", "ile_liberty"]
   },
 
   "gangs_actifs": {},
@@ -420,11 +481,12 @@ Structure complète de l'objet `GameState` sauvegardé en LocalStorage :
 ## Relations clés entre les données
 
 ```
-Quartier (1) ──── contient ────> (N) Blocs
-Bloc     (1) ──── adjacent à ──> (N) Blocs
-Bloc     (1) ──── contient ────> (0-N) Pions
-Bloc     (1) ──── contient ────> (0-1) Construction
-Bloc     (1) ──── a une ──────> (0-1) Facilité/Institution
+Quartier (1) ──── contient ────> (3-9) Zones
+Zone     (1) ──── adjacent à ──> (N) Zones      [adjacences-osm.json]
+Zone     (1) ──── géométrie ───> (1) Polygone   [quartiers-osm.geojson]
+Zone     (1) ──── contient ────> (0-N) Pions
+Zone     (1) ──── contient ────> (0-1) Construction
+Zone     (1) ──── a une ──────> (0-1) Facilité/Institution
 Joueur   (1) ──── possède ─────> (N) Pions sur le plateau
 Joueur   (1) ──── possède ─────> (N) Ressources
 Joueur   (1) ──── détient ─────> (0-4) Cartes Magouille

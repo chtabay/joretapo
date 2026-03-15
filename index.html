@@ -18,11 +18,12 @@
 
   #info-panel {
     position: fixed; top: 16px; right: 16px;
-    width: 280px; background: rgba(10,10,30,0.92);
+    width: 300px; background: rgba(10,10,30,0.92);
     border: 1px solid #334; border-radius: 8px;
     padding: 16px; z-index: 10;
     backdrop-filter: blur(8px);
     transition: opacity 0.2s;
+    max-height: calc(100vh - 32px); overflow-y: auto;
   }
   #info-panel.hidden { opacity: 0; pointer-events: none; }
   #info-panel h2 { font-size: 16px; color: #8ab4f8; margin-bottom: 4px; }
@@ -30,36 +31,64 @@
     display: inline-block; background: #334; padding: 2px 8px;
     border-radius: 4px; font-family: monospace; font-size: 13px; margin-bottom: 8px;
   }
-  #info-panel .type-badge {
-    display: inline-block; padding: 2px 8px; border-radius: 4px;
-    font-size: 11px; font-weight: 600; text-transform: uppercase; margin-left: 6px;
+  #info-panel .quartier-badge {
+    display: inline-block; padding: 3px 10px; border-radius: 4px;
+    font-size: 12px; font-weight: 600; margin-bottom: 8px;
   }
-  .type-cd { background: #1e3a5f; color: #8ab4f8; }
-  .type-hc { background: #5f1e1e; color: #f88a8a; }
-  .type-bg { background: #1e5f1e; color: #8af88a; }
-
+  #info-panel .stat-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 3px 0; font-size: 13px; border-bottom: 1px solid #222;
+  }
+  #info-panel .stat-row:last-child { border-bottom: none; }
+  #info-panel .stat-label { color: #888; }
+  #info-panel .stat-value { font-weight: 600; font-family: monospace; }
+  #info-panel .indices { display: flex; gap: 12px; margin: 8px 0; }
+  #info-panel .index-box {
+    flex: 1; text-align: center; padding: 6px;
+    border-radius: 4px; font-size: 18px; font-weight: 700;
+  }
+  #info-panel .index-label { font-size: 10px; text-transform: uppercase; color: #888; margin-top: 2px; }
   #info-panel .adj-list { margin-top: 8px; font-size: 12px; }
   #info-panel .adj-list span {
     display: inline-block; background: #223; padding: 1px 6px;
     border-radius: 3px; margin: 2px; cursor: pointer; transition: background 0.15s;
   }
   #info-panel .adj-list span:hover { background: #445; }
+  #info-panel .gang-info {
+    margin-top: 8px; padding: 8px; background: rgba(255,255,255,0.05);
+    border-radius: 4px; font-size: 12px;
+  }
+  #info-panel .gang-name { font-weight: 700; color: #f8c48a; margin-bottom: 4px; }
+  #info-panel .facilite-tag {
+    display: inline-block; padding: 2px 8px; border-radius: 3px;
+    background: #3a2a10; color: #f8d48a; font-size: 11px; font-weight: 600;
+    margin-bottom: 8px;
+  }
+  .section-title { font-size: 11px; text-transform: uppercase; color: #666; margin-top: 10px; margin-bottom: 4px; letter-spacing: 1px; }
 
   #legend {
     position: fixed; bottom: 16px; left: 16px;
-    background: rgba(10,10,30,0.9); border: 1px solid #334;
+    background: rgba(10,10,30,0.92); border: 1px solid #334;
     border-radius: 8px; padding: 12px 16px; z-index: 10;
-    font-size: 12px;
+    font-size: 11px; max-height: calc(100vh - 32px); overflow-y: auto;
+    backdrop-filter: blur(8px);
   }
   #legend h3 { font-size: 13px; margin-bottom: 6px; color: #aaa; }
-  .legend-item { display: flex; align-items: center; gap: 8px; margin: 3px 0; }
-  .legend-swatch { width: 14px; height: 14px; border-radius: 3px; border: 1px solid #555; }
+  .legend-item {
+    display: flex; align-items: center; gap: 8px; margin: 2px 0;
+    cursor: pointer; padding: 2px 4px; border-radius: 3px;
+    transition: background 0.15s;
+  }
+  .legend-item:hover { background: rgba(255,255,255,0.06); }
+  .legend-item.active { background: rgba(255,255,255,0.1); }
+  .legend-swatch { width: 12px; height: 12px; border-radius: 2px; border: 1px solid rgba(255,255,255,0.2); flex-shrink: 0; }
+  .legend-info { color: #666; font-size: 10px; margin-left: auto; }
 
   #stats {
     position: fixed; top: 16px; left: 16px;
-    background: rgba(10,10,30,0.9); border: 1px solid #334;
+    background: rgba(10,10,30,0.92); border: 1px solid #334;
     border-radius: 8px; padding: 12px 16px; z-index: 10;
-    font-size: 13px;
+    font-size: 13px; backdrop-filter: blur(8px);
   }
   #stats h3 { font-size: 14px; margin-bottom: 4px; color: #8ab4f8; }
 
@@ -71,6 +100,7 @@
   path.zone.selected { stroke: #fff; stroke-width: 2.5; opacity: 1 !important; }
   path.zone.adjacent { stroke: #ffcc00; stroke-width: 2; opacity: 1 !important; }
   path.zone.dimmed { opacity: 0.25 !important; }
+  path.zone.quartier-highlight { opacity: 1 !important; stroke-width: 1.5; }
 </style>
 </head>
 <body>
@@ -83,39 +113,55 @@
 </div>
 
 <div id="legend">
-  <h3>Légende</h3>
-  <div class="legend-item"><div class="legend-swatch" style="background:#1e3a5f"></div> Manhattan</div>
-  <div class="legend-item"><div class="legend-swatch" style="background:#3d1e5f"></div> Bronx</div>
-  <div class="legend-item"><div class="legend-swatch" style="background:#1e5f3d"></div> Brooklyn</div>
-  <div class="legend-item"><div class="legend-swatch" style="background:#5f3d1e"></div> Queens</div>
-  <div class="legend-item"><div class="legend-swatch" style="background:#4a4a1e"></div> Staten Island</div>
-  <div class="legend-item"><div class="legend-swatch" style="background:#5f1e1e"></div> Hudson (NJ)</div>
-  <div class="legend-item"><div class="legend-swatch" style="background:#1e5f1e"></div> Bergen (NJ)</div>
+  <h3>Quartiers de jeu</h3>
+  <div id="legend-items"></div>
 </div>
 
 <div id="info-panel" class="hidden">
   <h2 id="info-name">—</h2>
   <span class="id-badge" id="info-id">—</span>
-  <span class="type-badge" id="info-type">—</span>
+  <span class="quartier-badge" id="info-quartier">—</span>
+  <div id="info-facilite"></div>
+  <div class="indices" id="info-indices"></div>
+  <div id="info-stats"></div>
+  <div class="gang-info" id="info-gang"></div>
   <div class="adj-list" id="info-adj"></div>
 </div>
 
 <script>
 (async function() {
-  const [geoRes, adjRes] = await Promise.all([
+  const [geoRes, adjRes, gameRes] = await Promise.all([
     fetch('data/quartiers-osm.geojson').then(r => r.json()),
-    fetch('data/adjacences-osm.json').then(r => r.json())
+    fetch('data/adjacences-osm.json').then(r => r.json()),
+    fetch('data/quartiers-gameplay.json').then(r => r.json())
   ]);
 
   const features = geoRes.features;
   const adjacencies = adjRes;
+  const gameplay = gameRes;
 
-  const boroughFills = {
-    'Manhattan': '#1e3a5f', 'Bronx': '#3d1e5f', 'Brooklyn': '#1e5f3d',
-    'Queens': '#5f3d1e', 'Staten Island': '#4a4a1e'
+  const zoneToQuartier = {};
+  gameplay.quartiers.forEach(q => {
+    q.zones.forEach(z => { zoneToQuartier[z] = q; });
+  });
+
+  const QUARTIER_COLORS = {
+    bergen:          { fill: '#2d5a1e', stroke: '#5ab45a' },
+    north_hudson:    { fill: '#5a1e2d', stroke: '#b45a7a' },
+    jersey_city:     { fill: '#5a3a1e', stroke: '#b48a5a' },
+    meadowlands:     { fill: '#3a3a1e', stroke: '#8a8a5a' },
+    harlem:          { fill: '#4a1e4a', stroke: '#b45ab4' },
+    upper_manhattan: { fill: '#1e3a5f', stroke: '#5a8ab4' },
+    midtown:         { fill: '#1e5a5a', stroke: '#5ab4b4' },
+    lower_manhattan: { fill: '#2a2a5a', stroke: '#7a7ab4' },
+    south_bronx:     { fill: '#5a1e1e', stroke: '#b45a5a' },
+    north_bronx:     { fill: '#3d1e5f', stroke: '#8a5ab4' },
+    west_queens:     { fill: '#5f3d1e', stroke: '#b48a5a' },
+    east_queens:     { fill: '#4a3a1e', stroke: '#9a8a5a' },
+    north_brooklyn:  { fill: '#1e5f3d', stroke: '#5ab48a' },
+    south_brooklyn:  { fill: '#1e4a4a', stroke: '#5a9a9a' },
+    staten_island:   { fill: '#4a4a1e', stroke: '#9a9a5a' }
   };
-  const typeFills = { hc: '#5f1e1e', bg: '#1e5f1e' };
-  const typeStrokes = { cd: '#5a8ab4', hc: '#b45a5a', bg: '#5ab45a' };
 
   let minLon = Infinity, maxLon = -Infinity, minLat = Infinity, maxLat = -Infinity;
   features.forEach(f => {
@@ -177,17 +223,17 @@
 
   features.forEach(f => {
     const id = f.properties.id;
-    const type = f.properties.type;
-    const fill = type === 'cd' ? (boroughFills[f.properties.borough] || '#2a3a4a') : (typeFills[type] || '#333');
-    const stroke = typeStrokes[type] || '#555';
+    const q = zoneToQuartier[id];
+    const colors = q ? QUARTIER_COLORS[q.id] : { fill: '#333', stroke: '#555' };
 
     const path = document.createElementNS(ns, 'path');
     path.setAttribute('d', featureToD(f));
-    path.setAttribute('fill', fill);
-    path.setAttribute('stroke', stroke);
+    path.setAttribute('fill', colors.fill);
+    path.setAttribute('stroke', colors.stroke);
     path.setAttribute('stroke-width', '0.8');
     path.setAttribute('opacity', '0.85');
     path.setAttribute('data-id', id);
+    path.setAttribute('data-quartier', q ? q.id : '');
     path.classList.add('zone');
     gZones.appendChild(path);
     pathMap[id] = path;
@@ -213,12 +259,46 @@
   container.appendChild(svg);
 
   // Stats
-  const cdCount = features.filter(f => f.properties.type === 'cd').length;
-  const hcCount = features.filter(f => f.properties.type === 'hc').length;
-  const bgCount = features.filter(f => f.properties.type === 'bg').length;
+  const totalPts = gameplay.quartiers.reduce((s, q) => s + q.points, 0);
   const adjCount = Object.values(adjacencies).reduce((s, a) => s + a.length, 0) / 2;
+  const availCount = gameplay.quartiers.filter(q => q.disponible_au_lancement).length;
   document.getElementById('stats-content').innerHTML =
-    `${features.length} quartiers<br>${cdCount} CDs · ${hcCount} Hudson · ${bgCount} Bergen<br>${adjCount} adjacences`;
+    `<strong>${features.length}</strong> zones · <strong>15</strong> quartiers<br>` +
+    `<strong>${Math.round(adjCount)}</strong> adjacences · <strong>${totalPts}</strong> pts<br>` +
+    `<strong>${availCount}</strong> dispo au lancement · <strong>4</strong> îles`;
+
+  // Legend
+  const legendEl = document.getElementById('legend-items');
+  let highlightedQuartier = null;
+
+  gameplay.quartiers.forEach(q => {
+    const colors = QUARTIER_COLORS[q.id];
+    const item = document.createElement('div');
+    item.className = 'legend-item';
+    item.innerHTML = `<div class="legend-swatch" style="background:${colors.fill};border-color:${colors.stroke}"></div>` +
+      `<span>${q.nom}</span><span class="legend-info">${q.zones.length}z · ${q.points}pts</span>`;
+
+    item.addEventListener('click', () => {
+      if (highlightedQuartier === q.id) {
+        highlightedQuartier = null;
+        Object.values(pathMap).forEach(p => p.classList.remove('dimmed', 'quartier-highlight'));
+        legendEl.querySelectorAll('.legend-item').forEach(el => el.classList.remove('active'));
+      } else {
+        highlightedQuartier = q.id;
+        Object.values(pathMap).forEach(p => p.classList.remove('dimmed', 'quartier-highlight'));
+        Object.entries(pathMap).forEach(([pid, p]) => {
+          if (q.zones.includes(pid)) {
+            p.classList.add('quartier-highlight');
+          } else {
+            p.classList.add('dimmed');
+          }
+        });
+        legendEl.querySelectorAll('.legend-item').forEach(el => el.classList.remove('active'));
+        item.classList.add('active');
+      }
+    });
+    legendEl.appendChild(item);
+  });
 
   // Pan & Zoom
   let viewBox = { x: 0, y: 0, w: svgW, h: svgH };
@@ -271,8 +351,17 @@
   const featureMap = {};
   features.forEach(f => { featureMap[f.properties.id] = f; });
 
+  const FACILITE_LABELS = {
+    zurich_bank: 'Zurich Bank', mairie: 'Mairie', hotel_police: 'Hotel de Police',
+    aeroport: 'Aeroport', ambassade: 'Ambassade', immigration: 'Immigration',
+    douanes: 'Douanes', annexe_zurich_bank: 'Annexe Zurich Bank',
+    port: 'Port', peage: 'Peage', cimetiere: 'Cimetiere'
+  };
+
   function selectZone(id) {
-    Object.values(pathMap).forEach(p => p.classList.remove('selected', 'adjacent', 'dimmed'));
+    highlightedQuartier = null;
+    legendEl.querySelectorAll('.legend-item').forEach(el => el.classList.remove('active'));
+    Object.values(pathMap).forEach(p => p.classList.remove('selected', 'adjacent', 'dimmed', 'quartier-highlight'));
 
     if (selectedId === id) {
       selectedId = null;
@@ -283,24 +372,76 @@
     selectedId = id;
     const f = featureMap[id];
     const adj = adjacencies[id] || [];
+    const q = zoneToQuartier[id];
+    const zoneData = gameplay.zones[id];
 
     pathMap[id].classList.add('selected');
     adj.forEach(a => { if (pathMap[a]) pathMap[a].classList.add('adjacent'); });
-
     Object.keys(pathMap).forEach(pid => {
       if (pid !== id && !adj.includes(pid)) pathMap[pid].classList.add('dimmed');
     });
 
-    document.getElementById('info-name').textContent = f.properties.nom;
+    document.getElementById('info-name').textContent = zoneData ? zoneData.nom : f.properties.nom;
     document.getElementById('info-id').textContent = id;
-    const typeEl = document.getElementById('info-type');
-    typeEl.textContent = f.properties.type === 'cd' ? f.properties.borough :
-                          f.properties.type === 'hc' ? 'Hudson NJ' : 'Bergen NJ';
-    typeEl.className = `type-badge type-${f.properties.type}`;
+
+    const qBadge = document.getElementById('info-quartier');
+    if (q) {
+      const colors = QUARTIER_COLORS[q.id];
+      qBadge.textContent = q.nom;
+      qBadge.style.background = colors.fill;
+      qBadge.style.color = colors.stroke;
+      qBadge.style.borderColor = colors.stroke;
+      qBadge.style.border = `1px solid ${colors.stroke}`;
+    }
+
+    const faciliteEl = document.getElementById('info-facilite');
+    if (zoneData && zoneData.facilite) {
+      faciliteEl.innerHTML = `<span class="facilite-tag">${FACILITE_LABELS[zoneData.facilite] || zoneData.facilite}</span>`;
+    } else {
+      faciliteEl.innerHTML = '';
+    }
+
+    const indicesEl = document.getElementById('info-indices');
+    if (zoneData) {
+      indicesEl.innerHTML = `
+        <div class="index-box" style="background:rgba(200,100,150,0.2);color:#f8a0c8">
+          ${zoneData.p}<div class="index-label">Prost.</div>
+        </div>
+        <div class="index-box" style="background:rgba(100,200,100,0.2);color:#a0f8a0">
+          ${zoneData.d}<div class="index-label">Drogue</div>
+        </div>
+        <div class="index-box" style="background:rgba(150,150,200,0.2);color:#a0a0f8">
+          ${zoneData.a}<div class="index-label">Armes</div>
+        </div>`;
+    }
+
+    const statsEl = document.getElementById('info-stats');
+    if (q) {
+      statsEl.innerHTML = `
+        <div class="section-title">Quartier : ${q.nom}</div>
+        <div class="stat-row"><span class="stat-label">Zones</span><span class="stat-value">${q.zones.length}</span></div>
+        <div class="stat-row"><span class="stat-label">Points victoire</span><span class="stat-value">${q.points}</span></div>
+        <div class="stat-row"><span class="stat-label">Dispo lancement</span><span class="stat-value">${q.disponible_au_lancement ? 'Oui' : 'Non'}</span></div>
+        <div class="stat-row"><span class="stat-label">Pop. / zone</span><span class="stat-value">${(q.population_par_zone / 1000).toFixed(0)}k</span></div>`;
+    } else {
+      statsEl.innerHTML = '';
+    }
+
+    const gangEl = document.getElementById('info-gang');
+    if (q) {
+      const g = q.gang;
+      const dureeText = g.duree === -1 ? 'permanent' : g.duree === 0 ? 'instantane' : `${g.duree} tours`;
+      gangEl.innerHTML = `
+        <div class="gang-name">${g.nom}</div>
+        <div>Effet : ${g.effet.replace(/_/g, ' ')}</div>
+        <div>Duree : ${dureeText} · ${g.usage_unique ? 'usage unique' : 'reutilisable'}</div>`;
+    } else {
+      gangEl.innerHTML = '';
+    }
 
     const adjEl = document.getElementById('info-adj');
     adjEl.innerHTML = adj.length
-      ? `<strong>Adjacences (${adj.length}) :</strong><br>` +
+      ? `<div class="section-title">Adjacences (${adj.length})</div>` +
         adj.map(a => `<span onclick="window._selectZone('${a}')">${a}</span>`).join('')
       : '<em>Aucune adjacence</em>';
 

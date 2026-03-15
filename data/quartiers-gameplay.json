@@ -1,0 +1,393 @@
+{
+  "meta": {
+    "version": "2.0",
+    "description": "Modèle de jeu JORETAPO — 15 quartiers regroupant 74 zones OSM",
+    "source_geojson": "quartiers-osm.geojson",
+    "source_adjacences": "adjacences-osm.json"
+  },
+  "quartiers": [
+    {
+      "id": "bergen",
+      "nom": "Bergen",
+      "zones": ["BG01", "BG02", "BG03"],
+      "points": 6,
+      "disponible_au_lancement": true,
+      "population_par_zone": 140000,
+      "privileges_depart": {
+        "lingots": 40, "armes": 20, "doses": 0,
+        "prostituees_base": 3, "prostituees_luxe": 0,
+        "trafiquants": 2, "dealers": 0, "cartes_magouille_bonus": 0
+      },
+      "gang": {
+        "nom": "Cartel de Bogota",
+        "effet": "bloquer_ventes_armes",
+        "duree": 5,
+        "usage_unique": true
+      }
+    },
+    {
+      "id": "north_hudson",
+      "nom": "North Hudson",
+      "zones": ["HC03", "HC08", "HC10", "HC11", "HC12"],
+      "points": 9,
+      "disponible_au_lancement": true,
+      "population_par_zone": 60000,
+      "privileges_depart": {
+        "lingots": 0, "armes": 20, "doses": 0,
+        "prostituees_base": 3, "prostituees_luxe": 0,
+        "trafiquants": 2, "dealers": 0, "cartes_magouille_bonus": 1
+      },
+      "gang": {
+        "nom": "Yakuzas",
+        "effet": "eliminer_3_pions",
+        "duree": 0,
+        "usage_unique": true
+      }
+    },
+    {
+      "id": "jersey_city",
+      "nom": "Jersey City",
+      "zones": ["HC01", "HC05", "HC06"],
+      "points": 6,
+      "disponible_au_lancement": true,
+      "population_par_zone": 180000,
+      "privileges_depart": {
+        "lingots": 0, "armes": 20, "doses": 0,
+        "prostituees_base": 3, "prostituees_luxe": 0,
+        "trafiquants": 2, "dealers": 0, "cartes_magouille_bonus": 1
+      },
+      "gang": {
+        "nom": "Lobby Juif",
+        "effet": "revente_marchandises",
+        "duree": -1,
+        "usage_unique": false
+      }
+    },
+    {
+      "id": "meadowlands",
+      "nom": "Meadowlands",
+      "zones": ["HC02", "HC04", "HC07", "HC09"],
+      "points": 6,
+      "disponible_au_lancement": false,
+      "population_par_zone": 35000,
+      "privileges_depart": null,
+      "gang": {
+        "nom": "Mafia Créole",
+        "effet": "bloquer_ordres",
+        "duree": 3,
+        "usage_unique": true
+      }
+    },
+    {
+      "id": "harlem",
+      "nom": "Harlem",
+      "zones": ["MN10", "MN11", "MN12"],
+      "points": 6,
+      "disponible_au_lancement": true,
+      "population_par_zone": 200000,
+      "privileges_depart": {
+        "lingots": 20, "armes": 10, "doses": 20,
+        "prostituees_base": 0, "prostituees_luxe": 0,
+        "trafiquants": 3, "dealers": 2, "cartes_magouille_bonus": 0
+      },
+      "gang": {
+        "nom": "Gang du Bolito",
+        "effet": "restriction_ethnie_caucasien_asiatique",
+        "duree": -1,
+        "usage_unique": false
+      }
+    },
+    {
+      "id": "upper_manhattan",
+      "nom": "Upper Manhattan",
+      "zones": ["MN7", "MN8", "MN9"],
+      "points": 6,
+      "disponible_au_lancement": true,
+      "population_par_zone": 150000,
+      "privileges_depart": {
+        "lingots": 160, "armes": 5, "doses": 0,
+        "prostituees_base": 2, "prostituees_luxe": 0,
+        "trafiquants": 0, "dealers": 2, "cartes_magouille_bonus": 0
+      },
+      "gang": {
+        "nom": "Rat Pack",
+        "effet": "voler_action_maire",
+        "duree": 0,
+        "usage_unique": true
+      }
+    },
+    {
+      "id": "midtown",
+      "nom": "Midtown",
+      "zones": ["MN4", "MN5", "MN6"],
+      "points": 6,
+      "disponible_au_lancement": true,
+      "population_par_zone": 100000,
+      "privileges_depart": {
+        "lingots": 120, "armes": 5, "doses": 0,
+        "prostituees_base": 3, "prostituees_luxe": 0,
+        "trafiquants": 0, "dealers": 2, "cartes_magouille_bonus": 0
+      },
+      "gang": {
+        "nom": "Les Nets",
+        "effet": "actions_supplementaires",
+        "duree": -1,
+        "usage_unique": false
+      }
+    },
+    {
+      "id": "lower_manhattan",
+      "nom": "Lower Manhattan",
+      "zones": ["MN1", "MN2", "MN3"],
+      "points": 6,
+      "disponible_au_lancement": false,
+      "population_par_zone": 80000,
+      "privileges_depart": null,
+      "gang": {
+        "nom": "Triades",
+        "effet": "restriction_ethnie_non_asiatique_non_italien",
+        "duree": -1,
+        "usage_unique": false
+      }
+    },
+    {
+      "id": "south_bronx",
+      "nom": "South Bronx",
+      "zones": ["BX1", "BX2", "BX3", "BX4", "BX5", "BX6"],
+      "points": 9,
+      "disponible_au_lancement": true,
+      "population_par_zone": 170000,
+      "privileges_depart": {
+        "lingots": 20, "armes": 20, "doses": 0,
+        "prostituees_base": 0, "prostituees_luxe": 0,
+        "trafiquants": 3, "dealers": 0, "cartes_magouille_bonus": 0
+      },
+      "gang": {
+        "nom": "St James Boys",
+        "effet": "immunite_restrictions_ethniques",
+        "duree": -1,
+        "usage_unique": false
+      }
+    },
+    {
+      "id": "north_bronx",
+      "nom": "North Bronx",
+      "zones": ["BX7", "BX8", "BX9", "BX10", "BX11", "BX12"],
+      "points": 9,
+      "disponible_au_lancement": true,
+      "population_par_zone": 140000,
+      "privileges_depart": {
+        "lingots": 20, "armes": 15, "doses": 10,
+        "prostituees_base": 2, "prostituees_luxe": 0,
+        "trafiquants": 2, "dealers": 0, "cartes_magouille_bonus": 0
+      },
+      "gang": {
+        "nom": "Mafia Bulgare",
+        "effet": "eliminer_prostituees_quartier_voisin",
+        "duree": 0,
+        "usage_unique": true
+      }
+    },
+    {
+      "id": "west_queens",
+      "nom": "West Queens",
+      "zones": ["QN1", "QN2", "QN3", "QN4", "QN5"],
+      "points": 9,
+      "disponible_au_lancement": true,
+      "population_par_zone": 190000,
+      "privileges_depart": {
+        "lingots": 120, "armes": 0, "doses": 0,
+        "prostituees_base": 0, "prostituees_luxe": 3,
+        "trafiquants": 0, "dealers": 3, "cartes_magouille_bonus": 0
+      },
+      "gang": {
+        "nom": "Camora Napolitaine",
+        "effet": "racket_etablissements",
+        "duree": 0,
+        "usage_unique": true
+      }
+    },
+    {
+      "id": "east_queens",
+      "nom": "East Queens",
+      "zones": ["QN6", "QN7", "QN8", "QN9", "QN10", "QN11", "QN12", "QN13", "QN14"],
+      "points": 15,
+      "disponible_au_lancement": false,
+      "population_par_zone": 130000,
+      "privileges_depart": null,
+      "gang": {
+        "nom": "Gang des Natifs Américains",
+        "effet": "casino_gratuit",
+        "duree": 0,
+        "usage_unique": true
+      }
+    },
+    {
+      "id": "north_brooklyn",
+      "nom": "North Brooklyn",
+      "zones": ["BK1", "BK2", "BK3", "BK4", "BK5", "BK6", "BK8", "BK9", "BK16"],
+      "points": 15,
+      "disponible_au_lancement": true,
+      "population_par_zone": 160000,
+      "privileges_depart": {
+        "lingots": 40, "armes": 5, "doses": 0,
+        "prostituees_base": 2, "prostituees_luxe": 0,
+        "trafiquants": 2, "dealers": 2, "cartes_magouille_bonus": 0
+      },
+      "gang": {
+        "nom": "Syndicat des Dockers",
+        "effet": "bloquer_approvisionnements",
+        "duree": 3,
+        "usage_unique": true
+      }
+    },
+    {
+      "id": "south_brooklyn",
+      "nom": "South Brooklyn",
+      "zones": ["BK7", "BK10", "BK11", "BK12", "BK13", "BK14", "BK15", "BK17", "BK18"],
+      "points": 15,
+      "disponible_au_lancement": true,
+      "population_par_zone": 150000,
+      "privileges_depart": {
+        "lingots": 40, "armes": 10, "doses": 0,
+        "prostituees_base": 2, "prostituees_luxe": 2,
+        "trafiquants": 2, "dealers": 0, "cartes_magouille_bonus": 0
+      },
+      "gang": {
+        "nom": "Ku Klux Klan",
+        "effet": "restriction_ethnie_non_caucasien",
+        "duree": -1,
+        "usage_unique": false
+      }
+    },
+    {
+      "id": "staten_island",
+      "nom": "Staten Island",
+      "zones": ["SI1", "SI2", "SI3"],
+      "points": 6,
+      "disponible_au_lancement": false,
+      "population_par_zone": 160000,
+      "privileges_depart": null,
+      "gang": {
+        "nom": "Lobby des Taxis",
+        "effet": "bloquer_deplacements_manhattan",
+        "duree": 5,
+        "usage_unique": true
+      }
+    }
+  ],
+
+  "zones": {
+    "BG01": { "nom": "Bogota / Nord Bergen",    "p": 5, "d": 3, "a": 3, "facilite": "annexe_zurich_bank" },
+    "BG02": { "nom": "Edgewater / Palisades",   "p": 4, "d": 3, "a": 4, "facilite": "port" },
+    "BG03": { "nom": "Little Ferry / Meadowlands","p": 3, "d": 3, "a": 5, "facilite": "peage" },
+
+    "HC01": { "nom": "Bayonne",                 "p": 3, "d": 3, "a": 4, "facilite": "port" },
+    "HC02": { "nom": "East Newark Borough",     "p": 3, "d": 3, "a": 5, "facilite": null },
+    "HC03": { "nom": "Guttenberg",              "p": 4, "d": 3, "a": 2, "facilite": null },
+    "HC04": { "nom": "Harrison",                "p": 3, "d": 3, "a": 4, "facilite": null },
+    "HC05": { "nom": "Hoboken",                 "p": 4, "d": 3, "a": 3, "facilite": null },
+    "HC06": { "nom": "Jersey City",             "p": 5, "d": 5, "a": 5, "facilite": null },
+    "HC07": { "nom": "Kearny",                  "p": 3, "d": 4, "a": 6, "facilite": null },
+    "HC08": { "nom": "North Bergen Township",   "p": 4, "d": 4, "a": 3, "facilite": null },
+    "HC09": { "nom": "Secaucus",                "p": 2, "d": 3, "a": 5, "facilite": "peage" },
+    "HC10": { "nom": "Union City",              "p": 4, "d": 4, "a": 3, "facilite": "annexe_zurich_bank" },
+    "HC11": { "nom": "Weehawken Township",      "p": 3, "d": 3, "a": 3, "facilite": null },
+    "HC12": { "nom": "West New York",           "p": 4, "d": 3, "a": 3, "facilite": null },
+
+    "MN1":  { "nom": "Financial District, Tribeca",         "p": 3, "d": 2, "a": 1, "facilite": "zurich_bank" },
+    "MN2":  { "nom": "Greenwich Village, SoHo",             "p": 5, "d": 3, "a": 2, "facilite": "annexe_zurich_bank" },
+    "MN3":  { "nom": "East Village",                        "p": 6, "d": 4, "a": 3, "facilite": null },
+    "MN4":  { "nom": "Chelsea, Hell's Kitchen",             "p": 5, "d": 3, "a": 3, "facilite": null },
+    "MN5":  { "nom": "Midtown, Times Square",               "p": 4, "d": 2, "a": 2, "facilite": "mairie" },
+    "MN6":  { "nom": "Gramercy, Murray Hill",               "p": 3, "d": 2, "a": 2, "facilite": null },
+    "MN7":  { "nom": "Upper West Side",                     "p": 4, "d": 3, "a": 2, "facilite": null },
+    "MN8":  { "nom": "Upper East Side, Yorkville",          "p": 3, "d": 2, "a": 2, "facilite": "ambassade" },
+    "MN9":  { "nom": "Morningside Heights, Hamilton Heights","p": 5, "d": 5, "a": 5, "facilite": "annexe_zurich_bank" },
+    "MN10": { "nom": "Central Harlem",                      "p": 8, "d": 6, "a": 7, "facilite": null },
+    "MN11": { "nom": "East Harlem",                         "p": 7, "d": 7, "a": 8, "facilite": null },
+    "MN12": { "nom": "Washington Heights, Inwood",          "p": 6, "d": 8, "a": 6, "facilite": null },
+
+    "BX1":  { "nom": "Mott Haven, Melrose",                 "p": 6, "d": 7, "a": 8, "facilite": null },
+    "BX2":  { "nom": "Hunts Point, Longwood",               "p": 8, "d": 8, "a": 7, "facilite": null },
+    "BX3":  { "nom": "Morrisania, Claremont",               "p": 7, "d": 8, "a": 8, "facilite": "peage" },
+    "BX4":  { "nom": "Highbridge, Concourse",               "p": 5, "d": 6, "a": 7, "facilite": "hotel_police" },
+    "BX5":  { "nom": "Fordham, Morris Heights",             "p": 5, "d": 5, "a": 6, "facilite": null },
+    "BX6":  { "nom": "Belmont, East Tremont",               "p": 4, "d": 5, "a": 5, "facilite": null },
+    "BX7":  { "nom": "Kingsbridge, Norwood",                "p": 4, "d": 4, "a": 4, "facilite": null },
+    "BX8":  { "nom": "Riverdale, Kingsbridge Heights",      "p": 3, "d": 3, "a": 3, "facilite": null },
+    "BX9":  { "nom": "Parkchester, Soundview",              "p": 5, "d": 5, "a": 6, "facilite": null },
+    "BX10": { "nom": "Co-op City, Throggs Neck",            "p": 3, "d": 3, "a": 4, "facilite": null },
+    "BX11": { "nom": "Morris Park, Pelham Parkway",         "p": 3, "d": 3, "a": 4, "facilite": null },
+    "BX12": { "nom": "Baychester, Woodlawn",                "p": 3, "d": 3, "a": 3, "facilite": null },
+
+    "QN1":  { "nom": "Astoria, Long Island City",           "p": 4, "d": 3, "a": 2, "facilite": null },
+    "QN2":  { "nom": "Sunnyside, Woodside",                 "p": 3, "d": 3, "a": 2, "facilite": null },
+    "QN3":  { "nom": "Jackson Heights",                     "p": 4, "d": 4, "a": 3, "facilite": "annexe_zurich_bank" },
+    "QN4":  { "nom": "Elmhurst, Corona",                    "p": 4, "d": 4, "a": 3, "facilite": null },
+    "QN5":  { "nom": "Maspeth, Middle Village",             "p": 3, "d": 3, "a": 3, "facilite": "peage" },
+    "QN6":  { "nom": "Rego Park, Forest Hills",             "p": 3, "d": 2, "a": 2, "facilite": null },
+    "QN7":  { "nom": "Flushing, Whitestone",                "p": 3, "d": 3, "a": 2, "facilite": "aeroport" },
+    "QN8":  { "nom": "Fresh Meadows",                       "p": 2, "d": 2, "a": 2, "facilite": null },
+    "QN9":  { "nom": "Woodhaven, Richmond Hill",            "p": 3, "d": 3, "a": 3, "facilite": "cimetiere" },
+    "QN10": { "nom": "Howard Beach, Ozone Park",            "p": 3, "d": 3, "a": 4, "facilite": null },
+    "QN11": { "nom": "Bayside, Douglaston",                 "p": 2, "d": 2, "a": 2, "facilite": null },
+    "QN12": { "nom": "Jamaica, Hollis",                     "p": 5, "d": 5, "a": 5, "facilite": null },
+    "QN13": { "nom": "Laurelton, Queens Village",           "p": 3, "d": 3, "a": 3, "facilite": null },
+    "QN14": { "nom": "Rockaways, Broad Channel",            "p": 3, "d": 4, "a": 3, "facilite": null },
+
+    "BK1":  { "nom": "Williamsburg, Greenpoint",            "p": 4, "d": 3, "a": 3, "facilite": "immigration" },
+    "BK2":  { "nom": "Brooklyn Heights, DUMBO",             "p": 3, "d": 2, "a": 2, "facilite": null },
+    "BK3":  { "nom": "Bedford-Stuyvesant",                  "p": 5, "d": 5, "a": 5, "facilite": null },
+    "BK4":  { "nom": "Bushwick",                            "p": 5, "d": 4, "a": 4, "facilite": null },
+    "BK5":  { "nom": "East New York, Cypress Hills",        "p": 4, "d": 6, "a": 7, "facilite": "cimetiere" },
+    "BK6":  { "nom": "Red Hook, Park Slope",                "p": 4, "d": 3, "a": 4, "facilite": "port" },
+    "BK7":  { "nom": "Sunset Park",                         "p": 4, "d": 4, "a": 5, "facilite": null },
+    "BK8":  { "nom": "Crown Heights, Prospect Heights",     "p": 4, "d": 4, "a": 4, "facilite": "annexe_zurich_bank" },
+    "BK9":  { "nom": "Crown Heights South",                 "p": 5, "d": 5, "a": 5, "facilite": null },
+    "BK10": { "nom": "Bay Ridge, Dyker Heights",            "p": 3, "d": 3, "a": 3, "facilite": null },
+    "BK11": { "nom": "Bensonhurst, Gravesend",              "p": 3, "d": 3, "a": 3, "facilite": null },
+    "BK12": { "nom": "Borough Park, Kensington",            "p": 3, "d": 3, "a": 3, "facilite": "cimetiere" },
+    "BK13": { "nom": "Coney Island, Brighton Beach",        "p": 5, "d": 4, "a": 4, "facilite": null },
+    "BK14": { "nom": "Flatbush, Midwood",                   "p": 4, "d": 4, "a": 3, "facilite": null },
+    "BK15": { "nom": "Sheepshead Bay",                      "p": 3, "d": 3, "a": 3, "facilite": null },
+    "BK16": { "nom": "Brownsville",                         "p": 5, "d": 6, "a": 7, "facilite": "cimetiere" },
+    "BK17": { "nom": "East Flatbush",                       "p": 4, "d": 4, "a": 4, "facilite": null },
+    "BK18": { "nom": "Canarsie, Flatlands",                 "p": 3, "d": 3, "a": 3, "facilite": "douanes" },
+
+    "SI1":  { "nom": "North Shore",                         "p": 3, "d": 3, "a": 4, "facilite": null },
+    "SI2":  { "nom": "Mid-Island",                          "p": 2, "d": 2, "a": 3, "facilite": null },
+    "SI3":  { "nom": "South Shore",                         "p": 2, "d": 2, "a": 3, "facilite": null }
+  },
+
+  "iles": [
+    {
+      "id": "ile_roosevelt",
+      "nom": "Roosevelt Island",
+      "points": 0,
+      "facilite": "ile",
+      "adjacences": ["MN8", "QN1"]
+    },
+    {
+      "id": "ile_ward",
+      "nom": "Ward Island",
+      "points": 0,
+      "facilite": "ile",
+      "adjacences": ["MN11", "BX1"]
+    },
+    {
+      "id": "ile_rikers",
+      "nom": "Rikers Island",
+      "points": 0,
+      "facilite": "ile",
+      "adjacences": ["BX2", "QN1"]
+    },
+    {
+      "id": "ile_liberty",
+      "nom": "Statue of Liberty",
+      "points": 0,
+      "facilite": "ile",
+      "adjacences": ["MN1", "HC06"]
+    }
+  ]
+}
