@@ -234,6 +234,10 @@ export class TurnManager {
   get currentPlayerId() { return this.playerQueue[this.currentPlayerIdx]; }
   get currentPlayer() { return this.gs.joueurs[this.currentPlayerId]; }
 
+  isOrderPhase() {
+    return this.phase === PHASE.ORDERS_SUPPLY || this.phase === PHASE.ORDERS_MOVE;
+  }
+
   maxOrdersForPhase(pid) {
     const total = 5 + (this.gs.joueurs[pid].actions_bonus || 0);
     if (this.gs.phase === 1) return total;

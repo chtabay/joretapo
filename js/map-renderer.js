@@ -288,17 +288,17 @@ export class MapRenderer {
 
     this.gZones.addEventListener('click', e => {
       const path = e.target.closest('.zone');
-      if (path) this.selectZone(path.dataset.id);
+      if (path) this.selectZone(path.dataset.id, e);
     });
   }
 
-  selectZone(id) {
+  selectZone(id, event) {
     Object.values(this.pathMap).forEach(p =>
       p.classList.remove('selected', 'adjacent', 'dimmed', 'quartier-highlight'));
 
     if (this.selectedId === id) {
       this.selectedId = null;
-      if (this.onZoneSelect) this.onZoneSelect(null);
+      if (this.onZoneSelect) this.onZoneSelect(null, event);
       return;
     }
 
@@ -310,7 +310,7 @@ export class MapRenderer {
       if (pid !== id && !adj.includes(pid)) this.pathMap[pid].classList.add('dimmed');
     });
 
-    if (this.onZoneSelect) this.onZoneSelect(id);
+    if (this.onZoneSelect) this.onZoneSelect(id, event);
   }
 
   highlightQuartier(quartierId) {

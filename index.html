@@ -502,6 +502,30 @@
   #info-panel .facilite-tag { display: inline-block; padding: 2px 8px; border-radius: 3px; background: #3a2a10; color: #f8d48a; font-size: 11px; font-weight: 600; margin-bottom: 8px; }
   .section-title { font-size: 11px; text-transform: uppercase; color: #666; margin-top: 10px; margin-bottom: 4px; letter-spacing: 1px; }
 
+  /* ── Tutorial tips ── */
+  .tutorial-tip { position: fixed; inset: 0; z-index: 250; background: rgba(0,0,0,0.5); display: flex; align-items: flex-end; justify-content: center; padding: 20px; animation: fadeIn 0.3s ease; }
+  .tutorial-tip-content { background: #1a1a35; border: 1px solid #5a8ab4; border-radius: 12px; padding: 20px; max-width: 400px; width: 100%; animation: slideUp 0.3s ease; }
+  .tutorial-tip-title { font-size: 16px; font-weight: 700; color: #8ab4f8; margin-bottom: 10px; }
+  .tutorial-tip-text { font-size: 14px; line-height: 1.6; color: #ccc; margin-bottom: 8px; }
+  .tutorial-tip-next { font-size: 12px; color: #888; font-style: italic; margin-bottom: 12px; }
+  .tutorial-tip-actions { display: flex; gap: 8px; justify-content: flex-end; }
+  .tutorial-tip-dismiss { padding: 8px 16px; background: #5a8ab4; border: none; border-radius: 6px; color: #fff; font-size: 13px; cursor: pointer; font-weight: 600; }
+  .tutorial-tip-dismiss:hover { background: #6b9ac4; }
+  .tutorial-tip-disable { padding: 8px 16px; background: none; border: 1px solid #445; border-radius: 6px; color: #888; font-size: 12px; cursor: pointer; }
+  .tutorial-tip-disable:hover { color: #ccc; border-color: #666; }
+
+  /* ── Zone context popup ── */
+  .zone-popup { position: fixed; z-index: 55; background: rgba(15,15,35,0.97); border: 1px solid #556; border-radius: 10px; padding: 10px; min-width: 160px; max-width: 220px; box-shadow: 0 8px 24px rgba(0,0,0,0.6); backdrop-filter: blur(10px); animation: slideUp 0.15s ease; }
+  .zp-title { font-size: 13px; font-weight: 700; color: #8ab4f8; margin-bottom: 8px; padding-bottom: 6px; border-bottom: 1px solid #334; }
+  .zp-actions { display: flex; flex-direction: column; gap: 4px; }
+  .zp-btn { text-align: left; padding: 8px 10px; background: rgba(255,255,255,0.04); border: 1px solid transparent; border-radius: 6px; color: #ccc; font-size: 13px; cursor: pointer; transition: all 0.15s; }
+  .zp-btn:hover { background: rgba(138,180,248,0.1); border-color: #5a8ab4; color: #8ab4f8; }
+  .zp-btn:active { background: rgba(138,180,248,0.2); }
+
+  /* ── Mobile nav & sheet (hidden on desktop) ── */
+  #mobile-nav { display: none; }
+  .mobile-sheet { display: none; }
+
   #legend { position: fixed; bottom: 16px; left: 16px; background: rgba(10,10,30,0.92); border: 1px solid #334; border-radius: 8px; padding: 12px 16px; z-index: 10; font-size: 11px; max-height: calc(100vh - 32px); overflow-y: auto; backdrop-filter: blur(8px); }
   #legend h3 { font-size: 13px; margin-bottom: 0; color: #aaa; }
   #legend .panel-body { margin-top: 6px; }
@@ -561,31 +585,60 @@
     .quartier-pick-btn { min-height: 44px; padding: 12px 14px; }
     .draft-slot { min-width: 100%; }
 
-    #stats { top: 8px; left: 8px; padding: 10px 12px; font-size: 11px; max-width: calc(100vw - 20px); }
-    #election-topbar.active ~ #stats { top: 40px; }
-    #stats h3 { font-size: 12px; }
-    .hud-phase { font-size: 10px; }
-    .hud-player { font-size: 11px; }
-    .hud-player-gold { min-width: 42px; }
+    /* HUD & légende masqués sur mobile — contenu déplacé dans onglet Stats */
+    #stats { display: none !important; }
+    #legend { display: none !important; }
 
-    #legend { bottom: 8px; left: 8px; padding: 10px 12px; font-size: 10px; max-width: calc(100vw - 20px); max-height: 40vh; }
-    #legend h3 { font-size: 12px; }
-    .panel-toggle { width: 32px; height: 32px; min-width: 32px; min-height: 32px; }
+    #info-panel { top: 36px; right: 0; left: 0; width: auto; max-width: none; padding: 12px; max-height: 50vh; border-radius: 0; border-left: none; border-right: none; z-index: 55; }
+    #info-panel.shifted { right: 0; left: 0; }
 
-    #info-panel { top: 8px; right: 8px; left: 8px; width: auto; max-width: none; padding: 12px; max-height: 50vh; }
-    #info-panel.shifted { right: 8px; left: 8px; }
-
-    #order-panel { width: 100%; right: 0; left: 0; top: 0; bottom: 0; height: auto; max-height: 100vh; max-height: 100dvh; padding: 16px; padding-bottom: max(20px, env(safe-area-inset-bottom)); border-left: none; border-bottom: none; }
-    #order-panel.collapsed { width: 100%; height: auto; min-height: 48px; padding: 8px 16px; top: auto; bottom: 0; }
-    #order-panel.collapsed .op-header { flex-direction: row; }
-    #order-panel.collapsed .op-collapsed-label { writing-mode: horizontal-tb; }
-    #order-panel.collapsed .op-collapse { transform: rotate(90deg); }
+    /* Order panel = bottom sheet sur mobile */
+    #order-panel { width: 100%; right: 0; left: 0; top: auto; bottom: 52px; height: auto; max-height: calc(100dvh - 36px - 52px); max-height: calc(100vh - 36px - 52px); padding: 0; border-left: none; border-radius: 16px 16px 0 0; border: 1px solid #334; border-bottom: none; animation: slideSheetUp 0.3s ease; }
+    #order-panel .op-header { padding: 12px 16px 8px; }
+    #order-panel .op-scroll { padding: 0 16px; }
+    #order-panel .op-footer { padding: 8px 16px; padding-bottom: max(8px, env(safe-area-inset-bottom)); }
+    #order-panel.collapsed { display: none !important; }
+    .op-toggle-map, .op-collapse { display: none !important; }
+    .op-collapsed-label { display: none !important; }
     .op-btn { min-height: 44px; padding: 12px 14px; font-size: 14px; }
     .op-submit { min-height: 48px; }
-    .op-toggle-map { width: 44px; height: 44px; font-size: 20px; }
-    .op-fab { bottom: max(24px, env(safe-area-inset-bottom)); right: 16px; width: 56px; height: 56px; }
-    .op-toggle-map { display: flex; align-items: center; justify-content: center; }
-    .op-collapse { width: 44px; height: 44px; font-size: 20px; }
+    .op-fab { display: none !important; }
+
+    /* Mobile stats sheet */
+    .mobile-sheet { position: fixed; left: 0; right: 0; bottom: 52px; max-height: calc(100dvh - 36px - 52px); background: rgba(10,10,30,0.96); border-radius: 16px 16px 0 0; border: 1px solid #334; border-bottom: none; z-index: 50; display: flex; flex-direction: column; overflow: hidden; backdrop-filter: blur(8px); animation: slideSheetUp 0.3s ease; }
+    .mobile-sheet.hidden { display: none !important; }
+    .mobile-sheet-handle { display: flex; justify-content: center; padding: 8px 0 4px; flex-shrink: 0; }
+    .mobile-sheet-grip { width: 36px; height: 4px; border-radius: 2px; background: rgba(255,255,255,0.2); }
+    .mobile-sheet-body { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 8px 16px 16px; font-size: 13px; }
+    .mobile-sheet-body h3 { font-size: 14px; color: #8ab4f8; margin-bottom: 8px; }
+    .mobile-sheet-body .hud-clickable { cursor: pointer; text-decoration: underline dotted; text-underline-offset: 2px; }
+    .mobile-sheet-body .hud-clickable:hover { color: #8ab4f8; }
+    .mobile-sheet-body .hud-player { display: flex; align-items: center; gap: 6px; font-size: 12px; padding: 4px 0; }
+    .mobile-sheet-body .hud-player-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .mobile-sheet-body .hud-player-pts { margin-left: auto; color: #8ab4f8; font-weight: 600; }
+    .mobile-sheet-body .hud-player-gold { color: #f8c48a; font-family: monospace; min-width: 50px; text-align: right; }
+    .mobile-sheet-body .hud-player-res { font-size: 10px; color: #666; margin-left: 14px; display: flex; gap: 6px; }
+    .mobile-sheet-body .legend-item { display: flex; align-items: center; gap: 8px; margin: 2px 0; padding: 4px; border-radius: 3px; }
+    .mobile-sheet-body .legend-swatch { width: 12px; height: 12px; border-radius: 2px; border: 1px solid rgba(255,255,255,0.2); flex-shrink: 0; }
+    .mobile-sheet-body .legend-info { color: #666; font-size: 10px; margin-left: auto; }
+    .mobile-sheet-body .hud-election-progress { font-size: 11px; color: #9b59b6; margin: 6px 0; }
+    .mobile-sheet-body .msheet-section { border-top: 1px solid #223; padding-top: 12px; margin-top: 12px; }
+    .mobile-sheet-body .msheet-section:first-child { border-top: none; padding-top: 0; margin-top: 0; }
+
+    /* Mobile bottom nav bar */
+    #mobile-nav { position: fixed; bottom: 0; left: 0; right: 0; height: 52px; background: rgba(10,10,30,0.97); border-top: 1px solid #334; z-index: 60; display: flex; align-items: stretch; padding-bottom: env(safe-area-inset-bottom, 0); backdrop-filter: blur(8px); }
+    .mnav-tab { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; background: none; border: none; color: #666; font-size: 10px; cursor: pointer; transition: color 0.2s; position: relative; padding: 4px 0; }
+    .mnav-tab.active { color: #8ab4f8; }
+    .mnav-tab.active::after { content: ''; position: absolute; top: 0; left: 20%; right: 20%; height: 2px; background: #8ab4f8; border-radius: 0 0 2px 2px; }
+    .mnav-icon { font-size: 18px; line-height: 1; }
+    .mnav-label { font-size: 10px; font-weight: 600; letter-spacing: 0.5px; }
+    .mnav-badge { position: absolute; top: 4px; right: 20%; min-width: 16px; height: 16px; border-radius: 8px; background: #e74c3c; color: #fff; font-size: 9px; font-weight: 700; display: flex; align-items: center; justify-content: center; padding: 0 4px; }
+    .mnav-badge:empty { display: none; }
+
+    @keyframes slideSheetUp { from { opacity: 0; transform: translateY(40px); } to { opacity: 1; transform: translateY(0); } }
+
+    /* Ajuster carte pour laisser place à la nav en bas */
+    #map-container { bottom: 52px; }
 
     .modal-content, .reveal-container, .nego-container, .turnend-container, .election-container, .reminder-container, .coupole-container, .pre-election-container { width: 95%; max-width: none; max-height: 85vh; }
 
@@ -708,6 +761,20 @@
   <!-- Order Panel (Phase 1 & 4) -->
   <div id="order-panel" class="hidden"></div>
   <button type="button" id="op-fab" class="op-fab hidden" title="Mes ordres">📋</button>
+
+  <!-- Mobile bottom sheet (Stats/Aide content pushed here on mobile) -->
+  <div id="mobile-stats-sheet" class="mobile-sheet hidden">
+    <div class="mobile-sheet-handle"><div class="mobile-sheet-grip"></div></div>
+    <div class="mobile-sheet-body" id="mobile-stats-body"></div>
+  </div>
+
+  <!-- Mobile bottom nav -->
+  <nav id="mobile-nav">
+    <button class="mnav-tab active" data-tab="map"><span class="mnav-icon">🗺️</span><span class="mnav-label">Carte</span></button>
+    <button class="mnav-tab" data-tab="orders"><span class="mnav-icon">📋</span><span class="mnav-label">Ordres</span><span class="mnav-badge" id="mnav-orders-badge"></span></button>
+    <button class="mnav-tab" data-tab="stats"><span class="mnav-icon">📊</span><span class="mnav-label">Stats</span></button>
+    <button class="mnav-tab" data-tab="help"><span class="mnav-icon">📖</span><span class="mnav-label">Aide</span></button>
+  </nav>
 
   <!-- Modal -->
   <div id="order-modal" class="overlay hidden">

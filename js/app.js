@@ -44,8 +44,12 @@ async function loadGameData() {
 function showScreen(id) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.getElementById(id)?.classList.add('active');
+  const mobileNav = document.getElementById('mobile-nav');
   if (id !== 'screen-game') {
     document.getElementById('election-topbar')?.classList.remove('active');
+    if (mobileNav) mobileNav.style.display = 'none';
+  } else {
+    if (mobileNav && isMobile()) mobileNav.style.display = '';
   }
 }
 
@@ -100,9 +104,20 @@ function renderGameScreen() {
     mapRenderer.updateOwnership(gameState);
     mapRenderer.renderPions(gameState);
   }
-  mapRenderer.onZoneSelect = id => renderInfoPanel(id);
+  mapRenderer.onZoneSelect = (id, event) => {
+    renderInfoPanel(id);
+    dismissZonePopup();
+    if (isMobile() && id) {
+      document.getElementById('mobile-stats-sheet')?.classList.add('hidden');
+      document.getElementById('order-panel')?.classList.add('hidden');
+    }
+    if (id && gameState && turnManager && turnManager.isOrderPhase()) {
+      showZonePopup(id, event);
+    }
+  };
   renderLegend();
   updateHUD();
+  initMobileNav();
 }
 
 const CONDITION_LABELS = {
@@ -198,6 +213,7 @@ function updateHUD() {
     e.stopPropagation();
     showDictionaryIndex();
   });
+  if (isMobile() && currentMobileTab === 'stats') renderMobileStats();
 }
 
 function refreshMap() {
@@ -205,6 +221,292 @@ function refreshMap() {
   mapRenderer.updateOwnership(gameState);
   mapRenderer.renderPions(gameState);
   updateHUD();
+}
+
+/* ── Mobile navigation ── */
+const isMobile = () => window.matchMedia('(max-width: 768px)').matches;
+let currentMobileTab = 'map';
+
+function initMobileNav() {
+  const nav = document.getElementById('mobile-nav');
+  if (!nav) return;
+  nav.querySelectorAll('.mnav-tab').forEach(tab => {
+    tab.addEventListener('click', () => switchMobileTab(tab.dataset.tab));
+  });
+}
+
+function switchMobileTab(tabId) {
+  if (!isMobile()) return;
+  currentMobileTab = tabId;
+  const nav = document.getElementById('mobile-nav');
+  nav?.querySelectorAll('.mnav-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tabId));
+
+  const orderPanel = document.getElementById('order-panel');
+  const statsSheet = document.getElementById('mobile-stats-sheet');
+  const infoPanel = document.getElementById('info-panel');
+
+  switch (tabId) {
+    case 'map':
+      orderPanel?.classList.add('hidden');
+      statsSheet?.classList.add('hidden');
+      break;
+    case 'orders':
+      statsSheet?.classList.add('hidden');
+      if (orderPanel && !orderPanel.classList.contains('hidden')) break;
+      if (orderPanel) {
+        orderPanel.classList.remove('hidden');
+        orderPanel.classList.remove('collapsed');
+      }
+      break;
+    case 'stats':
+      orderPanel?.classList.add('hidden');
+      renderMobileStats();
+      statsSheet?.classList.remove('hidden');
+      break;
+    case 'help':
+      orderPanel?.classList.add('hidden');
+      statsSheet?.classList.add('hidden');
+      showDictionaryIndex();
+      break;
+  }
+}
+
+function renderMobileStats() {
+  const body = document.getElementById('mobile-stats-body');
+  if (!body || !gameState) return;
+
+  const phaseLabel = GAME_PHASE_LABELS[gameState.phase] || '';
+  const nextElection = gameState.tour > 0 ? (7 - (gameState.tour % 7)) % 7 : 7;
+  const electionHtml = nextElection === 0
+    ? '<div class="hud-election-progress">🗳️ Élection ce tour !</div>'
+    : `<div class="hud-election-progress">🗳️ Prochaine élection dans ${nextElection} tour${nextElection > 1 ? 's' : ''}</div>`;
+
+  const activeContracts = ContractEngine.getActiveContracts(gameState);
+  const playersHtml = gameState.joueurs.map(j => {
+    const pts = gameState.getPlayerPoints(j.id, gameData.gameplay);
+    const maireTag = j.est_maire ? ' 🏛️' : '';
+    const pContracts = activeContracts.filter(c => c.joueur_a === j.id || c.joueur_b === j.id).length;
+    const contractBadge = pContracts > 0 ? `<span class="hud-contracts-badge">📜${pContracts}</span>` : '';
+    const ownedQ = gameData.gameplay.quartiers.filter(q => gameState.getQuartierOwner(q.id, gameData.gameplay) === j.id);
+    const qBadge = ownedQ.length > 0 ? `<span class="hud-player-quartiers">★${ownedQ.length}</span>` : '';
+    return `<div class="hud-player"><span class="hud-player-dot" style="background:${j.couleur}"></span><span>${j.nom}${maireTag}${contractBadge}${qBadge}</span><span class="hud-player-pts">${pts} pts</span><span class="hud-player-gold">${j.ressources.lingots}L</span></div>` +
+      `<div class="hud-player-res">🔫${j.ressources.armes} 💊${j.ressources.doses} 🃏${(j.cartes_magouille || []).length}</div>`;
+  }).join('');
+
+  const legendItems = gameData.gameplay.quartiers.map(q => {
+    const c = QUARTIER_COLORS[q.id];
+    const owner = gameState.getQuartierOwner(q.id, gameData.gameplay);
+    const ownerName = owner !== null ? gameState.joueurs[owner].nom : '';
+    return `<div class="legend-item"><span class="legend-swatch" style="background:${c}"></span><span>${q.nom}</span><span class="legend-info">${ownerName ? '★ ' + ownerName : q.zones.length + ' zones'}</span></div>`;
+  }).join('');
+
+  body.innerHTML = `
+    <div class="msheet-section">
+      <h3>Tour ${gameState.tour} — ${phaseLabel}</h3>
+      ${electionHtml}
+    </div>
+    <div class="msheet-section">
+      <div style="font-size:11px;text-transform:uppercase;color:#666;margin-bottom:6px;letter-spacing:1px">Joueurs</div>
+      ${playersHtml}
+    </div>
+    <div class="msheet-section">
+      <div style="font-size:11px;text-transform:uppercase;color:#666;margin-bottom:6px;letter-spacing:1px">Quartiers</div>
+      ${legendItems}
+    </div>
+    <div class="msheet-section" style="display:flex;flex-direction:column;gap:8px">
+      <button class="hud-quartiers-btn" id="msheet-btn-quartiers">🗺️ Vue d'ensemble des territoires</button>
+    </div>
+  `;
+  body.querySelector('#msheet-btn-quartiers')?.addEventListener('click', () => showQuartiersOverview());
+}
+
+function updateMobileOrdersBadge() {
+  const badge = document.getElementById('mnav-orders-badge');
+  if (!badge) return;
+  badge.textContent = pendingOrders.length > 0 ? pendingOrders.length : '';
+}
+
+/* ── Zone context popup (Piste 3) ── */
+function dismissZonePopup() {
+  document.getElementById('zone-popup')?.remove();
+}
+
+function showZonePopup(zoneId, event) {
+  dismissZonePopup();
+  if (!gameState || !turnManager || !turnManager.isOrderPhase()) return;
+
+  const pid = turnManager.currentPlayerId;
+  const zone = gameState.plateau[zoneId];
+  const zoneData = gameData.gameplay.zones[zoneId];
+  if (!zone || !zoneData) return;
+
+  const gamePhase = gameState.phase;
+  const isOwned = zone.proprietaire === pid || zone.pions.some(p => p.joueur === pid);
+  const hasEnemyFlic = zone.pions.some(p => p.type === 'flic' && p.joueur !== pid);
+  const hasMyPion = zone.pions.some(p => p.joueur === pid && (p.type === 'dealer' || p.type === 'trafiquant'));
+  const adj = gameData.adjacencies[zoneId] || [];
+  const isAdjacentToMine = adj.some(a => {
+    const az = gameState.plateau[a];
+    return az && az.pions.some(p => p.joueur === pid && (p.type === 'dealer' || p.type === 'trafiquant'));
+  });
+
+  const actions = [];
+
+  if (gamePhase === 1) {
+    if (isOwned && !zone.construction) {
+      actions.push({ icon: '🏗️', label: 'Construire ici', action: 'build' });
+    }
+  } else {
+    if (isAdjacentToMine) {
+      actions.push({ icon: '➡️', label: 'Déplacer ici', action: 'move-to' });
+    }
+    if (hasMyPion) {
+      actions.push({ icon: '🚶', label: 'Déplacer depuis', action: 'move-from' });
+    }
+    if (isOwned && !zone.pions.some(p => p.type === 'dealer' || p.type === 'trafiquant')) {
+      actions.push({ icon: '➕', label: 'Créer pion ici', action: 'create' });
+    }
+    if (hasEnemyFlic) {
+      actions.push({ icon: '🚔', label: 'Éliminer flic', action: 'elim-flic' });
+    }
+  }
+
+  actions.push({ icon: 'ℹ️', label: 'Détails', action: 'info' });
+
+  if (actions.length <= 1) return;
+
+  const popup = document.createElement('div');
+  popup.id = 'zone-popup';
+  popup.className = 'zone-popup';
+
+  const x = event?.clientX ?? window.innerWidth / 2;
+  const y = event?.clientY ?? window.innerHeight / 2;
+
+  popup.innerHTML = `
+    <div class="zp-title">${zoneData.nom || zoneId}</div>
+    <div class="zp-actions">
+      ${actions.map(a => `<button class="zp-btn" data-action="${a.action}">${a.icon} ${a.label}</button>`).join('')}
+    </div>
+  `;
+
+  document.getElementById('screen-game').appendChild(popup);
+
+  const popRect = popup.getBoundingClientRect();
+  let left = Math.min(x, window.innerWidth - popRect.width - 8);
+  let top = Math.min(y + 8, window.innerHeight - popRect.height - 60);
+  left = Math.max(8, left);
+  top = Math.max(40, top);
+  popup.style.left = left + 'px';
+  popup.style.top = top + 'px';
+
+  const refresh = () => {
+    const panel = document.getElementById('order-panel');
+    if (panel && !panel.classList.contains('hidden')) {
+      const evt = new Event('refresh-orders');
+      panel.dispatchEvent(evt);
+    }
+  };
+
+  popup.querySelectorAll('.zp-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      dismissZonePopup();
+      switch (btn.dataset.action) {
+        case 'build':
+          showBuildModal(pid, refresh);
+          break;
+        case 'move-to':
+        case 'move-from':
+          showMoveModal(pid, refresh);
+          break;
+        case 'create':
+          showCreateModal(pid, refresh);
+          break;
+        case 'elim-flic':
+          showElimFlicModal(pid, refresh);
+          break;
+        case 'info':
+          renderInfoPanel(zoneId);
+          break;
+      }
+    });
+  });
+
+  setTimeout(() => {
+    const dismiss = (e) => {
+      if (!popup.contains(e.target)) { dismissZonePopup(); document.removeEventListener('click', dismiss); }
+    };
+    document.addEventListener('click', dismiss);
+  }, 100);
+}
+
+/* ── Tutorial / guided mode (Piste 5) ── */
+const TUTORIAL_TIPS = {
+  orders_supply_1: {
+    title: '📦 Phase d\'approvisionnement',
+    text: 'Commencez par acheter des <strong>doses</strong> et des <strong>armes</strong> aux points d\'approvisionnement. Vous pouvez aussi recruter des prostituées ou construire des bâtiments.',
+    next: 'Utilisez les boutons ci-dessous pour passer vos ordres, puis « Valider ».'
+  },
+  orders_move_1: {
+    title: '🚶 Phase de déplacements',
+    text: 'Déplacez vos pions sur des cases adjacentes pour conquérir de nouveaux territoires. Créez des dealers ou trafiquants pour augmenter vos revenus.',
+    next: 'Les pions immobiles soutiennent automatiquement les alliés en conflit.'
+  },
+  negotiation_1: {
+    title: '🤝 Négociation',
+    text: 'Profitez de cette phase pour discuter avec les autres joueurs. Proposez des alliances, des contrats, ou menacez vos rivaux !',
+    next: 'Appuyez sur « Continuer » quand vous avez terminé.'
+  },
+  reveal_1: {
+    title: '👁️ Révélation',
+    text: 'Les ordres de tous les joueurs sont maintenant révélés. Observez les mouvements et les achats de vos adversaires.',
+    next: ''
+  }
+};
+
+let tutorialEnabled = false;
+let tutorialShown = {};
+
+function showTutorialTip(tipId) {
+  if (!tutorialEnabled) return;
+  if (tutorialShown[tipId]) return;
+  tutorialShown[tipId] = true;
+
+  const tip = TUTORIAL_TIPS[tipId];
+  if (!tip) return;
+
+  const el = document.createElement('div');
+  el.className = 'tutorial-tip';
+  el.innerHTML = `
+    <div class="tutorial-tip-content">
+      <div class="tutorial-tip-title">${tip.title}</div>
+      <div class="tutorial-tip-text">${tip.text}</div>
+      ${tip.next ? `<div class="tutorial-tip-next">${tip.next}</div>` : ''}
+      <div class="tutorial-tip-actions">
+        <button class="tutorial-tip-dismiss">Compris</button>
+        <button class="tutorial-tip-disable">Ne plus afficher</button>
+      </div>
+    </div>
+  `;
+  document.getElementById('screen-game').appendChild(el);
+
+  el.querySelector('.tutorial-tip-dismiss').onclick = () => el.remove();
+  el.querySelector('.tutorial-tip-disable').onclick = () => {
+    tutorialEnabled = false;
+    try { localStorage.setItem('joretapo_tutorial', 'off'); } catch(e) {}
+    el.remove();
+  };
+  el.addEventListener('click', e => { if (e.target === el) el.remove(); });
+}
+
+function initTutorial() {
+  try {
+    const saved = localStorage.getItem('joretapo_tutorial');
+    if (saved === 'off') { tutorialEnabled = false; return; }
+  } catch(e) {}
+  if (gameState && gameState.tour <= 2) {
+    tutorialEnabled = true;
+    tutorialShown = {};
+  }
 }
 
 /* ── Turn Loop ── */
@@ -216,6 +518,7 @@ function startTurnLoop() {
     const results = SpecialEntities.processEndOfMandate(gameState, gameData.gameplay);
     results.forEach(msg => console.log('[Fin de mandat]', msg));
   };
+  initTutorial();
   if (gameState.tour >= 1 && gameState.phase >= 1) {
     turnManager.startTurn();
   }
@@ -243,10 +546,10 @@ function onPhaseChange() {
 
   switch (turnManager.phase) {
     case PHASE.CURTAIN: renderCurtain(); break;
-    case PHASE.ORDERS_SUPPLY: renderOrderPanel(1); break;
-    case PHASE.ORDERS_MOVE: renderOrderPanel(4); break;
-    case PHASE.REVEAL_HARVEST: processAndShowReveal(); break;
-    case PHASE.NEGOTIATION: renderNegotiation(); break;
+    case PHASE.ORDERS_SUPPLY: renderOrderPanel(1); showTutorialTip('orders_supply_1'); break;
+    case PHASE.ORDERS_MOVE: renderOrderPanel(4); showTutorialTip('orders_move_1'); break;
+    case PHASE.REVEAL_HARVEST: processAndShowReveal(); showTutorialTip('reveal_1'); break;
+    case PHASE.NEGOTIATION: renderNegotiation(); showTutorialTip('negotiation_1'); break;
     case PHASE.REVEAL_RESOLVE: processAndShowResolve(); break;
     case PHASE.TURN_END: renderTurnEnd(); break;
     case PHASE.PRE_ELECTION: renderPreElection(); break;
@@ -365,10 +668,12 @@ function renderOrderPanel(gamePhase) {
     }
     panel.querySelector('#btn-mayor-power')?.addEventListener('click', () => showMayorPowerModal(pid, gamePhase, refresh));
     panel.querySelector('#btn-play-card')?.addEventListener('click', () => showPlayCardModal(pid, gamePhase, refresh));
+    updateMobileOrdersBadge();
 
     panel.querySelector('#btn-submit-orders').onclick = () => {
       panel.classList.add('hidden');
       document.getElementById('op-fab')?.classList.add('hidden');
+      if (isMobile()) switchMobileTab('map');
       turnManager.submitOrders(pendingOrders);
     };
   }
@@ -381,6 +686,7 @@ function renderOrderPanel(gamePhase) {
 
   refresh();
   panel.classList.remove('hidden', 'collapsed');
+  if (isMobile()) switchMobileTab('orders');
 }
 
 function formatOrder(o) {
@@ -425,6 +731,7 @@ function openModal(html, onSubmit) {
 
 function closeModal() {
   document.getElementById('order-modal').classList.add('hidden');
+  dismissZonePopup();
   mapRenderer?.clearHighlights();
   if (gameState && mapRenderer) { mapRenderer.updateOwnership(gameState); mapRenderer.renderPions(gameState); }
 }
