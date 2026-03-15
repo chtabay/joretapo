@@ -117,6 +117,7 @@ export class TurnManager {
   }
 
   _beginElection() {
+    if (this.onEndOfMandate) this.onEndOfMandate();
     this.votes = {};
     this.playerQueue = shuffle(this.gs.joueurs.map((_, i) => i));
     this.currentPlayerIdx = 0;

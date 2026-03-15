@@ -6,6 +6,7 @@ import { RevenueEngine, BUY_PRICE, CONSTRUCTION_DEFS } from './revenue-engine.js
 import { ConflictResolver } from './conflict-resolver.js';
 import { MayorEngine, MAYOR_POWERS } from './mayor-engine.js';
 import { MagouilleEngine } from './magouille-engine.js';
+import { SpecialEntities } from './special-entities.js';
 
 let gameData = null;
 let cartesDef = null;
@@ -24,6 +25,14 @@ async function loadGameData() {
   cartesDef = cartesRes;
   const zoneToQuartier = {};
   gameRes.quartiers.forEach(q => { q.zones.forEach(z => { zoneToQuartier[z] = q; }); });
+  (gameRes.iles || []).forEach(ile => {
+    (ile.adjacences || []).forEach(adj => {
+      if (!adjRes[ile.id]) adjRes[ile.id] = [];
+      if (!adjRes[ile.id].includes(adj)) adjRes[ile.id].push(adj);
+      if (!adjRes[adj]) adjRes[adj] = [];
+      if (!adjRes[adj].includes(ile.id)) adjRes[adj].push(ile.id);
+    });
+  });
   return { features: geoRes.features, adjacencies: adjRes, gameplay: gameRes, zoneToQuartier };
 }
 
@@ -107,6 +116,10 @@ function startTurnLoop() {
   if (!gameState) return;
   turnManager = new TurnManager(gameState, gameData.gameplay);
   turnManager.onChange = onPhaseChange;
+  turnManager.onEndOfMandate = () => {
+    const results = SpecialEntities.processEndOfMandate(gameState, gameData.gameplay);
+    results.forEach(msg => console.log('[Fin de mandat]', msg));
+  };
   if (gameState.tour >= 1 && gameState.phase >= 1) {
     turnManager.startTurn();
   }
@@ -178,6 +191,8 @@ function renderOrderPanel(gamePhase) {
           <button class="op-btn" id="btn-add-create" ${remaining <= 0 ? 'disabled' : ''}>+ Créer dealer/trafiquant</button>
           <button class="op-btn" id="btn-add-flic" ${remaining <= 0 ? 'disabled' : ''}>+ Déployer un flic (180L)</button>
           <button class="op-btn" id="btn-elim-flic" ${remaining <= 0 ? 'disabled' : ''}>+ Éliminer un flic ennemi</button>
+          <button class="op-btn" id="btn-elim-incorruptible">+ Éliminer un incorruptible (700L)</button>
+          <button class="op-btn" id="btn-activate-gang">+ Activer un gang</button>
           <div class="op-hint">Les pions non déplacés soutiennent automatiquement les alliés adjacents en conflit.</div>
         `}
         ${MayorEngine.canUse(gameState, pid) && MayorEngine.availablePowers(gameState, pid, gamePhase).length > 0 ? `
@@ -207,6 +222,8 @@ function renderOrderPanel(gamePhase) {
       panel.querySelector('#btn-add-create')?.addEventListener('click', () => showCreateModal(pid, refresh));
       panel.querySelector('#btn-add-flic')?.addEventListener('click', () => showDeployFlicModal(pid, refresh));
       panel.querySelector('#btn-elim-flic')?.addEventListener('click', () => showElimFlicModal(pid, refresh));
+      panel.querySelector('#btn-elim-incorruptible')?.addEventListener('click', () => showElimIncorruptibleModal(pid, refresh));
+      panel.querySelector('#btn-activate-gang')?.addEventListener('click', () => showActivateGangModal(pid, refresh));
     }
     panel.querySelector('#btn-mayor-power')?.addEventListener('click', () => showMayorPowerModal(pid, gamePhase, refresh));
     panel.querySelector('#btn-play-card')?.addEventListener('click', () => showPlayCardModal(pid, gamePhase, refresh));
@@ -665,6 +682,60 @@ function showGitansModal(pid, refresh) {
     const result = MayorEngine.execute(gameState, pid, 'deplacer_gitans', { zones }, gameData.gameplay);
     showMayorResultToast(result.msg);
     refresh();
+  });
+}
+
+/* ── Incorruptible & Gang Modals ── */
+function showElimIncorruptibleModal(pid, refresh) {
+  const incZones = Object.entries(gameState.plateau)
+    .filter(([_, z]) => z.pions.some(p => p.type === 'incorruptible'))
+    .map(([zid]) => zid);
+
+  if (incZones.length === 0) {
+    openModal(`<h3>Éliminer un incorruptible</h3><p style="color:#888">Aucun incorruptible sur le plateau.</p>
+      <div class="modal-actions"><button class="btn-secondary" id="modal-cancel">Fermer</button><button class="btn-primary" id="modal-ok" style="display:none">OK</button></div>`, () => {});
+    return;
+  }
+
+  const check = SpecialEntities.canEliminateIncorruptible(gameState, pid);
+  const html = `<h3>Éliminer un incorruptible</h3>
+    <label>Zone :</label>
+    <select id="f-zone">${incZones.map(z => `<option value="${z}">${z} — ${gameData.gameplay.zones[z]?.nom || z}</option>`).join('')}</select>
+    <p style="font-size:11px;color:#e74c3c;margin-top:6px">⚠ Coût : 700L. Retiré définitivement du jeu.</p>
+    ${!check.ok ? `<p style="color:#e74c3c">${check.reason}</p>` : ''}
+    <div class="modal-actions"><button class="btn-secondary" id="modal-cancel">Annuler</button><button class="btn-primary" id="modal-ok" ${!check.ok ? 'disabled' : ''}>Éliminer</button></div>`;
+
+  openModal(html, () => {
+    const zone = document.getElementById('f-zone').value;
+    const result = SpecialEntities.eliminateIncorruptible(gameState, pid, zone);
+    showMayorResultToast(result.msg || result.reason);
+    refresh();
+  });
+}
+
+function showActivateGangModal(pid, refresh) {
+  const quartiers = gameData.gameplay.quartiers.filter(q => q.gang);
+  const available = quartiers.map(q => {
+    const check = SpecialEntities.canActivateGang(gameState, pid, q.id, gameData.gameplay);
+    return { ...q, canActivate: check.ok, reason: check.reason };
+  });
+
+  const html = `<h3>Activer un gang</h3>
+    ${available.map(q => `<button class="op-btn gang-choice" data-qid="${q.id}" ${!q.canActivate ? 'disabled title="' + q.reason + '"' : ''} style="text-align:left;margin-bottom:6px">
+      <strong>${q.gang.nom}</strong> (${q.nom})${!q.canActivate ? ' ⛔' : ''}
+      <br><span style="font-size:11px;color:#aaa">${q.gang.effet.replace(/_/g, ' ')}</span>
+    </button>`).join('')}
+    <div class="modal-actions"><button class="btn-secondary" id="modal-cancel">Annuler</button><button class="btn-primary" id="modal-ok" style="display:none">OK</button></div>`;
+
+  openModal(html, () => {});
+
+  document.querySelectorAll('.gang-choice:not([disabled])').forEach(btn => {
+    btn.addEventListener('click', () => {
+      closeModal();
+      const result = SpecialEntities.activateGang(gameState, pid, btn.dataset.qid, gameData.gameplay);
+      showMayorResultToast(result.msg || result.reason);
+      refresh();
+    });
   });
 }
 
@@ -1192,9 +1263,12 @@ function renderInfoPanel(id) {
     if (zone && zone.pions.length > 0) {
       gameInfoEl.innerHTML = `<div class="section-title">Pions</div>` +
         zone.pions.map(p => {
-          const j = gameState.joueurs[p.joueur];
-          return `<div class="stat-row"><span class="stat-label" style="color:${j.couleur}">${j.nom}</span><span class="stat-value">${p.type.replace(/_/g, ' ')}</span></div>`;
+          const j = p.joueur != null ? gameState.joueurs[p.joueur] : null;
+          const color = j ? j.couleur : '#888';
+          const name = j ? j.nom : 'Neutre';
+          return `<div class="stat-row"><span class="stat-label" style="color:${color}">${name}</span><span class="stat-value">${p.type.replace(/_/g, ' ')}</span></div>`;
         }).join('');
+      if (zone.gitans) gameInfoEl.innerHTML += `<div class="stat-row" style="color:#795548"><strong>🏕️ Camp de gitans</strong></div>`;
     } else { gameInfoEl.innerHTML = ''; }
   } else { gameInfoEl.innerHTML = ''; }
 

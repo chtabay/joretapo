@@ -1,3 +1,5 @@
+import { SpecialEntities } from './special-entities.js';
+
 const IS_ARMED = t => t === 'dealer' || t === 'trafiquant';
 const IS_PROST = t => t === 'prostituee_base' || t === 'prostituee_luxe';
 
@@ -41,6 +43,10 @@ export class ConflictResolver {
         const adj = adjacencies[o.from] || [];
         if (!adj.includes(o.to)) {
           log.push({ pid, msg: `${gs.joueurs[pid].nom}: ${o.from}→${o.to} non adjacent`, type: 'warn' });
+          return;
+        }
+        if (SpecialEntities.isZoneBlockedByIncorruptible(gs, o.to)) {
+          log.push({ pid, msg: `${gs.joueurs[pid].nom}: ${o.to} bloqué par un incorruptible`, type: 'warn' });
           return;
         }
         const pionIdx = from.pions.findIndex(p => p.type === o.pion_type && p.joueur === pid);

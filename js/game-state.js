@@ -43,6 +43,15 @@ export class GameState {
         gitans: false
       };
     });
+    (gameplayData.iles || []).forEach(ile => {
+      state.plateau[ile.id] = {
+        proprietaire: null,
+        pions: [],
+        construction: null,
+        electricite: true,
+        gitans: false
+      };
+    });
 
     state.caisses = { zurich_bank: 0, hotel_police: 0 };
     state.maire = { joueur_id: null, privileges_restants: 0, tour_election: null };
@@ -129,6 +138,12 @@ export class GameState {
   _placeGitans(gameplayData) {
     const iles = gameplayData.iles || [];
     this.gitans.positions = iles.map(ile => ile.id);
+    iles.forEach(ile => {
+      if (this.plateau[ile.id]) {
+        this.plateau[ile.id].pions.push({ type: 'gitan', joueur: null });
+        this.plateau[ile.id].gitans = true;
+      }
+    });
   }
 
   serialize() {
