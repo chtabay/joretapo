@@ -14,7 +14,7 @@ export class ConflictResolver {
    * Résout tous les mouvements de la Phase 5, y compris les conflits.
    * Remplace RevenueEngine.processMovements.
    */
-  static resolve(gs, allMoveOrders, adjacencies) {
+  static resolve(gs, allMoveOrders, adjacencies, gameplayData) {
     const log = [];
 
     // 1 — Parser et valider les ordres de déplacement
@@ -96,7 +96,7 @@ export class ConflictResolver {
     const cancelledMoves = new Set();
 
     conflicts.forEach(c => {
-      const result = ConflictResolver._resolveConflict(c, gs, adjacencies, movedKeys, byDest);
+      const result = ConflictResolver._resolveConflict(c, gs, adjacencies, movedKeys, byDest, gameplayData);
       log.push(...result.log);
 
       result.winners.forEach(m => resolvedMoves.push(m));
@@ -124,7 +124,7 @@ export class ConflictResolver {
     return log;
   }
 
-  static _resolveConflict(conflict, gs, adjacencies, movedKeys, allByDest) {
+  static _resolveConflict(conflict, gs, adjacencies, movedKeys, allByDest, gameplayRef) {
     const { dest, movers, attackerPids, defenderPid } = conflict;
     const result = { log: [], winners: [], cancelled: [], flights: [] };
     const adj = adjacencies[dest] || [];
@@ -175,20 +175,30 @@ export class ConflictResolver {
       }
     });
 
+    const forceDetails = [...participants.entries()]
+      .map(([pid, data]) => {
+        const name = gs.joueurs[pid]?.nom || '?';
+        const color = gs.joueurs[pid]?.couleur || '#888';
+        const units = movers.filter(m => m.pid === pid).length;
+        const supports = data.strength - units - (data.isDefender ? 1 : 0);
+        return `<span style="color:${color}">${name}</span> ${data.strength} (${units} pion${units > 1 ? 's' : ''}${supports > 0 ? ` + ${supports} support${supports > 1 ? 's' : ''}` : ''}${data.isDefender ? ' 🛡️' : ''})`;
+      }).join(' vs ');
+
+    const zoneName = gameplayRef?.zones?.[dest]?.nom || dest;
+
     if (tied || winner === null) {
-      result.log.push({ pid: -1, msg: `⚔️ Conflit sur ${dest} — égalité (${maxStrength}v${maxStrength}), statu quo`, type: 'conflict' });
+      result.log.push({ pid: -1, msg: `⚔️ Conflit sur <strong>${zoneName}</strong> — ${forceDetails} → Égalité, statu quo !`, type: 'conflict' });
       movers.forEach(m => result.cancelled.push(m));
       return result;
     }
 
-    // Victoire
     const winnerName = gs.joueurs[winner].nom;
     const winnerMoves = movers.filter(m => m.pid === winner);
     const loserPids = [...participants.keys()].filter(p => p !== winner);
 
     result.log.push({
       pid: winner,
-      msg: `⚔️ ${winnerName} remporte le conflit sur ${dest} (force ${maxStrength})`,
+      msg: `⚔️ Conflit sur <strong>${zoneName}</strong> — ${forceDetails} → <strong style="color:${gs.joueurs[winner].couleur}">${winnerName}</strong> l'emporte !`,
       type: 'conflict'
     });
 

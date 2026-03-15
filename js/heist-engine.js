@@ -1,23 +1,31 @@
 export const HEIST_TYPES = {
   zurich_bank: {
-    label: 'Cambriolage de la Zurich Bank',
+    label: 'Zurich Bank',
     icon: '🏦',
-    butin: 'Tous les fonds de la banque'
+    butin: 'Tous les fonds de la banque',
+    color: '#f1c40f',
+    desc: 'Placez un pion armé sur chacune des 4 annexes. Les 4 hommes meurent après le casse.'
   },
   hotel_police: {
-    label: 'Cambriolage de l\'Hôtel de Police',
+    label: 'Hôtel de Police',
     icon: '🚔',
-    butin: 'Moitié des fonds de la police'
+    butin: 'Moitié des fonds de la police',
+    color: '#3498db',
+    desc: 'Pion armé sur place, bordel requis, plus de flics que tout adversaire (min 2). Vous perdez 2 hommes.'
   },
   casino: {
-    label: 'Cambriolage de Casino',
+    label: 'Casino adverse',
     icon: '🎰',
-    butin: 'Tout l\'argent du propriétaire'
+    butin: 'Tout l\'argent du propriétaire',
+    color: '#9b59b6',
+    desc: '11 hommes, 1 prostituée de luxe, posséder un casino et l\'aéroport, sacrifier 3 cartes magouille.'
   },
   labo: {
-    label: 'Cambriolage de Labo',
+    label: 'Labo de raffinage',
     icon: '🧪',
-    butin: 'Toute la drogue du propriétaire'
+    butin: 'Toute la drogue du propriétaire',
+    color: '#2ecc71',
+    desc: 'Pion armé sur le labo, 20 armes + 2 cartes magouille. Coupure d\'électricité = coûts ÷2.'
   }
 };
 
@@ -58,6 +66,62 @@ export class HeistEngine {
       });
     });
     return count;
+  }
+
+  static getProgress(gs, pid, heistType, gameplayData) {
+    const j = gs.joueurs[pid];
+    const reqs = [];
+
+    switch (heistType) {
+      case 'zurich_bank': {
+        const annexes = this._getAnnexeZones(gameplayData);
+        const ownedAnnexes = annexes.filter(zid => {
+          const z = gs.plateau[zid];
+          return z && z.pions.some(p => p.joueur === pid && (p.type === 'dealer' || p.type === 'trafiquant'));
+        });
+        reqs.push({ label: 'Pions sur les annexes', current: ownedAnnexes.length, needed: 4, zones: annexes, ownedZones: ownedAnnexes });
+        return { reqs, sacrifice: '4 hommes de main', loot: `${gs.caisses.zurich_bank} lingots`, lootValue: gs.caisses.zurich_bank, zones: annexes, ownedZones: ownedAnnexes };
+      }
+      case 'hotel_police': {
+        const hpZone = this._getZoneByFacilite(gameplayData, 'hotel_police');
+        const hasPion = hpZone && gs.plateau[hpZone]?.pions.some(p => p.joueur === pid && (p.type === 'dealer' || p.type === 'trafiquant'));
+        const hasBordel = Object.values(gs.plateau).some(z => z.construction === 'bordel' && z.proprietaire === pid);
+        const myFlics = this._countPlayerFlics(gs, pid);
+        const othersMaxFlics = Math.max(0, ...gs.joueurs.filter((_, i) => i !== pid).map((_, i) => this._countPlayerFlics(gs, i)));
+        reqs.push({ label: 'Pion armé sur place', current: hasPion ? 1 : 0, needed: 1 });
+        reqs.push({ label: 'Bordel possédé', current: hasBordel ? 1 : 0, needed: 1 });
+        reqs.push({ label: 'Plus de flics que adversaires (min 2)', current: myFlics, needed: Math.max(2, othersMaxFlics + 1) });
+        const butin = Math.floor(gs.caisses.hotel_police / 2);
+        return { reqs, sacrifice: '2 hommes de main', loot: `${butin} lingots`, lootValue: butin, zones: hpZone ? [hpZone] : [] };
+      }
+      case 'casino': {
+        const armedCount = this._countPlayerArmedPions(gs, pid);
+        const hasLuxe = Object.values(gs.plateau).some(z => z.pions.some(p => p.joueur === pid && p.type === 'prostituee_luxe'));
+        const aeroZone = this._getZoneByFacilite(gameplayData, 'aeroport');
+        const ownsAero = aeroZone && gs.plateau[aeroZone]?.pions.some(p => p.joueur === pid);
+        const ownsCasino = Object.values(gs.plateau).some(z => z.construction === 'casino' && z.proprietaire === pid);
+        const casinoZones = Object.entries(gs.plateau).filter(([_, z]) => z.construction === 'casino' && z.proprietaire !== pid);
+        reqs.push({ label: 'Hommes de main', current: armedCount, needed: 11 });
+        reqs.push({ label: 'Prostituée de luxe', current: hasLuxe ? 1 : 0, needed: 1 });
+        reqs.push({ label: 'Aéroport contrôlé', current: ownsAero ? 1 : 0, needed: 1 });
+        reqs.push({ label: 'Casino possédé', current: ownsCasino ? 1 : 0, needed: 1 });
+        reqs.push({ label: 'Cartes magouille', current: (j.cartes_magouille || []).length, needed: 3 });
+        reqs.push({ label: 'Casino adverse existant', current: casinoZones.length > 0 ? 1 : 0, needed: 1 });
+        const targets = casinoZones.map(([zid]) => zid);
+        return { reqs, sacrifice: '3 cartes magouille', loot: 'Tout l\'argent du propriétaire', lootValue: -1, zones: targets, targetZones: targets };
+      }
+      case 'labo': {
+        const laboZones = Object.entries(gs.plateau).filter(([_, z]) => z.construction === 'labo' && z.proprietaire !== pid);
+        const hasArmes = j.ressources.armes;
+        const hasCartes = (j.cartes_magouille || []).length;
+        reqs.push({ label: 'Armes', current: hasArmes, needed: 20 });
+        reqs.push({ label: 'Cartes magouille', current: hasCartes, needed: 2 });
+        reqs.push({ label: 'Labo adverse existant', current: laboZones.length > 0 ? 1 : 0, needed: 1 });
+        const targets = laboZones.map(([zid]) => zid);
+        return { reqs, sacrifice: '20 armes + 2 cartes', loot: 'Toute la drogue du propriétaire', lootValue: -1, zones: targets, targetZones: targets };
+      }
+    }
+    return { reqs, sacrifice: '', loot: '', lootValue: 0, zones: [] };
   }
 
   static canHeist(gs, pid, heistType, gameplayData) {

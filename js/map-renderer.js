@@ -332,6 +332,30 @@ export class MapRenderer {
     });
   }
 
+  highlightZones(zoneIds, { targetClass = 'heist-target', ownedIds = [], ownedClass = 'heist-owned', dimOthers = true } = {}) {
+    Object.values(this.pathMap).forEach(p =>
+      p.classList.remove('dimmed', 'heist-target', 'heist-owned', 'move-source', 'move-dest', 'move-conflict', 'selected', 'adjacent'));
+    this.selectedId = null;
+
+    if (!zoneIds || zoneIds.length === 0) return;
+
+    Object.entries(this.pathMap).forEach(([pid, p]) => {
+      if (ownedIds.includes(pid)) {
+        p.classList.add(ownedClass);
+      } else if (zoneIds.includes(pid)) {
+        p.classList.add(targetClass);
+      } else if (dimOthers) {
+        p.classList.add('dimmed');
+      }
+    });
+  }
+
+  clearHighlights() {
+    Object.values(this.pathMap).forEach(p =>
+      p.classList.remove('dimmed', 'heist-target', 'heist-owned', 'move-source', 'move-dest', 'move-conflict', 'selected', 'adjacent', 'quartier-highlight'));
+    this.selectedId = null;
+  }
+
   updateOwnership(gameState) {
     Object.entries(this.pathMap).forEach(([zid, path]) => {
       const zone = gameState.plateau[zid];

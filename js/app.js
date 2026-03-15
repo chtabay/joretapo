@@ -55,6 +55,8 @@ function hideAllOverlays() {
   if (op) { op.classList.add('hidden'); op.classList.remove('collapsed'); }
   document.getElementById('op-fab')?.classList.add('hidden');
   document.getElementById('info-panel')?.classList.remove('shifted');
+  mapRenderer?.clearHighlights();
+  if (gameState && mapRenderer) { mapRenderer.updateOwnership(gameState); mapRenderer.renderPions(gameState); }
 }
 
 /* ── Title Screen ── */
@@ -396,6 +398,8 @@ function openModal(html, onSubmit) {
 
 function closeModal() {
   document.getElementById('order-modal').classList.add('hidden');
+  mapRenderer?.clearHighlights();
+  if (gameState && mapRenderer) { mapRenderer.updateOwnership(gameState); mapRenderer.renderPions(gameState); }
 }
 
 function showSupplyModal(pid, refresh) {
@@ -573,20 +577,76 @@ function showMoveModal(pid, refresh) {
 
   let selectedPion = myPions[0] || null;
 
+  function getDestInfo(destId) {
+    const destZone = gameState.plateau[destId];
+    if (!destZone) return { enemies: 0, warning: '' };
+    const enemies = destZone.pions.filter(p => p.joueur !== pid && (p.type === 'dealer' || p.type === 'trafiquant'));
+    const allySupports = (gameData.adjacencies[destId] || []).filter(adjId => {
+      const z = gameState.plateau[adjId];
+      return z && z.pions.some(p => p.joueur === pid && (p.type === 'dealer' || p.type === 'trafiquant'));
+    }).length;
+    return { enemies: enemies.length, allySupports, warning: enemies.length > 0 ? `⚔️ ${enemies.length} ennemi(s)` : '' };
+  }
+
   function getAdjOptions() {
     if (!selectedPion) return '';
     return (gameData.adjacencies[selectedPion.zid] || []).map(a => {
       const zn = gameData.gameplay.zones[a]?.nom || a;
-      return `<option value="${a}">${a} — ${zn}</option>`;
+      const info = getDestInfo(a);
+      const tag = info.enemies > 0 ? ' ⚔️' : '';
+      return `<option value="${a}">${zn}${tag}</option>`;
     }).join('');
+  }
+
+  function updateDestDetails() {
+    const destSel = document.getElementById('f-dest');
+    const detailEl = document.getElementById('move-dest-detail');
+    if (!destSel || !detailEl) return;
+    const destId = destSel.value;
+    const destZone = gameState.plateau[destId];
+    const info = getDestInfo(destId);
+    let html = '';
+    if (destZone && destZone.pions.length > 0) {
+      html += '<div class="move-dest-pions">';
+      destZone.pions.forEach(p => {
+        const j = gameState.joueurs[p.joueur];
+        const isEnemy = p.joueur !== pid;
+        html += `<span class="move-dest-pion ${isEnemy ? 'move-enemy' : 'move-ally'}" style="border-color:${j?.couleur || '#888'}">${p.type.replace(/_/g, ' ')} <small style="color:${j?.couleur || '#888'}">${j?.nom || '?'}</small></span>`;
+      });
+      html += '</div>';
+    }
+    if (info.enemies > 0) {
+      html += `<div class="move-conflict-warn">⚔️ Conflit probable ! Vous avez ${info.allySupports} support(s) adjacent(s)</div>`;
+    }
+    detailEl.innerHTML = html;
+
+    if (selectedPion) {
+      const adj = gameData.adjacencies[selectedPion.zid] || [];
+      const conflictZones = adj.filter(a => getDestInfo(a).enemies > 0);
+      const safeZones = adj.filter(a => getDestInfo(a).enemies === 0);
+      mapRenderer?.highlightZones(
+        [...adj, selectedPion.zid],
+        {
+          targetClass: 'move-dest',
+          ownedIds: [selectedPion.zid],
+          ownedClass: 'move-source',
+          dimOthers: true
+        }
+      );
+      conflictZones.forEach(z => mapRenderer?.pathMap[z]?.classList.add('move-conflict'));
+    }
   }
 
   const html = `
     <h3>Déplacement</h3>
     <label>Pion :</label>
-    <select id="f-pion">${myPions.map((p, i) => `<option value="${i}">${p.type.replace(/_/g, ' ')} @ ${p.zid} — ${gameData.gameplay.zones[p.zid]?.nom || ''}</option>`).join('')}</select>
+    <select id="f-pion">${myPions.map((p, i) => {
+      const zoneName = gameData.gameplay.zones[p.zid]?.nom || p.zid;
+      return `<option value="${i}">${p.type.replace(/_/g, ' ')} — ${zoneName}</option>`;
+    }).join('')}</select>
     <label>Destination :</label>
     <select id="f-dest">${getAdjOptions()}</select>
+    <div id="move-dest-detail" class="move-dest-detail"></div>
     <label style="margin-top:10px;display:flex;align-items:center;gap:8px;cursor:pointer">
       <input type="checkbox" id="f-elim" style="width:16px;height:16px">
       <span style="font-size:13px;color:#e74c3c">Éliminer si victoire (coût supp. + 100k électeurs)</span>
@@ -606,16 +666,31 @@ function showMoveModal(pid, refresh) {
     };
     if (document.getElementById('f-elim')?.checked) order.eliminer = true;
     pendingOrders.push(order);
+    mapRenderer?.clearHighlights();
+    if (gameState) { mapRenderer?.updateOwnership(gameState); mapRenderer?.renderPions(gameState); }
     refresh();
   });
 
   setTimeout(() => {
     const selPion = document.getElementById('f-pion');
+    const selDest = document.getElementById('f-dest');
     if (selPion) selPion.onchange = () => {
       selectedPion = myPions[parseInt(selPion.value)] || null;
-      const dest = document.getElementById('f-dest');
-      if (dest) dest.innerHTML = getAdjOptions();
+      if (selDest) selDest.innerHTML = getAdjOptions();
+      updateDestDetails();
     };
+    if (selDest) selDest.onchange = () => updateDestDetails();
+    updateDestDetails();
+
+    const cancelBtn = document.querySelector('#modal-cancel');
+    if (cancelBtn) {
+      const origClick = cancelBtn.onclick;
+      cancelBtn.onclick = () => {
+        mapRenderer?.clearHighlights();
+        if (gameState) { mapRenderer?.updateOwnership(gameState); mapRenderer?.renderPions(gameState); }
+        if (origClick) origClick();
+      };
+    }
   }, 0);
 }
 
@@ -1065,34 +1140,79 @@ function showGangCiblesModal(pid, quartierId, gang, refresh) {
 function showHeistModal(pid, refresh) {
   const heists = Object.entries(HEIST_TYPES).map(([id, def]) => {
     const check = HeistEngine.canHeist(gameState, pid, id, gameData.gameplay);
-    return { id, ...def, canDo: check.ok, reason: check.reason || '', check };
+    const progress = HeistEngine.getProgress(gameState, pid, id, gameData.gameplay);
+    const metCount = progress.reqs.filter(r => r.current >= r.needed).length;
+    const pct = Math.round((metCount / progress.reqs.length) * 100);
+    return { id, ...def, canDo: check.ok, reason: check.reason || '', check, progress, pct };
   });
 
   const html = `<h3>💰 Cambriolage</h3>
-    ${heists.map(h => `<button class="op-btn heist-choice" data-hid="${h.id}" ${!h.canDo ? 'disabled' : ''} style="text-align:left;margin-bottom:6px">
-      <strong>${h.icon} ${h.label}</strong>${!h.canDo ? ' ⛔' : ''}
-      <br><span style="font-size:11px;color:#aaa">${h.butin}</span>
-      ${!h.canDo ? `<br><span style="font-size:11px;color:#e74c3c">${h.reason}</span>` : ''}
-    </button>`).join('')}
-    <div class="modal-actions"><button class="btn-secondary" id="modal-cancel">Annuler</button><button class="btn-primary" id="modal-ok" style="display:none">OK</button></div>`;
+    <div class="heist-grid">
+    ${heists.map(h => `
+      <div class="heist-card ${h.canDo ? 'heist-ready' : ''}" data-hid="${h.id}" style="--heist-color:${h.color}">
+        <div class="heist-card-header">
+          <span class="heist-card-icon">${h.icon}</span>
+          <div>
+            <div class="heist-card-title">${h.label}</div>
+            <div class="heist-card-butin">${h.butin}</div>
+          </div>
+        </div>
+        <div class="heist-card-desc">${h.desc}</div>
+        <div class="heist-card-progress">
+          <div class="heist-progress-bar"><div class="heist-progress-fill" style="width:${h.pct}%;background:${h.color}"></div></div>
+          <span class="heist-progress-label">${h.pct}%</span>
+        </div>
+        <div class="heist-card-reqs">
+          ${h.progress.reqs.map(r => {
+            const ok = r.current >= r.needed;
+            return `<div class="heist-req ${ok ? 'heist-req-ok' : ''}">
+              <span>${ok ? '✅' : '❌'} ${r.label}</span>
+              <span class="heist-req-val">${r.current}/${r.needed}</span>
+            </div>`;
+          }).join('')}
+        </div>
+        <div class="heist-card-footer">
+          <span class="heist-card-sacrifice">${h.progress.sacrifice ? '💀 ' + h.progress.sacrifice : ''}</span>
+          <span class="heist-card-loot">${h.progress.lootValue > 0 ? '💰 ~' + h.progress.loot : ''}</span>
+        </div>
+        ${h.canDo ? `<button class="btn-primary heist-go" data-hid="${h.id}">Lancer le casse</button>` : ''}
+      </div>
+    `).join('')}
+    </div>
+    <div class="modal-actions"><button class="btn-secondary" id="modal-cancel">Fermer</button></div>`;
 
   openModal(html, () => {});
 
-  document.querySelectorAll('.heist-choice:not([disabled])').forEach(btn => {
-    btn.addEventListener('click', () => {
-      closeModal();
-      const hid = btn.dataset.hid;
-      if (hid === 'casino' || hid === 'labo') {
-        showHeistTargetModal(pid, hid, refresh);
-      } else {
-        const result = HeistEngine.executeHeist(gameState, pid, hid, {}, gameData.gameplay);
-        showHeistToast(result.msg || result.reason);
-        gameState.save();
-        refreshMap();
-        refresh();
-      }
+  setTimeout(() => {
+    document.querySelectorAll('.heist-card').forEach(card => {
+      card.addEventListener('mouseenter', () => {
+        const hid = card.dataset.hid;
+        const progress = HeistEngine.getProgress(gameState, pid, hid, gameData.gameplay);
+        if (progress.zones?.length > 0) {
+          mapRenderer?.highlightZones(progress.zones, { ownedIds: progress.ownedZones || [], dimOthers: false });
+        }
+      });
+      card.addEventListener('mouseleave', () => {
+        mapRenderer?.clearHighlights();
+        if (gameState) mapRenderer?.updateOwnership(gameState);
+      });
     });
-  });
+
+    document.querySelectorAll('.heist-go').forEach(btn => {
+      btn.addEventListener('click', e => {
+        e.stopPropagation();
+        closeModal();
+        mapRenderer?.clearHighlights();
+        if (gameState) { mapRenderer?.updateOwnership(gameState); mapRenderer?.renderPions(gameState); }
+        const hid = btn.dataset.hid;
+        if (hid === 'casino' || hid === 'labo') {
+          showHeistTargetModal(pid, hid, refresh);
+        } else {
+          showHeistConfirmModal(pid, hid, null, refresh);
+        }
+      });
+    });
+  }, 0);
 }
 
 function showHeistTargetModal(pid, heistType, refresh) {
@@ -1100,31 +1220,97 @@ function showHeistTargetModal(pid, heistType, refresh) {
   const zones = heistType === 'casino' ? check.casinoZones : check.laboZones;
   if (!zones || zones.length === 0) return;
 
-  const html = `<h3>${HEIST_TYPES[heistType].icon} ${HEIST_TYPES[heistType].label}</h3>
-    <label>Cible :</label>
-    <select id="f-heist-target">${zones.map(z => {
+  const def = HEIST_TYPES[heistType];
+  const html = `<h3>${def.icon} ${def.label} — Choisir la cible</h3>
+    <div class="heist-target-list">
+    ${zones.map(z => {
       const owner = gameState.plateau[z]?.proprietaire;
       const ownerName = owner != null ? gameState.joueurs[owner]?.nom : '—';
-      return `<option value="${z}">${z} — ${gameData.gameplay.zones[z]?.nom || z} (${ownerName})</option>`;
-    }).join('')}</select>
-    <div class="modal-actions"><button class="btn-secondary" id="modal-cancel">Annuler</button><button class="btn-primary" id="modal-ok">Cambrioler</button></div>`;
+      const ownerColor = owner != null ? gameState.joueurs[owner]?.couleur : '#888';
+      const zoneName = gameData.gameplay.zones[z]?.nom || z;
+      const lootEstimate = heistType === 'casino' && owner != null
+        ? gameState.joueurs[owner].ressources.lingots + 'L'
+        : heistType === 'labo' && owner != null
+          ? gameState.joueurs[owner].ressources.doses + ' doses'
+          : '?';
+      return `<button class="heist-target-btn" data-zone="${z}">
+        <div class="heist-target-info">
+          <span class="heist-target-name">${zoneName}</span>
+          <span class="heist-target-owner" style="color:${ownerColor}">${ownerName}</span>
+        </div>
+        <span class="heist-target-loot">~${lootEstimate}</span>
+      </button>`;
+    }).join('')}
+    </div>
+    <div class="modal-actions"><button class="btn-secondary" id="modal-cancel">Annuler</button></div>`;
+
+  openModal(html, () => {});
+
+  mapRenderer?.highlightZones(zones, { dimOthers: false });
+
+  setTimeout(() => {
+    document.querySelectorAll('.heist-target-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        closeModal();
+        mapRenderer?.clearHighlights();
+        if (gameState) { mapRenderer?.updateOwnership(gameState); mapRenderer?.renderPions(gameState); }
+        showHeistConfirmModal(pid, heistType, btn.dataset.zone, refresh);
+      });
+    });
+  }, 0);
+}
+
+function showHeistConfirmModal(pid, heistType, targetZone, refresh) {
+  const def = HEIST_TYPES[heistType];
+  const progress = HeistEngine.getProgress(gameState, pid, heistType, gameData.gameplay);
+
+  let lootDesc = progress.loot;
+  if (targetZone) {
+    const owner = gameState.plateau[targetZone]?.proprietaire;
+    if (owner != null) {
+      const victim = gameState.joueurs[owner];
+      if (heistType === 'casino') lootDesc = `${victim.ressources.lingots}L de ${victim.nom}`;
+      if (heistType === 'labo') lootDesc = `${victim.ressources.doses} doses de ${victim.nom}`;
+    }
+  }
+
+  const html = `
+    <div class="heist-confirm">
+      <div class="heist-confirm-icon">${def.icon}</div>
+      <h3>${def.label}</h3>
+      <div class="heist-confirm-detail">
+        <div class="heist-confirm-row"><span class="heist-confirm-label">Butin estimé</span><span class="heist-confirm-value heist-confirm-loot">💰 ${lootDesc}</span></div>
+        <div class="heist-confirm-row"><span class="heist-confirm-label">Sacrifice</span><span class="heist-confirm-value heist-confirm-cost">💀 ${progress.sacrifice}</span></div>
+      </div>
+      <p style="text-align:center;color:#e74c3c;font-size:13px;margin-top:12px">Cette action est irréversible.</p>
+    </div>
+    <div class="modal-actions"><button class="btn-secondary" id="modal-cancel">Annuler</button><button class="btn-primary" id="modal-ok" style="background:${def.color};border-color:${def.color}">Confirmer le casse</button></div>`;
 
   openModal(html, () => {
-    const targetZone = document.getElementById('f-heist-target').value;
     const result = HeistEngine.executeHeist(gameState, pid, heistType, { targetZone }, gameData.gameplay);
-    showHeistToast(result.msg || result.reason);
     gameState.save();
     refreshMap();
+    showHeistResult(result, def);
     refresh();
   });
 }
 
-function showHeistToast(msg) {
-  const toast = document.createElement('div');
-  toast.className = 'heist-toast';
-  toast.textContent = '💰 ' + msg;
-  document.body.appendChild(toast);
-  setTimeout(() => toast.remove(), 4000);
+function showHeistResult(result, def) {
+  const ov = document.getElementById('heist-result-ov');
+  if (!ov) {
+    const toast = document.createElement('div');
+    toast.className = 'heist-toast';
+    toast.textContent = '💰 ' + (result.msg || result.reason);
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 4000);
+    return;
+  }
+  ov.querySelector('.heist-result-icon').textContent = def.icon;
+  ov.querySelector('.heist-result-title').textContent = result.ok ? 'Casse réussi !' : 'Casse échoué';
+  ov.querySelector('.heist-result-msg').textContent = result.msg || result.reason;
+  ov.querySelector('.heist-result-title').style.color = result.ok ? '#2ecc71' : '#e74c3c';
+  ov.querySelector('#btn-heist-result-ok').onclick = () => ov.classList.add('hidden');
+  ov.classList.remove('hidden');
 }
 
 /* ── Victory Check ── */
@@ -1378,7 +1564,7 @@ function showCoupoleToast(msg) {
 
 /* ── Resolve (Phase 5) ── */
 function processAndShowResolve() {
-  const moveLog = ConflictResolver.resolve(gameState, turnManager.moveOrders, gameData.adjacencies);
+  const moveLog = ConflictResolver.resolve(gameState, turnManager.moveOrders, gameData.adjacencies, gameData.gameplay);
   gameState.save();
   refreshMap();
 
@@ -1401,8 +1587,11 @@ function showRevealOverlay(title, log, onContinue) {
   } else {
     body.innerHTML = log.map(entry => {
       const color = entry.pid >= 0 ? gameState.joueurs[entry.pid]?.couleur || '#888' : '#888';
-      const icon = { buy: '📦', rev: '💰', build: '🏗️', move: '🚶', create: '✨', conflict: '⚔️', warn: '⚠️', flic: '🚔' }[entry.type] || '•';
-      return `<div class="reveal-line" data-type="${entry.type}" style="border-left:3px solid ${color}"><span class="reveal-icon">${icon}</span>${entry.msg}</div>`;
+      const icon = { buy: '📦', rev: '💰', build: '🏗️', move: '🚶', create: '✨', conflict: '⚔️', warn: '⚠️', flic: '🚔', heist: '💰' }[entry.type] || '•';
+      let extraClass = '';
+      if (entry.type === 'conflict') extraClass = ' reveal-conflict';
+      if (entry.type === 'heist') extraClass = ' reveal-heist';
+      return `<div class="reveal-line${extraClass}" data-type="${entry.type}" style="border-left:3px solid ${color}"><span class="reveal-icon">${icon}</span>${entry.msg}</div>`;
     }).join('');
   }
 
@@ -1905,16 +2094,49 @@ function renderTurnEnd() {
       const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}.`;
       const zones = Object.values(gameState.plateau).filter(z => z.proprietaire === j.id).length;
       const quartiers = gameData.gameplay.quartiers.filter(q => gameState.getQuartierOwner(q.id, gameData.gameplay) === j.id);
+      const qNames = quartiers.map(q => q.nom).join(', ');
       return `<div class="turnend-rank" style="border-color:${j.couleur}">
         <div class="turnend-rank-medal">${medal}</div>
         <div class="turnend-rank-info">
           <div class="turnend-rank-name" style="color:${j.couleur}">${j.nom}</div>
           <div class="turnend-rank-detail">${zones} zones · ${quartiers.length} quartier${quartiers.length > 1 ? 's' : ''}</div>
+          ${quartiers.length > 0 ? `<div class="turnend-rank-quartiers">★ ${qNames}</div>` : ''}
         </div>
         <div class="turnend-rank-pts">${j.pts} <small>pts</small></div>
         <div class="turnend-rank-res">💰${j.ressources.lingots} 🔫${j.ressources.armes} 💊${j.ressources.doses}</div>
       </div>`;
     }).join('') + `</div>`;
+
+  const nearConquest = [];
+  gameData.gameplay.quartiers.forEach(q => {
+    const presence = {};
+    q.zones.forEach(zid => {
+      const z = gameState.plateau[zid];
+      if (z && z.proprietaire != null) {
+        if (!presence[z.proprietaire]) presence[z.proprietaire] = 0;
+        presence[z.proprietaire]++;
+      }
+    });
+    Object.entries(presence).forEach(([pid, count]) => {
+      const pct = count / q.zones.length;
+      if (pct >= 0.5 && pct < 1) {
+        nearConquest.push({ quartier: q, pid: Number(pid), count, total: q.zones.length, pct });
+      }
+    });
+  });
+
+  if (nearConquest.length > 0) {
+    nearConquest.sort((a, b) => b.pct - a.pct);
+    html += `<div class="section-title" style="margin-top:12px">🗺️ Quartiers disputés</div>`;
+    nearConquest.forEach(nc => {
+      const j = gameState.joueurs[nc.pid];
+      const pct = Math.round(nc.pct * 100);
+      html += `<div class="turnend-conquest" style="border-left:3px solid ${j.couleur}">
+        <span style="color:${j.couleur};font-weight:600">${j.nom}</span> — <strong>${nc.quartier.nom}</strong> ${nc.count}/${nc.total} zones (${pct}%)
+        <div class="conquest-bar-wrap" style="margin-top:3px"><div class="conquest-bar" style="width:${pct}%;background:${j.couleur}"></div></div>
+      </div>`;
+    });
+  }
 
   if (turnLog.length > 0) {
     const byPlayer = {};
@@ -1988,11 +2210,40 @@ function renderInfoPanel(id) {
   }
 
   if (q) {
-    document.getElementById('info-stats').innerHTML = `
+    let qStatsHtml = `
       <div class="section-title">Quartier : ${q.nom}</div>
       <div class="stat-row"><span class="stat-label">Zones</span><span class="stat-value">${q.zones.length}</span></div>
       <div class="stat-row"><span class="stat-label">Points</span><span class="stat-value">${q.points}</span></div>
       <div class="stat-row"><span class="stat-label">Pop./zone</span><span class="stat-value">${(q.population_par_zone / 1000).toFixed(0)}k</span></div>`;
+
+    if (gameState) {
+      const playerPresence = {};
+      q.zones.forEach(zid => {
+        const z = gameState.plateau[zid];
+        if (z && z.proprietaire != null) {
+          if (!playerPresence[z.proprietaire]) playerPresence[z.proprietaire] = 0;
+          playerPresence[z.proprietaire]++;
+        }
+      });
+      const entries = Object.entries(playerPresence).sort((a, b) => b[1] - a[1]);
+      if (entries.length > 0) {
+        qStatsHtml += `<div class="section-title" style="margin-top:8px">Conquête</div>`;
+        entries.forEach(([pid, count]) => {
+          const j = gameState.joueurs[pid];
+          const pct = Math.round((count / q.zones.length) * 100);
+          const full = count === q.zones.length;
+          qStatsHtml += `<div class="conquest-progress">
+            <div class="conquest-player"><span class="hud-player-dot" style="background:${j.couleur}"></span>${j.nom}</div>
+            <div class="conquest-bar-wrap">
+              <div class="conquest-bar" style="width:${pct}%;background:${j.couleur}${full ? '' : '99'}"></div>
+            </div>
+            <span class="conquest-count ${full ? 'conquest-full' : ''}">${count}/${q.zones.length}${full ? ' ★' : ''}</span>
+          </div>`;
+        });
+      }
+    }
+
+    document.getElementById('info-stats').innerHTML = qStatsHtml;
     const g = q.gang;
     const dur = g.duree === -1 ? 'permanent' : g.duree === 0 ? 'instantané' : `${g.duree} tours`;
     const gangEl = document.getElementById('info-gang');

@@ -196,6 +196,8 @@
   .turnend-rank-pts { font-size: 22px; font-weight: 800; color: #f8c48a; font-family: monospace; }
   .turnend-rank-pts small { font-size: 11px; font-weight: 400; }
   .turnend-rank-res { font-size: 11px; color: #888; display: flex; gap: 6px; min-width: 110px; justify-content: flex-end; }
+  .turnend-rank-quartiers { font-size: 10px; color: #f1c40f; margin-top: 2px; }
+  .turnend-conquest { padding: 6px 10px; margin-bottom: 4px; font-size: 12px; border-radius: 4px; background: rgba(255,255,255,0.02); }
   .turnend-recap { margin-top: 8px; padding: 10px; background: rgba(255,255,255,0.02); border-radius: 6px; }
   .turnend-recap-player { padding: 4px 8px; font-size: 12px; margin-bottom: 3px; border-radius: 3px; }
 
@@ -298,6 +300,80 @@
 
   /* ── Heist ── */
   .heist-toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: #2a2a10; color: #f1c40f; padding: 12px 24px; border-radius: 8px; border: 1px solid #f1c40f; font-weight: 600; z-index: 10000; animation: slideUp 0.4s ease, fadeIn 0.4s ease; pointer-events: none; }
+
+  .heist-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
+  .heist-card { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; padding: 12px; cursor: pointer; transition: all 0.2s ease; position: relative; }
+  .heist-card:hover { border-color: var(--heist-color, #f1c40f); background: rgba(255,255,255,0.07); }
+  .heist-card.heist-ready { border-color: var(--heist-color, #f1c40f); box-shadow: 0 0 12px rgba(241,196,15,0.15); }
+  .heist-card-header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .heist-card-icon { font-size: 28px; }
+  .heist-card-title { font-weight: 700; color: var(--heist-color, #f1c40f); font-size: 14px; }
+  .heist-card-butin { font-size: 11px; color: #aaa; }
+  .heist-card-desc { font-size: 11px; color: #888; margin-bottom: 10px; line-height: 1.4; }
+  .heist-card-progress { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .heist-progress-bar { flex: 1; height: 6px; background: rgba(255,255,255,0.1); border-radius: 3px; overflow: hidden; }
+  .heist-progress-fill { height: 100%; border-radius: 3px; transition: width 0.4s ease; }
+  .heist-progress-label { font-size: 12px; font-weight: 700; color: var(--heist-color, #f1c40f); min-width: 32px; text-align: right; }
+  .heist-card-reqs { margin-bottom: 8px; }
+  .heist-req { display: flex; justify-content: space-between; align-items: center; font-size: 11px; padding: 2px 0; color: #e74c3c; }
+  .heist-req-ok { color: #2ecc71; }
+  .heist-req-val { font-family: monospace; font-size: 11px; }
+  .heist-card-footer { display: flex; justify-content: space-between; font-size: 10px; color: #888; margin-bottom: 8px; }
+  .heist-card-sacrifice { color: #e74c3c; }
+  .heist-card-loot { color: #f1c40f; }
+  .heist-go { width: 100%; margin-top: 4px; font-size: 13px; padding: 8px; }
+
+  .heist-target-list { display: flex; flex-direction: column; gap: 8px; margin: 12px 0; }
+  .heist-target-btn { display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.15); border-radius: 8px; padding: 12px; cursor: pointer; transition: all 0.2s; color: #eee; text-align: left; }
+  .heist-target-btn:hover { border-color: #f1c40f; background: rgba(241,196,15,0.08); }
+  .heist-target-info { display: flex; flex-direction: column; }
+  .heist-target-name { font-weight: 600; font-size: 14px; }
+  .heist-target-owner { font-size: 12px; }
+  .heist-target-loot { font-size: 14px; font-weight: 700; color: #f1c40f; }
+
+  .heist-confirm { text-align: center; padding: 12px 0; }
+  .heist-confirm-icon { font-size: 48px; margin-bottom: 8px; }
+  .heist-confirm-detail { margin: 16px 0; }
+  .heist-confirm-row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.08); font-size: 14px; }
+  .heist-confirm-label { color: #888; }
+  .heist-confirm-value { font-weight: 700; }
+  .heist-confirm-loot { color: #f1c40f; }
+  .heist-confirm-cost { color: #e74c3c; }
+
+  .heist-result-container { background: #1a1a2e; border: 2px solid #f1c40f; border-radius: 16px; padding: 32px 28px; max-width: 400px; margin: auto; text-align: center; animation: scaleIn 0.3s ease; }
+  .heist-result-icon { font-size: 64px; margin-bottom: 12px; }
+  .heist-result-title { font-size: 22px; margin-bottom: 12px; }
+  .heist-result-msg { font-size: 14px; color: #ccc; line-height: 1.5; }
+  @keyframes scaleIn { from { transform: scale(0.85); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+  /* ── Move / Conquest ── */
+  .move-dest-detail { margin: 8px 0; min-height: 24px; }
+  .move-dest-pions { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 6px; }
+  .move-dest-pion { font-size: 11px; padding: 3px 8px; border-radius: 4px; border: 1px solid; background: rgba(0,0,0,0.3); }
+  .move-enemy { border-color: #e74c3c !important; }
+  .move-ally { border-color: #2ecc71 !important; }
+  .move-conflict-warn { font-size: 12px; color: #e74c3c; padding: 6px 10px; background: rgba(231,76,60,0.1); border-radius: 6px; border: 1px solid rgba(231,76,60,0.2); }
+
+  /* Map zone highlights */
+  .zone.heist-target { opacity: 1 !important; stroke: #f1c40f !important; stroke-width: 2.5 !important; fill: rgba(241,196,15,0.2) !important; animation: zonePulse 1.5s ease infinite; }
+  .zone.heist-owned { opacity: 1 !important; stroke: #2ecc71 !important; stroke-width: 2.5 !important; fill: rgba(46,204,113,0.25) !important; }
+  .zone.move-source { opacity: 1 !important; stroke: #3498db !important; stroke-width: 2.5 !important; fill: rgba(52,152,219,0.25) !important; }
+  .zone.move-dest { opacity: 1 !important; stroke: #2ecc71 !important; stroke-width: 1.8 !important; fill: rgba(46,204,113,0.15) !important; }
+  .zone.move-conflict { opacity: 1 !important; stroke: #e74c3c !important; stroke-width: 2.5 !important; fill: rgba(231,76,60,0.2) !important; animation: zonePulse 1.5s ease infinite; }
+  @keyframes zonePulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.7; } }
+
+  /* Conquest progress in info panel */
+  .conquest-progress { margin-bottom: 6px; }
+  .conquest-player { display: flex; align-items: center; gap: 6px; font-size: 12px; margin-bottom: 3px; }
+  .conquest-bar-wrap { height: 6px; background: rgba(255,255,255,0.1); border-radius: 3px; overflow: hidden; }
+  .conquest-bar { height: 100%; border-radius: 3px; transition: width 0.4s ease; }
+  .conquest-count { font-size: 11px; font-family: monospace; color: #aaa; }
+  .conquest-full { color: #f1c40f !important; font-weight: 700; }
+
+  /* Reveal enriched */
+  .reveal-conflict { background: rgba(231,76,60,0.06); border-left-width: 4px !important; }
+  .reveal-heist { background: rgba(241,196,15,0.06); border-left-width: 4px !important; }
+  .reveal-line strong { font-weight: 700; }
 
   /* ── Turn-start reminder ── */
   .reminder-container { width: 90%; max-width: 520px; max-height: 80vh; display: flex; flex-direction: column; }
@@ -485,6 +561,9 @@
     .curtain-player { font-size: 32px; }
     .magouille-toast, .mayor-toast, .contract-toast, .coupole-toast, .heist-toast { font-size: 14px; padding: 10px 20px; left: 8px; right: 8px; transform: translateX(0); width: calc(100% - 16px); }
 
+    .heist-grid { grid-template-columns: 1fr; }
+    .heist-result-container { margin: 20px; padding: 24px 16px; }
+
     .btn-primary, .btn-secondary { min-height: 44px; padding: 14px 24px; }
     .confirm-buttons .btn-primary, .confirm-buttons .btn-secondary { min-height: 44px; }
     .reveal-btn { padding-bottom: max(16px, env(safe-area-inset-bottom)); }
@@ -670,6 +749,16 @@
       <div class="magouille-detail-meta"></div>
       <div class="magouille-detail-actions" style="margin-top:16px;display:flex;gap:10px"></div>
       <button class="btn-secondary" id="magouille-detail-close" style="margin-top:12px">Fermer</button>
+    </div>
+  </div>
+
+  <!-- Heist Result -->
+  <div id="heist-result-ov" class="overlay hidden" onclick="this.classList.add('hidden')">
+    <div class="heist-result-container" onclick="event.stopPropagation()">
+      <div class="heist-result-icon"></div>
+      <h3 class="heist-result-title"></h3>
+      <p class="heist-result-msg"></p>
+      <button class="btn-primary" id="btn-heist-result-ok" style="margin-top:16px;width:100%">Continuer</button>
     </div>
   </div>
 
