@@ -3,6 +3,7 @@ import { MapRenderer, QUARTIER_COLORS, FACILITE_LABELS } from './map-renderer.js
 import { renderSetupScreen } from './setup.js';
 import { TurnManager, PHASE, GAME_PHASE_LABELS } from './turn-manager.js';
 import { RevenueEngine, BUY_PRICE } from './revenue-engine.js';
+import { ConflictResolver } from './conflict-resolver.js';
 
 let gameData = null;
 let gameState = null;
@@ -164,6 +165,7 @@ function renderOrderPanel(gamePhase) {
         ` : `
           <button class="op-btn" id="btn-add-move" ${remaining <= 0 ? 'disabled' : ''}>+ Déplacer un pion</button>
           <button class="op-btn" id="btn-add-create" ${remaining <= 0 ? 'disabled' : ''}>+ Créer dealer/trafiquant</button>
+          <div class="op-hint">Les pions non déplacés soutiennent automatiquement les alliés adjacents en conflit.</div>
         `}
       </div>
       <div class="op-list">
@@ -382,6 +384,34 @@ function showCreateModal(pid, refresh) {
   });
 }
 
+/* ── Victory Check ── */
+function checkVictory() {
+  if (!gameState) return null;
+  const results = gameState.joueurs.map(j => ({
+    joueur: j,
+    points: gameState.getPlayerPoints(j.id, gameData.gameplay)
+  }));
+  results.sort((a, b) => b.points - a.points);
+  if (results[0].points >= 55) return results[0];
+  return null;
+}
+
+function showVictoryScreen(winner) {
+  const ov = document.getElementById('turnend-ov');
+  const body = ov.querySelector('.turnend-body');
+  body.innerHTML = `<h2>Partie terminée !</h2>` +
+    gameState.joueurs.map(j => {
+      const pts = gameState.getPlayerPoints(j.id, gameData.gameplay);
+      return `<div class="reveal-player"><span class="hud-player-dot" style="background:${j.couleur}"></span>
+        <strong>${j.nom}</strong> — <span class="hud-player-pts">${pts} pts</span> · ${j.ressources.lingots}L · ${j.ressources.armes}A · ${j.ressources.doses}D</div>`;
+    }).join('') +
+    `<div class="victory-banner" style="color:${winner.joueur.couleur}">🏆 ${winner.joueur.nom} remporte la partie avec ${winner.points} points !</div>`;
+
+  ov.querySelector('#btn-next-turn').textContent = 'Retour au menu';
+  ov.querySelector('#btn-next-turn').onclick = () => { ov.classList.add('hidden'); renderTitleScreen(); };
+  ov.classList.remove('hidden');
+}
+
 /* ── Reveal (Phase 2) ── */
 function processAndShowReveal() {
   const supplyLog = RevenueEngine.processSupplyOrders(gameState, turnManager.supplyOrders, gameData.gameplay);
@@ -390,7 +420,9 @@ function processAndShowReveal() {
   refreshMap();
 
   showRevealOverlay('Révélation & récolte', [...supplyLog, ...revenueLog], () => {
-    turnManager.continueFromReveal();
+    const w = checkVictory();
+    if (w) { hideAllOverlays(); showVictoryScreen(w); }
+    else turnManager.continueFromReveal();
   });
 }
 
@@ -406,12 +438,14 @@ function renderNegotiation() {
 
 /* ── Resolve (Phase 5) ── */
 function processAndShowResolve() {
-  const moveLog = RevenueEngine.processMovements(gameState, turnManager.moveOrders, gameData.gameplay, gameData.adjacencies);
+  const moveLog = ConflictResolver.resolve(gameState, turnManager.moveOrders, gameData.adjacencies);
   gameState.save();
   refreshMap();
 
   showRevealOverlay('Résolution des mouvements', moveLog, () => {
-    turnManager.continueFromReveal();
+    const w = checkVictory();
+    if (w) { hideAllOverlays(); showVictoryScreen(w); }
+    else turnManager.continueFromReveal();
   });
 }
 
@@ -427,7 +461,7 @@ function showRevealOverlay(title, log, onContinue) {
     body.innerHTML = log.map(entry => {
       const color = entry.pid >= 0 ? gameState.joueurs[entry.pid]?.couleur || '#888' : '#888';
       const icon = { buy: '📦', rev: '💰', build: '🏗️', move: '🚶', create: '✨', conflict: '⚔️', warn: '⚠️' }[entry.type] || '•';
-      return `<div class="reveal-line" style="border-left:3px solid ${color}"><span class="reveal-icon">${icon}</span>${entry.msg}</div>`;
+      return `<div class="reveal-line" data-type="${entry.type}" style="border-left:3px solid ${color}"><span class="reveal-icon">${icon}</span>${entry.msg}</div>`;
     }).join('');
   }
 

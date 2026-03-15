@@ -73,17 +73,24 @@
   svg { display: block; }
 
   /* ── Overlays ── */
-  .overlay { position: fixed; inset: 0; z-index: 100; display: flex; align-items: center; justify-content: center; transition: opacity 0.2s; }
+  .overlay { position: fixed; inset: 0; z-index: 100; display: flex; align-items: center; justify-content: center; }
   .overlay.hidden { display: none; }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes slideUp { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes slideRight { from { opacity: 0; transform: translateX(40px); } to { opacity: 1; transform: translateX(0); } }
+  @keyframes pulseGlow { 0%,100% { box-shadow: 0 0 12px rgba(138,180,248,0.15); } 50% { box-shadow: 0 0 24px rgba(138,180,248,0.35); } }
+  .overlay:not(.hidden) { animation: fadeIn 0.25s ease; }
+  .overlay:not(.hidden) .reveal-container, .overlay:not(.hidden) .nego-container, .overlay:not(.hidden) .turnend-container, .overlay:not(.hidden) .modal-content { animation: slideUp 0.3s ease; }
 
   /* ── Curtain ── */
   #curtain { background: #0a0a1a; flex-direction: column; gap: 24px; }
+  #curtain:not(.hidden) { animation: fadeIn 0.4s ease; }
   .curtain-phase { font-size: 14px; color: #666; letter-spacing: 2px; text-transform: uppercase; }
   .curtain-label { font-size: 18px; color: #888; }
-  .curtain-player { font-size: 48px; font-weight: 700; }
+  .curtain-player { font-size: 48px; font-weight: 700; text-shadow: 0 0 40px currentColor; }
 
   /* ── Order Panel ── */
-  #order-panel { position: fixed; top: 0; right: 0; width: 340px; height: 100vh; background: rgba(10,10,30,0.96); border-left: 1px solid #334; z-index: 50; display: flex; flex-direction: column; padding: 16px; overflow-y: auto; backdrop-filter: blur(8px); }
+  #order-panel { position: fixed; top: 0; right: 0; width: 340px; height: 100vh; background: rgba(10,10,30,0.96); border-left: 1px solid #334; z-index: 50; display: flex; flex-direction: column; padding: 16px; overflow-y: auto; backdrop-filter: blur(8px); animation: slideRight 0.3s ease; }
   #order-panel.hidden { display: none; }
   .op-header { padding-bottom: 8px; border-bottom: 2px solid; margin-bottom: 8px; }
   .op-header strong { font-size: 18px; display: block; }
@@ -99,6 +106,7 @@
   .op-empty { color: #555; font-size: 13px; font-style: italic; padding: 8px 0; }
   .op-order { display: flex; justify-content: space-between; align-items: center; background: #1a1a2e; padding: 6px 10px; border-radius: 4px; font-size: 13px; }
   .op-remove { background: none; border: none; color: #e74c3c; cursor: pointer; font-size: 16px; padding: 2px 6px; }
+  .op-hint { font-size: 11px; color: #666; font-style: italic; padding: 4px 2px; border-top: 1px solid #223; margin-top: 4px; }
   .op-submit { margin-top: auto; width: 100%; }
 
   /* ── Modal ── */
@@ -116,13 +124,21 @@
   .reveal-container, .nego-container, .turnend-container { width: 90%; max-width: 560px; max-height: 80vh; display: flex; flex-direction: column; }
   .reveal-title, .nego-title { font-size: 24px; color: #8ab4f8; margin-bottom: 16px; text-align: center; }
   .reveal-body { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; padding-right: 8px; }
-  .reveal-line { padding: 6px 10px; font-size: 13px; border-radius: 4px; background: rgba(255,255,255,0.02); }
+  .reveal-line { padding: 6px 10px; font-size: 13px; border-radius: 4px; background: rgba(255,255,255,0.02); animation: slideUp 0.2s ease both; }
+  .reveal-line:nth-child(1) { animation-delay: 0.05s; }
+  .reveal-line:nth-child(2) { animation-delay: 0.1s; }
+  .reveal-line:nth-child(3) { animation-delay: 0.15s; }
+  .reveal-line:nth-child(4) { animation-delay: 0.2s; }
+  .reveal-line:nth-child(5) { animation-delay: 0.25s; }
+  .reveal-line:nth-child(n+6) { animation-delay: 0.3s; }
+  .reveal-line[data-type="conflict"] { background: rgba(231,76,60,0.12); border-left-color: #e74c3c !important; font-weight: 600; }
+  .reveal-line[data-type="warn"] { background: rgba(243,156,18,0.08); }
   .reveal-icon { margin-right: 6px; }
   .reveal-empty { color: #555; font-style: italic; text-align: center; padding: 24px; }
   .reveal-summary { margin-top: 16px; padding-top: 12px; border-top: 1px solid #334; }
   .reveal-player { display: flex; align-items: center; gap: 8px; font-size: 13px; padding: 3px 0; }
   .reveal-btn { text-align: center; margin-top: 20px; }
-  .victory-banner { font-size: 22px; font-weight: 700; text-align: center; padding: 20px; margin-top: 12px; }
+  .victory-banner { font-size: 22px; font-weight: 700; text-align: center; padding: 20px; margin-top: 12px; animation: pulseGlow 2s infinite; border-radius: 8px; background: rgba(138,180,248,0.05); }
 
   /* ── Negotiation ── */
   .nego-container { align-items: center; gap: 24px; }
