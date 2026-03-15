@@ -272,6 +272,7 @@ function openModal(html, onSubmit) {
   if (cancelBtn) cancelBtn.onclick = () => closeModal();
   const okBtn = modal.querySelector('#modal-ok');
   if (okBtn && onSubmit) okBtn.onclick = () => { closeModal(); onSubmit(); };
+  modal.onclick = e => { if (e.target === modal) closeModal(); };
 }
 
 function closeModal() {
@@ -284,16 +285,17 @@ function showSupplyModal(pid, refresh) {
     { id: 'doses', label: 'Doses', prix: 2 },
     { id: 'armes', label: 'Armes', prix: 4 }
   ];
-  let sel = { point: sps[0]?.zone || '', denree: 'doses', qty: 1 };
+  const j = gameState.joueurs[pid];
 
   const html = `
     <h3>Approvisionnement</h3>
     <label>Point :</label>
     <select id="f-point">${sps.map(sp => `<option value="${sp.zone}">${sp.nom} (${sp.type})</option>`).join('')}</select>
     <label>Denrée :</label>
-    <select id="f-denree">${denrees.map(d => `<option value="${d.id}">${d.label} — ${d.prix}L</option>`).join('')}</select>
+    <select id="f-denree">${denrees.map(d => `<option value="${d.id}">${d.label} — ${d.prix}L / unité</option>`).join('')}</select>
     <label>Quantité :</label>
     <input type="number" id="f-qty" value="1" min="1" max="20" />
+    <div id="f-cost-preview" class="modal-cost-preview"></div>
     <div class="modal-actions"><button class="btn-secondary" id="modal-cancel">Annuler</button><button class="btn-primary" id="modal-ok">Commander</button></div>
   `;
 
@@ -304,6 +306,22 @@ function showSupplyModal(pid, refresh) {
     pendingOrders.push({ type: 'approvisionner', point, denree, quantite: qty });
     refresh();
   });
+
+  function updateCostPreview() {
+    const denreeId = document.getElementById('f-denree').value;
+    const qty = parseInt(document.getElementById('f-qty').value) || 1;
+    const d = denrees.find(x => x.id === denreeId);
+    const total = d.prix * qty;
+    const alreadySpent = pendingOrders.filter(o => o.type === 'approvisionner' || o.type === 'construire' || o.type === 'recruter' || o.type === 'deployer_flic')
+      .reduce((s, o) => s + (o._cost || 0), 0);
+    const el = document.getElementById('f-cost-preview');
+    const warn = total > j.ressources.lingots ? ' <span style="color:#e74c3c">⚠ Fonds insuffisants</span>' : '';
+    el.innerHTML = `💰 <strong>${qty} × ${d.prix}L = ${total}L</strong> <span style="color:#888">(solde : ${j.ressources.lingots}L)</span>${warn}`;
+  }
+
+  document.getElementById('f-denree').addEventListener('change', updateCostPreview);
+  document.getElementById('f-qty').addEventListener('input', updateCostPreview);
+  updateCostPreview();
 }
 
 function showRecruitModal(pid, refresh) {

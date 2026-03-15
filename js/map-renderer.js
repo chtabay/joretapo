@@ -137,34 +137,35 @@ export class MapRenderer {
       this.pathMap[id] = path;
 
       const [cx, cy] = this._centroid(f);
-      const text = document.createElementNS(NS, 'text');
-      text.setAttribute('x', cx.toFixed(1));
-      text.setAttribute('y', (cy - 1.5).toFixed(1));
-      text.setAttribute('text-anchor', 'middle');
-      text.setAttribute('dominant-baseline', 'central');
-      text.setAttribute('font-size', '5');
-      text.setAttribute('fill', 'rgba(255,255,255,0.8)');
-      text.setAttribute('font-family', 'system-ui, sans-serif');
-      text.setAttribute('font-weight', '600');
-      text.setAttribute('pointer-events', 'none');
-      text.textContent = id;
-      this.gLabels.appendChild(text);
-
       const zoneData = this.gameplay.zones[id];
+
       if (zoneData) {
         const shortName = zoneData.nom.split(',')[0].trim();
-        const sub = document.createElementNS(NS, 'text');
-        sub.setAttribute('x', cx.toFixed(1));
-        sub.setAttribute('y', (cy + 2).toFixed(1));
-        sub.setAttribute('text-anchor', 'middle');
-        sub.setAttribute('dominant-baseline', 'central');
-        sub.setAttribute('font-size', '2.8');
-        sub.setAttribute('fill', 'rgba(255,255,255,0.45)');
-        sub.setAttribute('font-family', 'system-ui, sans-serif');
-        sub.setAttribute('pointer-events', 'none');
-        sub.textContent = shortName;
-        this.gLabels.appendChild(sub);
+        const nameLabel = document.createElementNS(NS, 'text');
+        nameLabel.setAttribute('x', cx.toFixed(1));
+        nameLabel.setAttribute('y', (cy - 1.5).toFixed(1));
+        nameLabel.setAttribute('text-anchor', 'middle');
+        nameLabel.setAttribute('dominant-baseline', 'central');
+        nameLabel.setAttribute('font-size', '4.2');
+        nameLabel.setAttribute('fill', 'rgba(255,255,255,0.75)');
+        nameLabel.setAttribute('font-family', 'system-ui, sans-serif');
+        nameLabel.setAttribute('font-weight', '600');
+        nameLabel.setAttribute('pointer-events', 'none');
+        nameLabel.textContent = shortName;
+        this.gLabels.appendChild(nameLabel);
       }
+
+      const codeLabel = document.createElementNS(NS, 'text');
+      codeLabel.setAttribute('x', cx.toFixed(1));
+      codeLabel.setAttribute('y', (cy + 2).toFixed(1));
+      codeLabel.setAttribute('text-anchor', 'middle');
+      codeLabel.setAttribute('dominant-baseline', 'central');
+      codeLabel.setAttribute('font-size', '3.2');
+      codeLabel.setAttribute('fill', 'rgba(255,255,255,0.4)');
+      codeLabel.setAttribute('font-family', 'monospace');
+      codeLabel.setAttribute('pointer-events', 'none');
+      codeLabel.textContent = id;
+      this.gLabels.appendChild(codeLabel);
     });
 
     this.svg.appendChild(this.gZones);
