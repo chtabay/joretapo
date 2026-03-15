@@ -17,18 +17,22 @@
   #screen-title .title-sub { font-size: 14px; color: #666; letter-spacing: 4px; text-transform: uppercase; }
   .title-buttons { display: flex; flex-direction: column; gap: 12px; margin-top: 32px; }
 
-  /* ── Game Intro ── */
-  .game-intro { display: flex; flex-direction: column; align-items: center; gap: 24px; max-width: 600px; width: 100%; padding: 32px 24px; animation: slideUp 0.5s ease; }
-  .game-intro h1 { font-size: 42px; color: #8ab4f8; letter-spacing: 8px; text-transform: uppercase; }
-  .game-intro-tagline { font-size: 14px; color: #888; letter-spacing: 3px; text-transform: uppercase; text-align: center; }
-  .game-intro-desc { font-size: 15px; color: #ccc; text-align: center; line-height: 1.6; max-width: 480px; }
-  .game-intro-features { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: 100%; }
-  .game-intro-feat { display: flex; align-items: flex-start; gap: 10px; padding: 12px 14px; background: rgba(255,255,255,0.03); border: 1px solid #223; border-radius: 8px; }
-  .game-intro-feat-icon { font-size: 24px; flex-shrink: 0; }
-  .game-intro-feat-text { display: flex; flex-direction: column; gap: 2px; }
-  .game-intro-feat-title { font-size: 13px; font-weight: 700; color: #8ab4f8; }
-  .game-intro-feat-sub { font-size: 11px; color: #888; }
-  .game-intro-rules { font-size: 12px; color: #666; text-align: center; border-top: 1px solid #223; padding-top: 16px; width: 100%; }
+  /* ── Intro (game presentation) ── */
+  #screen-intro { justify-content: center; align-items: center; overflow-y: auto; background: radial-gradient(ellipse at center, #1a1a3a 0%, #0a0a1a 70%); }
+  .intro-container { width: 100%; max-width: 640px; padding: 32px 24px; }
+  .intro-header { text-align: center; margin-bottom: 32px; }
+  .intro-header h1 { font-size: 48px; color: #8ab4f8; letter-spacing: 8px; margin-bottom: 8px; }
+  .intro-header .intro-tagline { font-size: 15px; color: #888; letter-spacing: 2px; }
+  .intro-section { margin-bottom: 24px; }
+  .intro-section h2 { font-size: 16px; color: #c39bd3; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 12px; border-bottom: 1px solid #334; padding-bottom: 6px; }
+  .intro-rules { display: flex; flex-direction: column; gap: 10px; }
+  .intro-rule { display: flex; gap: 12px; align-items: flex-start; padding: 10px 14px; background: rgba(255,255,255,0.03); border-radius: 6px; border-left: 3px solid #5a8ab4; }
+  .intro-rule-icon { font-size: 24px; flex-shrink: 0; width: 36px; text-align: center; }
+  .intro-rule-text { font-size: 14px; color: #ccc; line-height: 1.5; }
+  .intro-rule-text strong { color: #8ab4f8; }
+  .intro-victory { padding: 14px 18px; background: rgba(248,196,138,0.06); border: 1px solid #554422; border-radius: 8px; text-align: center; margin-bottom: 24px; }
+  .intro-victory strong { color: #f8c48a; font-size: 20px; }
+  .intro-actions { display: flex; justify-content: center; gap: 12px; }
 
   /* ── Setup ── */
   #screen-setup { justify-content: center; align-items: center; overflow-y: auto; }
@@ -79,21 +83,8 @@
   .btn-secondary { padding: 12px 32px; background: transparent; border: 1px solid #445; border-radius: 6px; color: #aaa; font-size: 16px; cursor: pointer; transition: background 0.15s; }
   .btn-secondary:hover { background: #223; }
 
-  /* ── Election Progress Bar ── */
-  #election-bar { position: fixed; top: 0; left: 0; right: 0; z-index: 40; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 6px 16px; background: rgba(10,10,30,0.85); backdrop-filter: blur(6px); border-bottom: 1px solid #223; font-size: 11px; color: #888; }
-  #election-bar.hidden { display: none; }
-  .ebar-label { font-size: 10px; letter-spacing: 1px; text-transform: uppercase; color: #666; margin-right: 6px; }
-  .ebar-dots { display: flex; gap: 4px; align-items: center; }
-  .ebar-dot { width: 18px; height: 6px; border-radius: 3px; background: #223; border: 1px solid #334; transition: background 0.3s, box-shadow 0.3s; }
-  .ebar-dot.filled { background: #5a8ab4; border-color: #8ab4f8; }
-  .ebar-dot.current { background: #8ab4f8; border-color: #b0d0ff; box-shadow: 0 0 8px rgba(138,180,248,0.5); }
-  .ebar-dot.election { background: #f8c48a; border-color: #f0a050; animation: pulseGlow 1.5s infinite; }
-  .ebar-info { font-size: 10px; color: #8ab4f8; margin-left: 8px; }
-  .ebar-info.urgent { color: #f8c48a; font-weight: 700; }
-
   /* ── Game Screen ── */
-  #screen-game { flex-direction: column; --player-color: transparent; }
-  #screen-game::after { content: ''; position: absolute; inset: 0; pointer-events: none; z-index: 5; box-shadow: inset 0 0 80px var(--player-color); transition: box-shadow 0.5s ease; }
+  #screen-game { flex-direction: column; }
   #map-container { position: absolute; inset: 0; cursor: grab; touch-action: none; }
   #map-container.dragging { cursor: grabbing; }
   svg { display: block; }
@@ -198,18 +189,16 @@
   .turnend-recap { margin-top: 8px; padding: 10px; background: rgba(255,255,255,0.02); border-radius: 6px; }
   .turnend-recap-player { padding: 4px 8px; font-size: 12px; margin-bottom: 3px; border-radius: 3px; }
 
-  /* ── Election Intro ── */
-  #election-intro-ov { background: radial-gradient(ellipse at center, #1a1028 0%, #0a0a1a 70%); flex-direction: column; gap: 0; }
-  .election-intro-container { display: flex; flex-direction: column; align-items: center; gap: 20px; max-width: 520px; width: 90%; animation: slideUp 0.6s ease; }
-  .election-intro-icon { font-size: 72px; animation: pulseGlow 2s infinite; }
-  .election-intro-title { font-size: 36px; font-weight: 800; color: #f8c48a; letter-spacing: 4px; text-transform: uppercase; text-align: center; text-shadow: 0 0 30px rgba(248,196,138,0.3); }
-  .election-intro-subtitle { font-size: 14px; color: #888; text-align: center; letter-spacing: 2px; text-transform: uppercase; }
-  .election-intro-stakes { background: rgba(255,255,255,0.03); border: 1px solid #334; border-radius: 10px; padding: 20px; width: 100%; display: flex; flex-direction: column; gap: 10px; }
-  .election-intro-stake { display: flex; align-items: center; gap: 10px; font-size: 14px; color: #ccc; }
-  .election-intro-stake-icon { font-size: 20px; width: 32px; text-align: center; flex-shrink: 0; }
-  .election-intro-mayor { display: flex; align-items: center; gap: 10px; padding: 12px 16px; background: rgba(248,196,138,0.06); border: 1px solid rgba(248,196,138,0.2); border-radius: 8px; width: 100%; }
-  .election-intro-mayor-label { font-size: 12px; color: #888; text-transform: uppercase; letter-spacing: 1px; }
-  .election-intro-mayor-name { font-size: 18px; font-weight: 700; }
+  /* ── Pre-Election Announcement ── */
+  #pre-election-ov { background: radial-gradient(ellipse at center, #1a0a2e 0%, #0a0a1a 80%); flex-direction: column; }
+  .pre-election-container { width: 90%; max-width: 520px; max-height: 85vh; overflow-y: auto; text-align: center; }
+  .pre-election-icon { font-size: 72px; margin-bottom: 16px; animation: pulseGlow 2s infinite; }
+  .pre-election-title { font-size: 32px; font-weight: 800; color: #c39bd3; letter-spacing: 3px; text-transform: uppercase; margin-bottom: 8px; }
+  .pre-election-sub { font-size: 14px; color: #888; margin-bottom: 24px; }
+  .pre-election-stakes { display: flex; flex-direction: column; gap: 10px; text-align: left; margin-bottom: 24px; }
+  .pre-election-stake { padding: 12px 16px; background: rgba(155,89,182,0.08); border-left: 3px solid #9b59b6; border-radius: 4px; font-size: 14px; color: #ddd; line-height: 1.5; }
+  .pre-election-stake strong { color: #c39bd3; }
+  .pre-election-mayor { padding: 12px 16px; background: rgba(248,196,138,0.08); border: 1px solid #554422; border-radius: 8px; margin-bottom: 24px; font-size: 14px; color: #f8c48a; }
 
   /* ── Election ── */
   .election-container { width: 90%; max-width: 520px; max-height: 80vh; display: flex; flex-direction: column; overflow-y: auto; }
@@ -392,11 +381,25 @@
   .legend-swatch { width: 12px; height: 12px; border-radius: 2px; border: 1px solid rgba(255,255,255,0.2); flex-shrink: 0; }
   .legend-info { color: #666; font-size: 10px; margin-left: auto; }
 
-  #stats { position: fixed; top: 36px; left: 16px; background: rgba(10,10,30,0.92); border: 1px solid #334; border-radius: 8px; padding: 12px 16px; z-index: 10; font-size: 13px; backdrop-filter: blur(8px); }
+  #stats { position: fixed; top: 52px; left: 16px; background: rgba(10,10,30,0.92); border: 1px solid #334; border-radius: 8px; padding: 12px 16px; z-index: 10; font-size: 13px; backdrop-filter: blur(8px); }
   #stats h3 { font-size: 14px; margin-bottom: 4px; color: #8ab4f8; }
   .hud-clickable { cursor: pointer; text-decoration: underline; text-decoration-style: dotted; text-underline-offset: 2px; }
   .hud-clickable:hover { color: #8ab4f8; }
   .hud-election-progress { font-size: 10px; color: #9b59b6; margin-top: 4px; }
+
+  /* ── Election progress bar (top bar) ── */
+  #election-topbar { position: fixed; top: 0; left: 0; right: 0; height: 36px; background: rgba(10,10,30,0.92); border-bottom: 2px solid #334; z-index: 40; display: none; align-items: center; justify-content: center; gap: 6px; backdrop-filter: blur(8px); transition: border-color 0.3s, background 0.3s; }
+  #election-topbar.active { display: flex; }
+  .etb-dot { width: 28px; height: 28px; border-radius: 50%; border: 2px solid #445; background: transparent; display: flex; align-items: center; justify-content: center; font-size: 11px; color: #666; transition: all 0.3s; position: relative; }
+  .etb-dot.done { background: #1e3a5f; border-color: #5a8ab4; color: #8ab4f8; }
+  .etb-dot.current { background: #8ab4f8; border-color: #8ab4f8; color: #0a0a1a; font-weight: 700; box-shadow: 0 0 10px rgba(138,180,248,0.4); }
+  .etb-dot.election { background: #9b59b6; border-color: #c39bd3; color: #fff; font-weight: 700; box-shadow: 0 0 12px rgba(155,89,182,0.5); }
+  .etb-dot.election-next { border-color: #9b59b6; }
+  .etb-label { font-size: 10px; color: #888; margin: 0 4px; }
+  .etb-connector { width: 12px; height: 2px; background: #334; border-radius: 1px; }
+  .etb-connector.done { background: #5a8ab4; }
+  .etb-share { position: absolute; right: 12px; background: none; border: 1px solid #445; color: #888; width: 28px; height: 28px; border-radius: 6px; cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center; transition: all 0.15s; }
+  .etb-share:hover { background: #223; color: #8ab4f8; border-color: #5a8ab4; }
   .hud-phase { font-size: 11px; color: #888; margin-bottom: 6px; }
   .hud-players { display: flex; flex-direction: column; gap: 3px; }
   .hud-player { display: flex; align-items: center; gap: 6px; font-size: 12px; }
@@ -426,12 +429,7 @@
     .quartier-pick-btn { min-height: 44px; padding: 12px 14px; }
     .draft-slot { min-width: 100%; }
 
-    #election-bar { font-size: 10px; padding: 4px 10px; gap: 4px; }
-    .ebar-dot { width: 14px; height: 5px; }
-    .ebar-label { font-size: 9px; }
-    .ebar-info { font-size: 9px; }
-
-    #stats { top: 32px; left: 8px; padding: 10px 12px; font-size: 11px; max-width: calc(100vw - 20px); }
+    #stats { top: 40px; left: 8px; padding: 10px 12px; font-size: 11px; max-width: calc(100vw - 20px); }
     #stats h3 { font-size: 12px; }
     .hud-phase { font-size: 10px; }
     .hud-player { font-size: 11px; }
@@ -451,7 +449,16 @@
     .op-fab { bottom: max(24px, env(safe-area-inset-bottom)); right: 16px; width: 56px; height: 56px; }
     .op-toggle-map { display: flex; align-items: center; justify-content: center; }
 
-    .modal-content, .reveal-container, .nego-container, .turnend-container, .election-container, .reminder-container, .coupole-container { width: 95%; max-width: none; max-height: 85vh; }
+    .modal-content, .reveal-container, .nego-container, .turnend-container, .election-container, .reminder-container, .coupole-container, .pre-election-container { width: 95%; max-width: none; max-height: 85vh; }
+
+    .etb-dot { width: 24px; height: 24px; font-size: 10px; }
+    .etb-connector { width: 8px; }
+    .etb-label { font-size: 9px; }
+    #election-topbar { height: 32px; gap: 4px; }
+
+    .intro-header h1 { font-size: 32px; letter-spacing: 4px; }
+    .intro-container { padding: 20px 16px; }
+    .pre-election-title { font-size: 24px; }
     .share-container { max-width: none; width: 95%; }
     .share-qr { min-height: 180px; padding: 12px; }
     .share-actions { gap: 10px; }
@@ -459,15 +466,6 @@
 
     .curtain-turn { font-size: 28px; }
     .curtain-player { font-size: 32px; }
-
-    .election-intro-icon { font-size: 48px; }
-    .election-intro-title { font-size: 24px; letter-spacing: 2px; }
-    .election-intro-container { gap: 14px; padding: 16px; }
-    .election-intro-stakes { padding: 14px; }
-
-    .game-intro h1 { font-size: 28px; letter-spacing: 4px; }
-    .game-intro-features { grid-template-columns: 1fr; }
-    .game-intro-desc { font-size: 14px; }
     .magouille-toast, .mayor-toast, .contract-toast, .coupole-toast, .heist-toast { font-size: 14px; padding: 10px 20px; left: 8px; right: 8px; transform: translateX(0); width: calc(100% - 16px); }
 
     .btn-primary, .btn-secondary { min-height: 44px; padding: 14px 24px; }
@@ -489,12 +487,51 @@
   </div>
 </div>
 
+<div id="screen-intro" class="screen">
+  <div class="intro-container">
+    <div class="intro-header">
+      <h1>JORETAPO</h1>
+      <div class="intro-tagline">Jeu de plateau satirique — NYC & NJ</div>
+    </div>
+
+    <div class="intro-section">
+      <h2>Le principe</h2>
+      <div class="intro-rules">
+        <div class="intro-rule"><span class="intro-rule-icon">🏙️</span><div class="intro-rule-text">Prenez le contrôle de <strong>quartiers</strong> en y déployant vos pions : dealers, trafiquants, prostituées.</div></div>
+        <div class="intro-rule"><span class="intro-rule-icon">💰</span><div class="intro-rule-text">Amassez des <strong>lingots</strong> grâce au trafic de drogue, à la prostitution, aux armes et aux constructions.</div></div>
+        <div class="intro-rule"><span class="intro-rule-icon">🗳️</span><div class="intro-rule-text">Tous les <strong>7 tours</strong>, des élections municipales. Le maire gagne 15 pts et 2 privilèges spéciaux.</div></div>
+        <div class="intro-rule"><span class="intro-rule-icon">🃏</span><div class="intro-rule-text">Des <strong>cartes Magouille</strong> pour piéger, voler, saboter ou protéger — tirées à chaque élection.</div></div>
+        <div class="intro-rule"><span class="intro-rule-icon">🤝</span><div class="intro-rule-text"><strong>Négociez</strong> des alliances, passez des contrats, ou trahissez vos alliés — chaque tour.</div></div>
+        <div class="intro-rule"><span class="intro-rule-icon">⚔️</span><div class="intro-rule-text">Envoyez vos pions en <strong>conflit</strong>, éliminez ceux des autres, et dominez la carte.</div></div>
+      </div>
+    </div>
+
+    <div class="intro-victory"><strong>🏆 55 points pour gagner</strong><br><span style="color:#aaa;font-size:13px">Contrôle de quartiers, titre de maire, domination de marché, richesse…</span></div>
+
+    <div class="intro-section">
+      <h2>Déroulement d'un tour</h2>
+      <div class="intro-rules">
+        <div class="intro-rule"><span class="intro-rule-icon">1️⃣</span><div class="intro-rule-text"><strong>Approvisionnement</strong> — Commandez armes, doses, constructions (ordres secrets).</div></div>
+        <div class="intro-rule"><span class="intro-rule-icon">2️⃣</span><div class="intro-rule-text"><strong>Révélation</strong> — Les ordres sont révélés, les revenus calculés.</div></div>
+        <div class="intro-rule"><span class="intro-rule-icon">3️⃣</span><div class="intro-rule-text"><strong>Négociation</strong> — Discussion libre entre joueurs.</div></div>
+        <div class="intro-rule"><span class="intro-rule-icon">4️⃣</span><div class="intro-rule-text"><strong>Déplacements</strong> — Bougez vos pions, créez-en de nouveaux (ordres secrets).</div></div>
+        <div class="intro-rule"><span class="intro-rule-icon">5️⃣</span><div class="intro-rule-text"><strong>Résolution</strong> — Conflits, révélation finale, bilan du tour.</div></div>
+      </div>
+    </div>
+
+    <div class="intro-actions">
+      <button class="btn-secondary" id="btn-intro-back">Retour</button>
+      <button class="btn-primary" id="btn-intro-start" style="font-size:18px;padding:16px 40px">Créer la partie</button>
+    </div>
+  </div>
+</div>
+
 <div id="screen-setup" class="screen">
   <div id="setup-container"></div>
 </div>
 
 <div id="screen-game" class="screen">
-  <div id="election-bar" class="hidden"></div>
+  <div id="election-topbar"></div>
   <div id="map-container"></div>
 
   <div id="stats"><h3>JORETAPO</h3><div id="stats-content">Chargement...</div></div>
@@ -560,15 +597,10 @@
     </div>
   </div>
 
-  <!-- Election Intro -->
-  <div id="election-intro-ov" class="overlay hidden">
-    <div class="election-intro-container">
-      <div class="election-intro-icon">🗳️</div>
-      <div class="election-intro-title">Élections municipales</div>
-      <div class="election-intro-subtitle"></div>
-      <div class="election-intro-mayor"></div>
-      <div class="election-intro-stakes"></div>
-      <button class="btn-primary" id="btn-election-intro-go" style="margin-top:12px;padding:14px 48px;font-size:18px">Commencer le vote</button>
+  <!-- Pre-Election Announcement -->
+  <div id="pre-election-ov" class="overlay hidden">
+    <div class="pre-election-container">
+      <div class="pre-election-body"></div>
     </div>
   </div>
 

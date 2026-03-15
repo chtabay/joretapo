@@ -7,37 +7,6 @@ const ETHNIE_LABELS = {
 };
 
 export function renderSetupScreen(container, gameplay, onStart) {
-  renderWelcomeScreen(container, gameplay, onStart);
-}
-
-function renderWelcomeScreen(container, gameplay, onStart) {
-  container.innerHTML = `
-    <div class="game-intro">
-      <h1>JORETAPO</h1>
-      <div class="game-intro-tagline">Jeu de plateau satirique — NYC & NJ</div>
-      <div class="game-intro-desc">
-        Prenez le contrôle des quartiers, bâtissez votre empire criminel,
-        manipulez les élections et devenez le maître de la ville.
-        <strong>Premier à 55 points</strong> remporte la partie.
-      </div>
-      <div class="game-intro-features">
-        <div class="game-intro-feat"><span class="game-intro-feat-icon">🗺️</span><div class="game-intro-feat-text"><span class="game-intro-feat-title">15 quartiers</span><span class="game-intro-feat-sub">Contrôlez des zones, construisez, dominez</span></div></div>
-        <div class="game-intro-feat"><span class="game-intro-feat-icon">🗳️</span><div class="game-intro-feat-text"><span class="game-intro-feat-title">Élections tous les 7 tours</span><span class="game-intro-feat-sub">Devenez maire pour 15 pts</span></div></div>
-        <div class="game-intro-feat"><span class="game-intro-feat-icon">🃏</span><div class="game-intro-feat-text"><span class="game-intro-feat-title">Cartes magouille</span><span class="game-intro-feat-sub">Effets spéciaux dévastateurs</span></div></div>
-        <div class="game-intro-feat"><span class="game-intro-feat-icon">⚔️</span><div class="game-intro-feat-text"><span class="game-intro-feat-title">5 phases par tour</span><span class="game-intro-feat-sub">Ordres secrets, négociations, conflits</span></div></div>
-        <div class="game-intro-feat"><span class="game-intro-feat-icon">💰</span><div class="game-intro-feat-text"><span class="game-intro-feat-title">Économie complète</span><span class="game-intro-feat-sub">Lingots, armes, doses, constructions</span></div></div>
-        <div class="game-intro-feat"><span class="game-intro-feat-icon">🔫</span><div class="game-intro-feat-text"><span class="game-intro-feat-title">Gangs & conflits</span><span class="game-intro-feat-sub">Dealers, trafiquants, flics, gangs</span></div></div>
-      </div>
-      <div class="game-intro-rules">2 à 6 joueurs · Hotseat (une tablette pour tous) · Parties de 1 à 3 heures</div>
-      <button class="btn-primary" id="btn-intro-continue" style="padding:14px 48px;font-size:18px">Configurer la partie</button>
-    </div>
-  `;
-  container.querySelector('#btn-intro-continue').addEventListener('click', () => {
-    renderPlayerSetup(container, gameplay, onStart);
-  });
-}
-
-function renderPlayerSetup(container, gameplay, onStart) {
   let nbJoueurs = 4;
   let joueurs = [];
 

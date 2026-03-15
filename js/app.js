@@ -1,7 +1,7 @@
 import { GameState } from './game-state.js';
 import { MapRenderer, QUARTIER_COLORS, FACILITE_LABELS } from './map-renderer.js';
 import { renderSetupScreen } from './setup.js';
-import { TurnManager, PHASE, GAME_PHASE_LABELS, ELECTION_INTERVAL } from './turn-manager.js';
+import { TurnManager, PHASE, GAME_PHASE_LABELS } from './turn-manager.js';
 import { RevenueEngine, BUY_PRICE, CONSTRUCTION_DEFS } from './revenue-engine.js';
 import { ConflictResolver } from './conflict-resolver.js';
 import { MayorEngine, MAYOR_POWERS } from './mayor-engine.js';
@@ -44,6 +44,10 @@ async function loadGameData() {
 function showScreen(id) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.getElementById(id)?.classList.add('active');
+  if (id !== 'screen-game') {
+    document.getElementById('election-topbar')?.classList.remove('active');
+    document.body.style.background = '#0a0a1a';
+  }
 }
 
 function hideAllOverlays() {
@@ -53,12 +57,6 @@ function hideAllOverlays() {
   document.getElementById('info-panel')?.classList.remove('shifted');
 }
 
-function setActivePlayerColor(color) {
-  const screen = document.getElementById('screen-game');
-  if (!screen) return;
-  screen.style.setProperty('--player-color', color ? `${color}33` : 'transparent');
-}
-
 /* ── Title Screen ── */
 function renderTitleScreen() {
   showScreen('screen-title');
@@ -66,8 +64,14 @@ function renderTitleScreen() {
   const btnCont = document.getElementById('btn-continue');
   btnCont.style.display = hasSave ? '' : 'none';
   document.getElementById('btn-new-game').onclick = () => {
+    showScreen('screen-intro');
+  };
+  document.getElementById('btn-intro-start').onclick = () => {
     showScreen('screen-setup');
     renderSetupScreen(document.getElementById('setup-container'), gameData.gameplay, onGameStart);
+  };
+  document.getElementById('btn-intro-back').onclick = () => {
+    showScreen('screen-title');
   };
   btnCont.onclick = () => {
     gameState = GameState.load();
@@ -120,17 +124,39 @@ const CONDITION_LABELS = {
   cible_ancien_maire: 'Cible ancien maire'
 };
 
+function updateElectionTopbar() {
+  const bar = document.getElementById('election-topbar');
+  if (!bar || !gameState) { if (bar) bar.classList.remove('active'); return; }
+  const CYCLE = 7;
+  const posInCycle = ((gameState.tour - 1) % CYCLE) + 1;
+  let dots = '';
+  for (let i = 1; i <= CYCLE; i++) {
+    const isElection = i === CYCLE;
+    let cls = 'etb-dot';
+    if (i < posInCycle) cls += ' done';
+    else if (i === posInCycle) cls += ' current';
+    if (isElection) cls += ' election-next';
+    dots += `<div class="${cls}">${i}</div>`;
+    if (i < CYCLE) dots += `<div class="etb-connector${i < posInCycle ? ' done' : ''}"></div>`;
+  }
+  bar.innerHTML = `<span class="etb-label">Mandat</span>${dots}<span class="etb-label">🗳️</span><button class="etb-share" id="etb-share-btn" title="Sauvegarder & partager">💾</button>`;
+  bar.classList.add('active');
+  document.getElementById('etb-share-btn')?.addEventListener('click', showShareModal);
+}
+
 function updateHUD() {
   const hud = document.getElementById('stats');
   if (!gameState) {
     const totalPts = gameData.gameplay.quartiers.reduce((s, q) => s + q.points, 0);
     const adjCount = Object.values(gameData.adjacencies).reduce((s, a) => s + a.length, 0) / 2;
     hud.innerHTML = `<h3>JORETAPO</h3><div id="stats-content"><strong>${gameData.features.length}</strong> zones · <strong>15</strong> quartiers<br><strong>${Math.round(adjCount)}</strong> adjacences · <strong>${totalPts}</strong> pts</div>`;
+    document.getElementById('election-topbar')?.classList.remove('active');
     return;
   }
+  updateElectionTopbar();
   const phaseLabel = GAME_PHASE_LABELS[gameState.phase] || '';
   const activeContracts = ContractEngine.getActiveContracts(gameState);
-  const nextElection = gameState.tour > 0 ? (ELECTION_INTERVAL - (gameState.tour % ELECTION_INTERVAL)) % ELECTION_INTERVAL : ELECTION_INTERVAL;
+  const nextElection = gameState.tour > 0 ? (7 - (gameState.tour % 7)) % 7 : 7;
   const electionProgress = nextElection === 0 ? '<div class="hud-election-progress hud-clickable" data-dict="election">🗳️ Élection ce tour !</div>' : `<div class="hud-election-progress hud-clickable" data-dict="election">🗳️ Prochaine élection dans ${nextElection} tour${nextElection > 1 ? 's' : ''}</div>`;
   hud.innerHTML = `<h3 class="hud-clickable" data-dict="tour" title="Cliquer pour plus d'infos">Tour ${gameState.tour}</h3><div id="stats-content">
     <div class="hud-phase hud-clickable" data-dict="phase" title="Cliquer pour plus d'infos">${phaseLabel}</div>
@@ -144,8 +170,7 @@ function updateHUD() {
       return `<div class="hud-player"><span class="hud-player-dot" style="background:${j.couleur}"></span><span class="hud-clickable" data-dict="joueur" data-pid="${j.id}" title="Cliquer pour plus d'infos">${j.nom}${maireTag}${contractBadge}</span><span class="hud-player-pts hud-clickable" data-dict="pts" title="Cliquer pour plus d'infos">${pts} pts</span><span class="hud-player-gold hud-clickable" data-dict="lingots" title="Cliquer pour plus d'infos">${j.ressources.lingots}L</span></div>` +
         `<div class="hud-player-res"><span class="hud-clickable" data-dict="ressources" title="Cliquer pour plus d'infos">🔫${j.ressources.armes} 💊${j.ressources.doses} 🃏${(j.cartes_magouille || []).length}</span></div>`;
     }).join('')}</div>
-    <button class="btn-share" id="hud-share-btn">💾 Partager</button></div>`;
-  document.getElementById('hud-share-btn')?.addEventListener('click', showShareModal);
+    </div>`;
   hud.querySelectorAll('.hud-clickable').forEach(el => {
     el.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -161,40 +186,11 @@ function updateHUD() {
   });
 }
 
-function updateElectionBar() {
-  const bar = document.getElementById('election-bar');
-  if (!bar || !gameState) { bar?.classList.add('hidden'); return; }
-  bar.classList.remove('hidden');
-  const elapsed = gameState.tour % ELECTION_INTERVAL;
-  const remaining = elapsed === 0 && gameState.tour > 0 ? 0 : (ELECTION_INTERVAL - elapsed) % ELECTION_INTERVAL;
-  const isElectionTurn = remaining === 0 && gameState.tour > 0;
-
-  let dots = '';
-  for (let i = 1; i <= ELECTION_INTERVAL; i++) {
-    const isFilled = i <= elapsed;
-    const isCurrent = i === elapsed;
-    const isLast = i === ELECTION_INTERVAL;
-    let cls = 'ebar-dot';
-    if (isElectionTurn && isLast) cls += ' election';
-    else if (isCurrent) cls += ' current';
-    else if (isFilled) cls += ' filled';
-    dots += `<div class="${cls}"></div>`;
-  }
-
-  const infoText = isElectionTurn
-    ? '🗳️ Élection ce tour !'
-    : `${remaining} tour${remaining > 1 ? 's' : ''} avant l'élection`;
-  const infoClass = remaining <= 2 ? 'ebar-info urgent' : 'ebar-info';
-
-  bar.innerHTML = `<span class="ebar-label">Élections</span><div class="ebar-dots">${dots}</div><span class="${infoClass}">${infoText}</span>`;
-}
-
 function refreshMap() {
   if (!gameState || !mapRenderer) return;
   mapRenderer.updateOwnership(gameState);
   mapRenderer.renderPions(gameState);
   updateHUD();
-  updateElectionBar();
 }
 
 /* ── Turn Loop ── */
@@ -211,13 +207,42 @@ function startTurnLoop() {
   }
 }
 
+function hexToHSL(hex) {
+  let r = parseInt(hex.slice(1, 3), 16) / 255;
+  let g = parseInt(hex.slice(3, 5), 16) / 255;
+  let b = parseInt(hex.slice(5, 7), 16) / 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b);
+  let h, s, l = (max + min) / 2;
+  if (max === min) { h = s = 0; } else {
+    const d = max - min;
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    if (max === r) h = ((g - b) / d + (g < b ? 6 : 0)) / 6;
+    else if (max === g) h = ((b - r) / d + 2) / 6;
+    else h = ((r - g) / d + 4) / 6;
+  }
+  return [Math.round(h * 360), Math.round(s * 100), Math.round(l * 100)];
+}
+
+function setPlayerBackground(player) {
+  const body = document.body;
+  if (!player) {
+    body.style.background = '#0a0a1a';
+    return;
+  }
+  const [h, s] = hexToHSL(player.couleur);
+  body.style.background = `hsl(${h}, ${Math.min(s, 30)}%, 8%)`;
+}
+
 function onPhaseChange() {
   hideAllOverlays();
   updateHUD();
   refreshMap();
 
   const hasActivePlayer = [PHASE.CURTAIN, PHASE.ORDERS_SUPPLY, PHASE.ORDERS_MOVE, PHASE.ELECTION_CURTAIN, PHASE.ELECTION_VOTE, PHASE.DRAFT_CURTAIN, PHASE.DRAFT_PICK].includes(turnManager.phase);
-  setActivePlayerColor(hasActivePlayer && turnManager.currentPlayer ? turnManager.currentPlayer.couleur : null);
+  const activePlayer = hasActivePlayer ? turnManager.currentPlayer : null;
+  setPlayerBackground(activePlayer);
+  const topbar = document.getElementById('election-topbar');
+  if (topbar) topbar.style.borderBottomColor = activePlayer ? activePlayer.couleur : '#334';
 
   switch (turnManager.phase) {
     case PHASE.CURTAIN: renderCurtain(); break;
@@ -227,7 +252,7 @@ function onPhaseChange() {
     case PHASE.NEGOTIATION: renderNegotiation(); break;
     case PHASE.REVEAL_RESOLVE: processAndShowResolve(); break;
     case PHASE.TURN_END: renderTurnEnd(); break;
-    case PHASE.ELECTION_INTRO: renderElectionIntro(); break;
+    case PHASE.PRE_ELECTION: renderPreElection(); break;
     case PHASE.ELECTION_CURTAIN: renderElectionCurtain(); break;
     case PHASE.ELECTION_VOTE: renderElectionVote(); break;
     case PHASE.ELECTION_RESULT: renderElectionResult(); break;
@@ -1360,42 +1385,45 @@ function showRevealOverlay(title, log, onContinue) {
 }
 
 /* ── Turn End ── */
-/* ── Election ── */
-function renderElectionIntro() {
-  const ov = document.getElementById('election-intro-ov');
-  const electionNum = Math.floor(gameState.tour / ELECTION_INTERVAL);
-  ov.querySelector('.election-intro-subtitle').textContent = `Tour ${gameState.tour} — ${electionNum}${electionNum === 1 ? 'ère' : 'ème'} élection`;
+/* ── Pre-Election Announcement ── */
+function renderPreElection() {
+  const ov = document.getElementById('pre-election-ov');
+  const body = ov.querySelector('.pre-election-body');
+  const maire = gameState.joueurs.find(j => j.est_maire);
+  const mandateNum = Math.floor(gameState.tour / 7) + 1;
 
-  const maire = gameState.maire.joueur_id !== null ? gameState.joueurs[gameState.maire.joueur_id] : null;
-  const mayorDiv = ov.querySelector('.election-intro-mayor');
-  if (maire) {
-    mayorDiv.innerHTML = `<div><div class="election-intro-mayor-label">Maire sortant</div><div class="election-intro-mayor-name" style="color:${maire.couleur}">${maire.nom}</div></div>`;
-  } else {
-    mayorDiv.innerHTML = `<div><div class="election-intro-mayor-label">Aucun maire en place</div><div class="election-intro-mayor-name" style="color:#888">Premier scrutin</div></div>`;
-  }
+  const maireInfo = maire
+    ? `<div class="pre-election-mayor">🏛️ Maire sortant : <strong style="color:${maire.couleur}">${maire.nom}</strong></div>`
+    : `<div class="pre-election-mayor">🏛️ Aucun maire en poste — un nouveau sera élu</div>`;
 
-  ov.querySelector('.election-intro-stakes').innerHTML = `
-    <div class="election-intro-stake"><span class="election-intro-stake-icon">🏛️</span><span>Le maire gagne <strong>15 points de victoire</strong></span></div>
-    <div class="election-intro-stake"><span class="election-intro-stake-icon">⚡</span><span><strong>2 privilèges</strong> : taxe, coupure, flics, expropriation…</span></div>
-    <div class="election-intro-stake"><span class="election-intro-stake-icon">👥</span><span>Vote pondéré par la <strong>population contrôlée</strong></span></div>
-    <div class="election-intro-stake"><span class="election-intro-stake-icon">🃏</span><span>Suivi du <strong>tirage de cartes magouille</strong> (8→4)</span></div>
+  body.innerHTML = `
+    <div class="pre-election-icon">🗳️</div>
+    <div class="pre-election-title">Élections !</div>
+    <div class="pre-election-sub">Fin du mandat ${mandateNum - 1} — Tour ${gameState.tour}</div>
+    ${maireInfo}
+    <div class="pre-election-stakes">
+      <div class="pre-election-stake"><strong>🗳️ Vote secret</strong> — Chaque joueur vote pour un candidat. Le poids du vote dépend de la population contrôlée (zones avec pions armés ou constructions).</div>
+      <div class="pre-election-stake"><strong>🏛️ 15 points de victoire</strong> — Le maire élu gagne 15 pts tant qu'il reste en poste, et dispose de 2 privilèges de maire.</div>
+      <div class="pre-election-stake"><strong>🃏 Tirage de cartes</strong> — Après l'élection, chaque joueur pioche 8 cartes Magouille et en garde 4.</div>
+    </div>
+    <button class="btn-primary" id="btn-pre-election-go" style="width:100%;font-size:18px;padding:16px">Commencer l'élection</button>
   `;
 
-  ov.querySelector('#btn-election-intro-go').onclick = () => {
+  body.querySelector('#btn-pre-election-go').addEventListener('click', () => {
     ov.classList.add('hidden');
-    turnManager.confirmElectionIntro();
-  };
+    turnManager.confirmPreElection();
+  });
+
   ov.classList.remove('hidden');
 }
 
+/* ── Election ── */
 function renderElectionCurtain() {
   const ov = document.getElementById('curtain');
   const j = turnManager.currentPlayer;
-  ov.querySelector('.curtain-turn').textContent = `Tour ${gameState.tour}`;
   ov.querySelector('.curtain-player').textContent = j.nom;
   ov.querySelector('.curtain-player').style.color = j.couleur;
   ov.querySelector('.curtain-phase').textContent = '🗳️ Élection municipale — Vote secret';
-  ov.querySelector('#btn-curtain-go').textContent = `Je suis ${j.nom}`;
   ov.querySelector('#btn-curtain-go').onclick = () => {
     ov.classList.add('hidden');
     turnManager.confirmElectionCurtain();
@@ -1493,11 +1521,9 @@ function renderElectionResult() {
 function renderDraftCurtain() {
   const ov = document.getElementById('curtain');
   const j = turnManager.currentPlayer;
-  ov.querySelector('.curtain-turn').textContent = `Tour ${gameState.tour}`;
   ov.querySelector('.curtain-player').textContent = j.nom;
   ov.querySelector('.curtain-player').style.color = j.couleur;
   ov.querySelector('.curtain-phase').textContent = '🃏 Tirage de cartes Magouille';
-  ov.querySelector('#btn-curtain-go').textContent = `Je suis ${j.nom}`;
   ov.querySelector('#btn-curtain-go').onclick = () => {
     ov.classList.add('hidden');
     turnManager.confirmDraftCurtain();
@@ -2099,8 +2125,8 @@ function showGangInfoModal(quartier) {
       const owner = gameState.getQuartierOwner(quartier.id, gameData.gameplay);
       if (owner !== null) {
         const j = gameState.joueurs[owner];
-        const canActivate = gameState.tour >= ELECTION_INTERVAL;
-        statusHtml = `<div class="gang-modal-status"><span style="color:${j.couleur}">${j.nom}</span> contrôle ce quartier${canActivate ? ' — <strong>peut activer</strong>' : ` — activable après le tour ${ELECTION_INTERVAL}`}</div>`;
+        const canActivate = gameState.tour >= 10;
+        statusHtml = `<div class="gang-modal-status"><span style="color:${j.couleur}">${j.nom}</span> contrôle ce quartier${canActivate ? ' — <strong>peut activer</strong>' : ' — activable après le tour 10'}</div>`;
       } else {
         statusHtml = `<div class="gang-modal-status">Aucun joueur ne contrôle ce quartier</div>`;
       }
