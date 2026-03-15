@@ -67,11 +67,11 @@ Chaque joueur rédige secrètement :
 - Résolution des mouvements et conflits (voir section Conflits)
 - Mise à jour du plateau
 
-### Tous les 10 tours : événements spéciaux
+### Tous les 7 tours : événements spéciaux
 
 1. **Élections** : vote à bulletin secret, élection du maire
 2. **Tirage de cartes magouille** : chaque joueur pioche 8 cartes, en garde 4
-3. **Activation de gangs** possible (à partir du tour 10)
+3. **Activation de gangs** possible (à partir du tour 7)
 
 ---
 
@@ -198,7 +198,7 @@ Si un pion repoussé ne peut aller que sur une case convoitée par un autre, cel
 
 ## Élections
 
-- Se déroulent à la fin du **tour 10**, puis **tous les 10 tours**
+- Se déroulent à la fin du **tour 7**, puis **tous les 7 tours**
 - Vote à **bulletin secret** : chaque joueur vote pour le candidat de son choix
 - Un joueur obtient les **voix des terrains** où il possède une construction ou un homme armé (pas les prostituées)
 - Chaque bloc a une population (ex : 200 000 électeurs)
@@ -223,7 +223,7 @@ Le maire dispose de **2 privilèges** au total pendant son mandat, à choisir pa
 
 ### Fonctionnement
 
-- Tirage : chaque joueur pioche 8 cartes, en garde 4 (tous les 10 tours)
+- Tirage : chaque joueur pioche 8 cartes, en garde 4 (tous les 7 tours)
 - Les cartes non jouées peuvent être conservées pour le mandat suivant
 - Jouables à n'importe quel moment sauf si précisé autrement sur la carte
 - Certaines cartes sont jouables uniquement si on est maire
@@ -295,4 +295,4 @@ Si un joueur se sent trahi (accord non honoré), il peut convoquer la **Coupole*
 
 - Une **case** est possédée si le joueur y a un pion ou une construction
 - Un **quartier** est possédé si le joueur a au moins 1 pion ou construction sur chaque case
-- Posséder un quartier permet d'**activer son gang** (à partir du tour 10)
+- Posséder un quartier permet d'**activer son gang** (à partir du tour 7)

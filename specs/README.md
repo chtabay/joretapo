@@ -28,17 +28,18 @@ en une **version jouable en ligne**, hébergée sur **GitHub Pages**.
 | Phase 2 | Configuration partie, draft quartiers, GameState | **FAIT** |
 | Phase 3 | Boucle de tour, ordres, revenus, hotseat | **FAIT** |
 | Sprint 4 | Conflits Diplomacy-like, flics, élimination payante, victoire 55 pts | **FAIT** |
-| Sprint 5 | Élections tous les 10 tours, 8 pouvoirs du maire | **FAIT** |
+| Sprint 5 | Élections tous les 7 tours, 8 pouvoirs du maire | **FAIT** |
 | Sprint 6 | 75 cartes Magouille (30 types), draft 8→4, 15+ effets | **FAIT** |
 | Sprint 7 | Gitans, incorruptibles, gangs (5 effets), fin de mandat | **FAIT** |
-| Sprint 8 | Contrats + Polish UX | **En cours** |
+| Sprint 8 | Contrats entre joueurs, cambriolages, coupole | **FAIT** |
+| Sprint 9 | Polish UX : mobile, topbar, intro, dictionnaire, partage | **FAIT** |
 
 ## Index des documents
 
 | Document | Contenu |
 |----------|---------|
 | [01 -- Mécaniques de jeu](01-mecaniques-de-jeu.md) | Référence complète des règles adaptées pour le numérique |
-| [02 -- Architecture technique](02-architecture-technique.md) | Stack, modules (10 fichiers JS), structure du code |
+| [02 -- Architecture technique](02-architecture-technique.md) | Stack, modules (14 fichiers JS), structure du code |
 | [03 -- Flow UX](03-flow-ux.md) | Écrans, navigation, gestion du hotseat |
 | [04 -- Modèle de données](04-modele-de-donnees.md) | Structures JSON des quartiers, cartes, pions, économie |
 | [05 -- Roadmap](05-roadmap.md) | Phasage du développement (sprints réalisés + restants) |

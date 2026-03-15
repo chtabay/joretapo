@@ -42,7 +42,11 @@ joretapo/
 │   ├── conflict-resolver.js    # Résolution Diplomacy-like (supports, fuite, élimination)
 │   ├── mayor-engine.js         # 8 pouvoirs du maire, validation, exécution
 │   ├── magouille-engine.js     # Deck, pioche, draft 8→4, play, 15+ effets
-│   └── special-entities.js     # Gitans, incorruptibles, gangs, fin de mandat
+│   ├── special-entities.js     # Gitans, incorruptibles, gangs, fin de mandat
+│   ├── contract-engine.js     # Contrats entre joueurs (transferts, non-agression, etc.)
+│   ├── heist-engine.js        # Cambriolages (Zurich Bank, Police, Casino, Labo)
+│   ├── save-export.js         # Export/import, partage (QR, WhatsApp, Web Share)
+│   └── dictionary.js          # Dictionnaire contextuel du jeu (modales d'aide)
 ├── data/
 │   ├── quartiers-osm.geojson   # 74 polygones (59 CDs + 12 Hudson + 3 Bergen)
 │   ├── adjacences-osm.json     # Adjacences calculées (145 paires)
@@ -102,9 +106,9 @@ Automate à états pilotant les 5 phases + cycle électoral :
 ```
 CURTAIN → ORDERS_SUPPLY → REVEAL_HARVEST → NEGOTIATION → ORDERS_MOVE → REVEAL_RESOLVE → TURN_END
                                                                                             │
-                                                            (si tour % 10 == 0 au nextTurn) │
+                                                             (si tour % 7 == 0 au nextTurn) │
                                                                                             ▼
-                                          ELECTION_CURTAIN → ELECTION_VOTE → ELECTION_RESULT
+                                PRE_ELECTION → ELECTION_CURTAIN → ELECTION_VOTE → ELECTION_RESULT
                                                                                             │
                                                                                             ▼
                                                             DRAFT_CURTAIN → DRAFT_PICK (×N joueurs)

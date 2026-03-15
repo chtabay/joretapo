@@ -103,8 +103,8 @@ Les conflits se résolvent correctement, les flics bloquent les revenus, la vict
 **Objectif** : les élections fonctionnent, le maire a ses pouvoirs.
 
 ### Livrables
-- [x] Phases `ELECTION_CURTAIN`, `ELECTION_VOTE`, `ELECTION_RESULT` dans TurnManager
-- [x] Déclenchement automatique tous les 10 tours
+- [x] Phases `PRE_ELECTION`, `ELECTION_CURTAIN`, `ELECTION_VOTE`, `ELECTION_RESULT` dans TurnManager
+- [x] Déclenchement automatique tous les 7 tours
 - [x] Calcul des voix (pions + constructions × population de zone)
 - [x] Vote à bulletin secret (hotseat avec rideau)
 - [x] Dépouillement avec barres animées
@@ -146,7 +146,7 @@ On peut piocher, sélectionner, jouer les cartes et voir leurs effets appliqués
 - [x] `SpecialEntities` (js/special-entities.js) : module centralisé
 - [x] **Gitans** : placement initial sur les 4 îles, blocage construction, traversée coûteuse (5D+5A+1 pion), vente armes 3×
 - [x] **Incorruptibles** : placement (max 2), zone bloquée infranchissable si seul, élimination 700L (500L avec Bordel), déplacement 1000L
-- [x] **Gangs** : activation après tour 10 si quartier contrôlé, framework + 5 effets (casino gratuit, éliminer 3 pions, +2 actions, revente marchandises, racket établissements)
+- [x] **Gangs** : activation après tour 7 si quartier contrôlé, framework + 5 effets (casino gratuit, éliminer 3 pions, +2 actions, revente marchandises, racket établissements)
 - [x] **Fin de mandat** : restauration automatique de l'électricité, nettoyage des cartes ouvertes (verges, igor), reset des actions bonus
 - [x] Initialisation des îles dans le plateau + fusion des adjacences îles dans les données globales
 - [x] Rendu visuel des gitans (GI) et incorruptibles (IC) sur la carte
@@ -156,38 +156,63 @@ Les gitans bloquent la construction et coûtent cher à traverser, les incorrupt
 
 ---
 
-## Sprint 8 : Contrats + Polish UX (à venir)
+## Sprint 8 : Contrats, Cambriolages et Coupole
 
-**Objectif** : interface de contrats entre joueurs + améliorations UX.
+**Objectif** : contrats entre joueurs, cambriolages et coupole fonctionnels.
 
 ### Livrables
-- [ ] Interface de saisie de contrats (joueur A ↔ joueur B, termes, durée)
-- [ ] Affichage des contrats actifs dans le panneau de négociation
-- [ ] Rappel de contrats en début de tour
-- [ ] Polish UX global (animations, feedback, ergonomie tablette)
+- [x] `ContractEngine` (js/contract-engine.js) : création, suivi, violation de contrats
+- [x] Interface de saisie de contrats (joueur A ↔ joueur B, termes, durée)
+- [x] Affichage des contrats actifs dans le panneau de négociation
+- [x] `HeistEngine` (js/heist-engine.js) : cambriolages Zurich Bank, Police, Casino, Labo
+- [x] Validation des prérequis de cambriolage
+- [x] Coupole : vote, sanction (2 hommes perdus)
+
+### Critère de validation
+On peut créer des contrats, exécuter des cambriolages (si prérequis remplis), et convoquer la coupole. **FAIT.**
+
+---
+
+## Sprint 9 : Polish UX, Mobile et Aide contextuelle
+
+**Objectif** : rendre le jeu jouable sur mobile, améliorer la lisibilité et l'expérience utilisateur.
+
+### Livrables
+- [x] Adaptation mobile (CSS responsive, pinch-to-zoom, pan tactile)
+- [x] Panneau d'ordres rétractable avec FAB pour masquer/afficher
+- [x] Boutons de validation fixes et accessibles sur mobile
+- [x] Top bar élections : chapelet de 7 points, couleur du joueur actif, bouton partage
+- [x] Page pré-élection interstitielle (rappel des enjeux)
+- [x] Page d'introduction / présentation du jeu
+- [x] Dictionnaire contextuel : titres cliquables (tour, phase, joueur, points, budget)
+- [x] Fiches détaillées des cartes Magouille (texte original PPTX, images)
+- [x] Noms de zones avec couleurs des quartiers dans le panneau d'adjacences
+- [x] `SaveExport` (js/save-export.js) : sauvegarde, partage QR/WhatsApp/WebShare
+- [x] `Dictionary` (js/dictionary.js) : entrées d'aide contextuelle
+- [x] Amélioration lisibilité : cartes magouille, vote, modales
+
+### Critère de validation
+Le jeu est jouable sur mobile, l'aide contextuelle fonctionne, le partage fonctionne. **FAIT.**
 
 ---
 
 ## Phases restantes (non encore planifiées en sprints)
 
-**Phase 4 originale (Économie avancée)** -- partiellement couvert par Sprint 4 :
+**Économie avancée** :
 - [ ] Bonus des administrations (ambassade, douanes, immigration)
 - [ ] Transactions entre joueurs (échanges de ressources, pions, bâtiments)
 
-**Phase 9 originale (Mécaniques restantes)** -- partiellement couvert par Sprint 7 :
-- [ ] Cambriolages : Zurich Bank, Hôtel de police, Casino, Labo
-- [ ] Coupole (vote, sanction)
+**Mécaniques restantes** :
 - [ ] 10 effets de gangs supplémentaires à implémenter
+- [ ] UX cambriolages (interface guidée, feedback visuel)
+- [ ] UX conquêtes de territoires (indicateurs visuels, animation)
 
-**Phase 10 (Polish et finitions)** :
+**Polish et finitions** :
 - [ ] Animations de transitions entre phases
 - [ ] Effets sonores (optionnel)
-- [ ] Tutoriel / aide intégrée
 - [ ] Gestion de sauvegarde multi-slots
 - [ ] Tests sur tablette (iPad, Android)
 - [ ] Optimisation des performances SVG
-- [ ] README du projet pour GitHub
-- [ ] Déploiement sur GitHub Pages
 
 ---
 
@@ -202,6 +227,7 @@ Les gitans bloquent la construction et coûtent cher à traverser, les incorrupt
 | Sprint 5 : Élections + Maire | Moyenne | **FAIT** |
 | Sprint 6 : Cartes Magouille | Élevée (volume + effets variés) | **FAIT** |
 | Sprint 7 : Gitans, Incorruptibles, Gangs | Élevée | **FAIT** |
-| Sprint 8 : Contrats + Polish | Moyenne | En attente |
-| Reste : Économie avancée, Coupole, Cambriolages | Moyenne | En attente |
+| Sprint 8 : Contrats, Cambriolages, Coupole | Moyenne | **FAIT** |
+| Sprint 9 : Polish UX, Mobile, Aide contextuelle | Moyenne | **FAIT** |
+| Reste : Économie avancée, UX avancé | Moyenne | En attente |
 | Polish final | Variable | En attente |
