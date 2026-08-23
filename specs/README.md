@@ -46,6 +46,7 @@ en une **version jouable en ligne**, hébergée sur **GitHub Pages**.
 | [06 -- Décisions gameplay](06-decisions-gameplay.md) | Arbitrages des ambiguïtés des règles pour le numérique |
 | [07 -- Cartographie (archive)](07-cartographie-adjacences.md) | Adjacences du design original à 72 blocs (archivé) |
 | [08 -- Cartographie OSM](08-cartographie-osm.md) | **Découpage de référence** : 74 quartiers (59 CD + 12 Hudson + 3 Bergen) |
+| [09 -- État des lieux](09-etat-des-lieux.md) | Audit du dépôt (23/08/2026) : ce qui est en place, problèmes confirmés, dette, priorités |
 
 ## Origine du projet
 
