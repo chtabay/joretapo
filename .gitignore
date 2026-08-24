@@ -34,3 +34,6 @@ liste des actions.xls
 # Temp
 *.tmp
 *.log
+
+# Sorties de test locales
+node_modules/
