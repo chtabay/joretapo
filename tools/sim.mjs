@@ -66,6 +66,33 @@ const { TurnManager, PHASE } = await import(`${ROOT}/js/turn-manager.js`);
 const { RevenueEngine } = await import(`${ROOT}/js/revenue-engine.js`);
 const { ConflictResolver } = await import(`${ROOT}/js/conflict-resolver.js`);
 const { RULES } = await import(`${ROOT}/js/rules.js`);
+/* Le banc ne jouait NI le draft, NI les cartes, NI les gangs, NI les casses, NI
+   les pouvoirs de maire : il mesurait une partie amputee de cinq systemes, et
+   c'est sur ces mesures que les reglages de js/rules.js ont ete cales. */
+const { MagouilleEngine } = await import(`${ROOT}/js/magouille-engine.js`);
+const { SpecialEntities } = await import(`${ROOT}/js/special-entities.js`);
+const { HeistEngine, HEIST_TYPES } = await import(`${ROOT}/js/heist-engine.js`);
+const { MayorEngine } = await import(`${ROOT}/js/mayor-engine.js`);
+const { ContractEngine } = await import(`${ROOT}/js/contract-engine.js`);
+
+/* Effets de carte qu'un automate peut jouer sans choisir de cible. Les autres
+   demandent une zone ou un pion precis : les jouer au hasard mesurerait le
+   hasard, pas le jeu. */
+const EFFETS_SANS_CIBLE = new Set([
+  'gagner_lingots', 'regagner_electeurs', 'bonus_actions', 'vendre_armes',
+  'racket_restaurants', 'annuler_justice', 'retirer_flic_reserve',
+  'piocher_caisse_police', 'changer_ethnie'
+]);
+const EFFETS_CIBLE_JOUEUR = new Set(['retirer_electeurs', 'rendre_ineligible']);
+
+/* Effets de gang applicables sans cible — la meme liste que celle qu'app.js
+   applique directement, sans ouvrir de modale. */
+const EFFETS_GANG_SANS_CIBLE = new Set([
+  'actions_supplementaires', 'revente_marchandises', 'racket_etablissements',
+  'voler_action_maire', 'immunite_restrictions_ethniques',
+  'bloquer_deplacements_manhattan', 'restriction_ethnie_caucasien_asiatique',
+  'restriction_ethnie_non_asiatique_non_italien', 'restriction_ethnie_non_caucasien'
+]);
 
 const readJson = rel => JSON.parse(fs.readFileSync(path.join(ROOT, rel), 'utf8'));
 
@@ -273,6 +300,63 @@ class Bot {
     return ordres.slice(0, budget);
   }
 
+  /* ── Les cinq systemes que le banc ignorait ─────────────────────────────
+     Un automate ne peut pas jouer finement une carte ciblee ; il peut en
+     revanche dire si un systeme se DECLENCHE. C'est ce qu'on mesure ici : la
+     frequence, pas la finesse. */
+
+  /** Joue au plus une carte par phase, parmi celles qui ne demandent pas de cible. */
+  jouerUneCarte(phase, cartesDef) {
+    const main = this.gs.joueurs[this.pid].cartes_magouille || [];
+    for (const uid of [...main]) {
+      const def = MagouilleEngine.getCardDef(this.gs, uid, cartesDef);
+      if (!def) continue;
+      const cible = EFFETS_CIBLE_JOUEUR.has(def.effet);
+      if (!EFFETS_SANS_CIBLE.has(def.effet) && !cible) continue;
+      if (!MagouilleEngine.canPlay(this.gs, this.pid, uid, phase, cartesDef).ok) continue;
+      const params = cible
+        ? { cible: this.gs.joueurs.map((_, i) => i).find(i => i !== this.pid) }
+        : {};
+      const r = MagouilleEngine.play(this.gs, this.pid, uid, params, cartesDef);
+      if (r.ok) return def.effet;
+    }
+    return null;
+  }
+
+  /**
+   * Active le gang de son quartier d'origine des qu'il le peut, ET applique son
+   * effet : activateGang ne fait qu'inscrire le gang au registre, c'est
+   * applyGangEffect qui agit. Ne les compter que comme « actives » mesurerait
+   * une ceremonie sans consequence.
+   *
+   * Seuls les effets qui ne demandent pas de cible sont joues, pour la meme
+   * raison que pour les cartes.
+   */
+  activerGang() {
+    const qid = this.gs.joueurs[this.pid].quartier_origine;
+    if (!SpecialEntities.canActivateGang(this.gs, this.pid, qid, this.city).ok) return null;
+    if (!SpecialEntities.activateGang(this.gs, this.pid, qid, this.city).ok) return null;
+    const gang = this.city.quartiers.find(q => q.id === qid)?.gang;
+    if (!gang || !EFFETS_GANG_SANS_CIBLE.has(gang.effet)) return null;
+    return SpecialEntities.applyGangEffect(this.gs, this.pid, qid, this.city, {}).ok ? gang.effet : null;
+  }
+
+  /** Tente le premier casse realisable. */
+  tenterCasse() {
+    for (const type of Object.keys(HEIST_TYPES)) {
+      if (!HeistEngine.canHeist(this.gs, this.pid, type, this.city).ok) continue;
+      if (HeistEngine.executeHeist(this.gs, this.pid, type, {}, this.city).ok) return type;
+    }
+    return null;
+  }
+
+  /** Le maire prend la taxe : c'est le seul pouvoir qui ne demande aucune cible. */
+  pouvoirMaire(phase) {
+    if (!MayorEngine.canUse(this.gs, this.pid)) return null;
+    if (!MayorEngine.availablePowers(this.gs, this.pid, phase).some(p => p.id === 'taxe')) return null;
+    return MayorEngine.execute(this.gs, this.pid, 'taxe', {}, this.city).ok ? 'taxe' : null;
+  }
+
   /** Vote : pour le joueur en tete parmi les autres, faute de mieux. */
   vote(candidats) {
     const scores = candidats.map(pid => ({ pid, pts: this.gs.getPlayerPoints(pid, this.city) }));
@@ -283,7 +367,7 @@ class Bot {
 
 /* ── Une partie ────────────────────────────────────────────────────────── */
 
-function jouerPartie({ seed, nbJoueurs, city, adj, maxTours, detail }) {
+function jouerPartie({ seed, nbJoueurs, city, adj, maxTours, detail, cartesDef }) {
   const rand = mulberry32(seed);
   const vraiRandom = Math.random;
   Math.random = rand;
@@ -312,6 +396,11 @@ function jouerPartie({ seed, nbJoueurs, city, adj, maxTours, detail }) {
       equipementsTenusFin: null, /* repartition en fin de partie */
       pointsFinaux: null,
       passages: 0,          /* ecrans qui demandent qu'on prenne la tablette */
+      cartesJouees: 0,
+      gangsActives: 0,
+      cassesReussis: 0,
+      pouvoirsMaire: 0,
+      cartesGardees: 0,
       arret: 'max_tours'
     };
     let proprietairesPrec = null;
@@ -373,17 +462,24 @@ function jouerPartie({ seed, nbJoueurs, city, adj, maxTours, detail }) {
 
         case PHASE.ORDERS_SUPPLY: {
           const pid = tm.currentPlayerId;
+          if (bots[pid].pouvoirMaire(1)) m.pouvoirsMaire++;
+          if (cartesDef && bots[pid].jouerUneCarte(1, cartesDef)) m.cartesJouees++;
           tm.submitOrders(bots[pid].ordresAppro(tm.maxOrdersForPhase(pid)));
           break;
         }
 
         case PHASE.ORDERS_MOVE: {
           const pid = tm.currentPlayerId;
+          if (bots[pid].activerGang()) m.gangsActives++;
+          if (bots[pid].tenterCasse()) m.cassesReussis++;
+          if (cartesDef && bots[pid].jouerUneCarte(4, cartesDef)) m.cartesJouees++;
           tm.submitOrders(bots[pid].ordresMouvement(tm.maxOrdersForPhase(pid)));
           break;
         }
 
         case PHASE.REVEAL_HARVEST:
+          ContractEngine.executeAutoContracts(gs);
+          ContractEngine.tickContracts(gs);
           RevenueEngine.processSupplyOrders(gs, tm.supplyOrders, city, adj);
           RevenueEngine.calculateRevenues(gs, city, adj);
           tm.continueFromReveal();
@@ -446,11 +542,25 @@ function jouerPartie({ seed, nbJoueurs, city, adj, maxTours, detail }) {
 
         case PHASE.DRAFT_CURTAIN: tm.confirmDraftCurtain(); break;
 
-        case PHASE.DRAFT_PICK:
-          /* Le draft de cartes est saisi par l'interface ; le banc le saute, les
-             effets de cartes n'etant pas dans la boucle mesuree. */
+        case PHASE.DRAFT_PICK: {
+          /* Le draft etait saute : les mains restaient vides et aucune carte
+             n'entrait jamais en jeu. Le banc le joue desormais, en gardant les
+             premieres cartes de la main tiree. */
+          const pid = tm.currentPlayerId;
+          if (cartesDef) {
+            if (!tm.draftHands || !Object.keys(tm.draftHands).length) {
+              if (!gs.deck_magouille.pile?.length) MagouilleEngine.initDeck(gs, cartesDef);
+              /* La taille se mesure AVANT le tirage : draftPhase vide la pioche. */
+              tm.draftGarde = MagouilleEngine.tailleDraft(gs, gs.joueurs.length).garde;
+              tm.setDraftHands(MagouilleEngine.draftPhase(gs, cartesDef));
+            }
+            const main = tm.draftHands?.[pid] || [];
+            const garde = tm.draftGarde || RULES.draftGarde;
+            m.cartesGardees += MagouilleEngine.keepCards(gs, pid, main.slice(0, garde), garde).length;
+          }
           tm.submitDraftPick();
           break;
+        }
 
         default:
           m.arret = `phase_inconnue:${tm.phase}`;
@@ -527,12 +637,21 @@ function agreger(parties, maxTours) {
     return null;
   })();
 
+  const moy = cle => parties.reduce((s, p) => s + (p[cle] || 0), 0) / parties.length;
+
   return {
     parties: parties.length,
     seuilVictoire: SEUIL_VICTOIRE,
     tourDeVerrouillage: verrou,
     passagesParPartie: parties.reduce((s, p) => s + p.passages, 0) / parties.length,
     passagesParTour: parties.reduce((s, p) => s + p.passages / Math.max(1, p.tourVictoire || maxTours), 0) / parties.length,
+    /* Taux de declenchement des systemes que le banc ignorait. Un systeme a 0
+       est un systeme decoratif : il occupe un ecran et ne change rien. */
+    systemes: {
+      cartesGardees: moy('cartesGardees'), cartesJouees: moy('cartesJouees'),
+      gangsActives: moy('gangsActives'), cassesReussis: moy('cassesReussis'),
+      pouvoirsMaire: moy('pouvoirsMaire')
+    },
     maxTours,
     tauxParties: finies.length / parties.length,
     tauxAuSeuil: auSeuil.length / parties.length,
@@ -571,6 +690,7 @@ const json = !!arg('json', false);
 SEUIL_VICTOIRE = Number(arg('seuil', RULES.victoire));
 
 const city = readJson('data/quartiers-gameplay.json');
+const cartesDef = readJson('data/cartes-magouille.json');
 const adj = readJson('data/adjacences-osm.json');
 /* Fusion des adjacences des iles, comme le fait le chargement de l'application. */
 (city.iles || []).forEach(ile => {
@@ -584,7 +704,7 @@ if (detail) console.log(`Journal de la partie (graine 1, ${nbJoueurs} joueurs) :
 
 const parties = [];
 for (let s = 1; s <= nbGraines; s++) {
-  parties.push(jouerPartie({ seed: s, nbJoueurs, city, adj, maxTours, detail: detail && s === 1 }));
+  parties.push(jouerPartie({ seed: s, nbJoueurs, city, adj, maxTours, detail: detail && s === 1, cartesDef }));
 }
 const r = agreger(parties, maxTours);
 
@@ -605,6 +725,12 @@ if (json) {
     ? `   (${(r.tourDeVerrouillage / r.tourVictoireMedian).toFixed(2)} de la partie)` : '';
   console.log(`  tour de verrouillage       ${r.tourDeVerrouillage ?? '—'}${part}`);
   console.log(`  passages de tablette       ${r.passagesParTour.toFixed(1)} par tour · ${Math.round(r.passagesParPartie)} par partie`);
+  console.log('');
+  const sy = r.systemes;
+  console.log(`  cartes gardees / jouees    ${sy.cartesGardees.toFixed(1)} / ${sy.cartesJouees.toFixed(1)} par partie`);
+  console.log(`  gangs joues (effet applique) ${sy.gangsActives.toFixed(2)} par partie`);
+  console.log(`  casses reussis             ${sy.cassesReussis.toFixed(2)} par partie`);
+  console.log(`  pouvoirs de maire exerces  ${sy.pouvoirsMaire.toFixed(2)} par partie`);
   console.log('');
   console.log(`  parties avec un combat     ${pct(r.tauxCombat)}   (attaque d'une case tenue)`);
   console.log(`  premier combat (median)    tour ${r.premierCombatMedian ?? '—'}`);

@@ -17,19 +17,29 @@ export const RULES = {
    * Points de victoire.
    *
    * 55 auparavant, sur un plateau qui n'offre que 129 points de quartier : il
-   * fallait tenir simultanement 42 % de la carte. Mesure au banc d'essai sur
-   * 40 parties a 4 joueurs, apres correction du placement, du controle a la
-   * majorite et de la propriete persistante :
+   * fallait tenir simultanement 42 % de la carte, et aucune partie ne finissait.
    *
-   *     seuil 25 -> 100 % de parties finies, mediane tour 8   (trop court : la
-   *                 partie s'acheve avant la premiere election, au tour 7)
-   *     seuil 35 ->  80 %, mediane tour 12,5, etendue 8-18    <- retenu
-   *     seuil 45 ->  12 %, mediane tour 15                    (une soiree n'y suffit pas)
+   * Puis 35, cale sur un banc d'essai defaillant : son bot renoncait a creer des
+   * pions faute d'armes, et il ne jouait ni le draft, ni les cartes, ni les
+   * gangs, ni les casses, ni les pouvoirs de maire. Une fois le banc repare, 35
+   * donne une mediane au tour 8 — la partie s'acheve juste apres la premiere
+   * election, avant que le titre de maire ait pu etre repris.
    *
-   * 35 place la fin apres le premier mandat de maire, donc apres que l'election
-   * ait compte, tout en tenant dans une soiree.
+   * Mesure sur 40 parties a 4 joueurs, banc repare :
+   *
+   *     seuil 35 -> 85 % gagnees au seuil, mediane tour 8    (trop court)
+   *     seuil 37 -> 68 %, mediane tour 9,5
+   *     seuil 38 -> 57 %, mediane tour 11                    <- retenu
+   *     seuil 40 -> 50 %, mediane tour 14                    (la fin dure decide)
+   *
+   * 38 est la seule valeur qui place la mediane dans la fourchette visee de 10 a
+   * 14 tours. A trois joueurs elle donne 14, a six 13 : la partie passe partout
+   * la premiere election et laisse le temps de reprendre la mairie.
+   *
+   * Les points arrivent par blocs (un quartier vaut 3 a 15, la mairie 15) : le
+   * reglage est donc discontinu. Entre 35 et 40, seul 38 tombe juste.
    */
-  victoire: 35,
+  victoire: 38,
 
   /**
    * Fin de partie forcee, en nombre de tours.

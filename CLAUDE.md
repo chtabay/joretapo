@@ -72,7 +72,7 @@ Harlem n'a que le marché noir à portée au tour 1. Lui donner un péage a ét�
 essayé — le premier combat recule au tour 8, le taux de combat retombe à 3 %,
 et Harlem gagne *moins* souvent (8 % contre 17 %). La rareté était la tension.
 
-## Attention : les réglages de `js/rules.js` sont à recaler
+## Le banc joue enfin la partie entière
 
 Le banc d'essai avait un défaut qui invalidait les chiffres avec lesquels
 `victoire: 35` et `finDePartie: 14` ont été calés. Le bot visait un trafiquant
@@ -88,10 +88,30 @@ Le seul repli sur le dealer, à graines et à règles identiques :
 | Gagnées au seuil | 63 % | **80 %** |
 | Tour de verrouillage | — | 7 (0,88 de la partie) |
 
-`victoire: 35` produit désormais une partie qui s'achève au tour 8, c'est-à-dire
-juste après la première élection. **Aucun chiffre de `js/rules.js` ne doit être
-recalé avant que le banc ne joue aussi les cartes, les gangs, les casses et les
-pouvoirs de maire** — il les saute tous, et le draft avec.
+Il sautait par ailleurs **cinq systèmes entiers** : le draft, les cartes
+magouille, les gangs, les casses et les pouvoirs de maire. Il les joue
+maintenant, et le seuil de victoire a pu être recalé sur cette base : **35 → 38**,
+seule valeur qui place la médiane dans la fourchette visée de 10 à 14 tours.
+
+| 40 parties, banc réparé | 3 joueurs | 4 joueurs | 6 joueurs |
+|---|---|---|---|
+| Victoire (médiane) | 14 | **11** | 13 |
+| Gagnées au seuil | 50 % | 57 % | 53 % |
+| Cartes gardées / jouées | 12 / 4,2 | 16 / 5,5 | 24 / 8,7 |
+| Gangs joués | 2,3 | 3,5 | 5,9 |
+| Pouvoirs de maire | 1,7 | 1,6 | 1,7 |
+| **Casses réussis** | **0** | **0** | **0** |
+
+**Les casses ne se déclenchent jamais.** Le hold-up de la Zurich Bank demande un
+pion armé sur quatre des six annexes — BG01, HC10, MN2, MN9, QN3, BK8, réparties
+dans six quartiers différents — et celui de l'hôtel de police exige en plus un
+bordel. Sur une partie qui dure onze tours, personne n'y arrive. C'est un système
+décoratif au sens de `docs/AJOUTER-UN-SYSTEME.md`, et il n'a pas encore été
+traité.
+
+**Deux pouvoirs de maire sur huit sont inatteignables** : `incorruptible` et
+`exproprier` sont déclarés en phase 5, or la feuille d'ordres n'existe qu'en
+phases 1 et 4. Ils ne sont jamais proposés.
 
 Deux indicateurs ont été ajoutés pour cela :
 
