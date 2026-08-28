@@ -103,7 +103,7 @@ function hideAllOverlays() {
   document.getElementById('op-fab')?.classList.add('hidden');
   document.getElementById('info-panel')?.classList.remove('shifted');
   mapRenderer?.clearHighlights();
-  if (gameState && mapRenderer) { mapRenderer.updateOwnership(gameState); mapRenderer.renderPions(gameState); }
+  refreshMap();
 }
 
 /* ── Title Screen ── */
@@ -333,12 +333,33 @@ function updateHUD() {
   if (isMobile() && currentMobileTab === 'stats') renderMobileStats();
 }
 
+/**
+ * Le plateau ne change qu'aux moments publics.
+ *
+ * Cartes magouille, pouvoirs de maire, effets de gang et casses s'appliquent
+ * pendant la phase d'ordres et redessinaient la carte aussitot. Le joueur
+ * suivant recevait donc une tablette dont le plateau avait deja bouge, sans
+ * qu'aucun ecran ne le lui dise : il devait deviner ce qui s'etait passe, ou ne
+ * rien voir du tout.
+ *
+ * Le moteur, lui, ne change pas : l'effet s'applique quand il s'applique. C'est
+ * l'AFFICHAGE qu'on retient jusqu'a la revelation ou la resolution, ou tout est
+ * annonce d'un coup et devant tout le monde.
+ */
+let carteARafraichir = false;
 function refreshMap() {
   if (!gameState || !mapRenderer) return;
+  if (turnManager && PHASES_SECRETES.includes(turnManager.phase)) {
+    carteARafraichir = true;
+    updateHUD();          /* le bandeau du joueur courant, lui, reste a jour */
+    return;
+  }
+  carteARafraichir = false;
   mapRenderer.updateOwnership(gameState);
   mapRenderer.renderPions(gameState);
   updateHUD();
 }
+
 
 /* ── Mobile navigation ── */
 const isMobile = () => window.matchMedia('(max-width: 768px)').matches;
@@ -1017,7 +1038,7 @@ function closeModal() {
   document.getElementById('order-modal').classList.add('hidden');
   dismissZonePopup();
   mapRenderer?.clearHighlights();
-  if (gameState && mapRenderer) { mapRenderer.updateOwnership(gameState); mapRenderer.renderPions(gameState); }
+  refreshMap();
 }
 
 /**
@@ -1529,7 +1550,7 @@ function showMoveModal(pid, refresh) {
     if (document.getElementById('f-elim')?.checked) order.eliminer = true;
     pendingOrders.push(order);
     mapRenderer?.clearHighlights();
-    if (gameState) { mapRenderer?.updateOwnership(gameState); mapRenderer?.renderPions(gameState); }
+    refreshMap();
     refresh();
   });
 
@@ -1549,7 +1570,7 @@ function showMoveModal(pid, refresh) {
       const origClick = cancelBtn.onclick;
       cancelBtn.onclick = () => {
         mapRenderer?.clearHighlights();
-        if (gameState) { mapRenderer?.updateOwnership(gameState); mapRenderer?.renderPions(gameState); }
+        refreshMap();
         if (origClick) origClick();
       };
     }
@@ -2164,7 +2185,7 @@ function showHeistModal(pid, refresh) {
       });
       card.addEventListener('mouseleave', () => {
         mapRenderer?.clearHighlights();
-        if (gameState) mapRenderer?.updateOwnership(gameState);
+        refreshMap();
       });
     });
 
@@ -2173,7 +2194,7 @@ function showHeistModal(pid, refresh) {
         e.stopPropagation();
         closeModal();
         mapRenderer?.clearHighlights();
-        if (gameState) { mapRenderer?.updateOwnership(gameState); mapRenderer?.renderPions(gameState); }
+        refreshMap();
         const hid = btn.dataset.hid;
         if (hid === 'casino' || hid === 'labo') {
           showHeistTargetModal(pid, hid, refresh);
@@ -2224,7 +2245,7 @@ function showHeistTargetModal(pid, heistType, refresh) {
       btn.addEventListener('click', () => {
         closeModal();
         mapRenderer?.clearHighlights();
-        if (gameState) { mapRenderer?.updateOwnership(gameState); mapRenderer?.renderPions(gameState); }
+        refreshMap();
         showHeistConfirmModal(pid, heistType, btn.dataset.zone, refresh);
       });
     });
@@ -2361,8 +2382,25 @@ function showVictoryScreen(winner) {
   ov.classList.remove('hidden');
 }
 
+/**
+ * Photographie de ce qui va bouger, prise AVANT la resolution.
+ *
+ * Le journal de revelation ne porte que des phrases : « Prostituee (HC12) :
+ * +4L », dix-neuf lignes de suite, sans total, sans nom de joueur et sans
+ * point. Pour dire a chacun ce que le tour lui a rapporte, il faut comparer
+ * avant et apres — le journal seul ne le sait pas.
+ */
+function instantane() {
+  return gameState.joueurs.map(j => ({
+    lingots: j.ressources.lingots,
+    points: gameState.getPlayerPoints(j.id, gameData.gameplay),
+    zones: Object.values(gameState.plateau).filter(z => z.proprietaire === j.id).length
+  }));
+}
+
 /* ── Reveal (Phase 2) ── */
 function processAndShowReveal() {
+  const avant = instantane();
   const contractLog = ContractEngine.executeAutoContracts(gameState);
   const supplyLog = RevenueEngine.processSupplyOrders(gameState, turnManager.supplyOrders, gameData.gameplay, gameData.adjacencies);
   const revenueLog = RevenueEngine.calculateRevenues(gameState, gameData.gameplay, gameData.adjacencies);
@@ -2385,7 +2423,7 @@ function processAndShowReveal() {
     /* Le tour va jusqu'au bout, meme si le seuil est franchi ici : c'est en
        phase 5 que la partie se conclut. */
     turnManager.continueFromReveal();
-  });
+  }, avant);
 }
 
 /* ── Negotiation (Phase 3) ── */
@@ -2589,6 +2627,7 @@ function showCoupoleToast(msg) {
 
 /* ── Resolve (Phase 5) ── */
 function processAndShowResolve() {
+  const avant = instantane();
   const moveLog = ConflictResolver.resolve(gameState, turnManager.moveOrders, gameData.adjacencies, gameData.gameplay);
   gameState.save();
   refreshMap();
@@ -2597,36 +2636,85 @@ function processAndShowResolve() {
     const w = checkVictory();
     if (w) { hideAllOverlays(); showVictoryScreen(w); }
     else turnManager.continueFromReveal();
-  });
+  }, avant);
 }
 
 /* ── Reveal overlay (shared) ── */
-function showRevealOverlay(title, log, onContinue) {
+const REVEAL_ICONES = { buy: '📦', rev: '💰', build: '🏗️', move: '🚶', create: '✨',
+                        conflict: '⚔️', warn: '⚠️', flic: '🚔', heist: '💰' };
+
+/**
+ * Le seul moment public du tour, groupe par joueur.
+ *
+ * C'etait un journal plat : au tour 1 a quatre joueurs, dix-neuf lignes du type
+ * « Prostituee (HC12) : +4L », 748 px de contenu dans une fenetre qui en montre
+ * 573 — un quart deja cache derriere un defilement que rien ne signalait. Sans
+ * total, sans point, sans nom de joueur, la table ne pouvait pas repondre a la
+ * seule question qui compte : qui a gagne ce tour ?
+ *
+ * Une ligne de bilan par joueur, classee par ce que le tour lui a rapporte, et
+ * le detail replie dessous. Les evenements publics — conflits, contrats — ont
+ * leur propre bloc, toujours ouvert : ce sont eux qu'on commente.
+ */
+function showRevealOverlay(title, log, onContinue, avant) {
   turnLog.push(...log);
   const ov = document.getElementById('reveal-ov');
   ov.querySelector('.reveal-title').textContent = title;
   const body = ov.querySelector('.reveal-body');
 
-  if (log.length === 0) {
-    body.innerHTML = '<div class="reveal-empty">Aucun événement ce tour.</div>';
-  } else {
-    body.innerHTML = log.map(entry => {
-      const color = entry.pid >= 0 ? gameState.joueurs[entry.pid]?.couleur || '#888' : '#888';
-      const icon = { buy: '📦', rev: '💰', build: '🏗️', move: '🚶', create: '✨', conflict: '⚔️', warn: '⚠️', flic: '🚔', heist: '💰' }[entry.type] || '•';
-      let extraClass = '';
-      if (entry.type === 'conflict') extraClass = ' reveal-conflict';
-      if (entry.type === 'heist') extraClass = ' reveal-heist';
-      return `<div class="reveal-line${extraClass}" data-type="${entry.type}" style="border-left:3px solid ${color}"><span class="reveal-icon">${icon}</span>${entry.msg}</div>`;
-    }).join('');
-  }
+  const ligne = entry => {
+    const color = entry.pid >= 0 ? gameState.joueurs[entry.pid]?.couleur || '#888' : '#888';
+    const icon = REVEAL_ICONES[entry.type] || '•';
+    const extra = entry.type === 'conflict' ? ' reveal-conflict'
+                : entry.type === 'heist' ? ' reveal-heist' : '';
+    return `<div class="reveal-line${extra}" data-type="${entry.type}" style="border-left:3px solid ${color}"><span class="reveal-icon">${icon}</span>${entry.msg}</div>`;
+  };
 
-  const summary = document.createElement('div');
-  summary.className = 'reveal-summary';
-  summary.innerHTML = '<div class="section-title">Ressources après résolution</div>' +
-    gameState.joueurs.map(j =>
-      `<div class="reveal-player"><span class="hud-player-dot" style="background:${j.couleur}"></span><strong>${j.nom}</strong> — ${j.ressources.lingots}L · ${j.ressources.armes}A · ${j.ressources.doses}D</div>`
-    ).join('');
-  body.appendChild(summary);
+  const apres = instantane();
+  const delta = pid => {
+    if (!avant || !avant[pid]) return null;
+    return {
+      lingots: apres[pid].lingots - avant[pid].lingots,
+      points: apres[pid].points - avant[pid].points,
+      zones: apres[pid].zones - avant[pid].zones
+    };
+  };
+  const signe = n => (n > 0 ? `+${n}` : `${n}`);
+
+  const publics = log.filter(e => e.pid < 0 || e.pid === undefined);
+  const groupes = gameState.joueurs.map(j => ({
+    j, lignes: log.filter(e => e.pid === j.id), d: delta(j.id)
+  })).filter(g => g.lignes.length || (g.d && (g.d.lingots || g.d.points || g.d.zones)));
+
+  /* Celui qui a le plus gagne ce tour-ci passe en premier : c'est ce que la
+     table veut savoir avant le detail. */
+  groupes.sort((a, b) => (b.d?.points ?? 0) - (a.d?.points ?? 0) || (b.d?.lingots ?? 0) - (a.d?.lingots ?? 0));
+
+  let html = '';
+  if (publics.length) {
+    html += `<div class="reveal-public"><div class="reveal-groupe-titre">Sur le plateau</div>${publics.map(ligne).join('')}</div>`;
+  }
+  if (!groupes.length && !publics.length) {
+    html = '<div class="reveal-empty">Aucun événement ce tour.</div>';
+  }
+  html += groupes.map(g => {
+    const d = g.d || { lingots: 0, points: 0, zones: 0 };
+    const bilan = [
+      `<span class="rb-lingots${d.lingots < 0 ? ' rb-moins' : ''}">${signe(d.lingots)}L</span>`,
+      d.points ? `<span class="rb-points">${signe(d.points)} pt${Math.abs(d.points) > 1 ? 's' : ''}</span>` : '',
+      d.zones ? `<span class="rb-zones${d.zones < 0 ? ' rb-moins' : ''}">${signe(d.zones)} zone${Math.abs(d.zones) > 1 ? 's' : ''}</span>` : ''
+    ].filter(Boolean).join('');
+    return `<details class="reveal-groupe"${g.lignes.length ? '' : ' data-vide'}>
+      <summary style="border-left:3px solid ${g.j.couleur}">
+        <span class="rb-nom">${esc(g.j.nom)}</span>
+        <span class="rb-bilan">${bilan}</span>
+        <span class="rb-detail">${g.lignes.length ? `${g.lignes.length} ligne${g.lignes.length > 1 ? 's' : ''}` : ''}</span>
+      </summary>
+      ${g.lignes.map(ligne).join('')}
+    </details>`;
+  }).join('');
+
+  body.innerHTML = html;
 
   ov.querySelector('#btn-reveal-ok').onclick = () => { ov.classList.add('hidden'); onContinue(); };
   ov.classList.remove('hidden');
