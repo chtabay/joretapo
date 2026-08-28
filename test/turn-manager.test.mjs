@@ -16,7 +16,7 @@
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { newTestGame, place, readJson, ROOT } from './helpers.mjs';
+import { newTestGame, place, readJson, testCity, ROOT } from './helpers.mjs';
 
 const { TurnManager, PHASE } = await import(`${ROOT}/js/turn-manager.js`);
 const { GameState } = await import(`${ROOT}/js/game-state.js`);
@@ -569,4 +569,34 @@ test('le nombre de cartes à garder se mesure avant le tirage, pas sur ce qu\'il
         `${n} joueurs : une main de ${main.length} cartes ne permet pas d'en garder ${annonce.garde}`);
     });
   }
+});
+
+test('recharger la partie pendant une saisie repasse par le rideau', async () => {
+  /* La sauvegarde est écrite à chaque changement de phase. Sans ce retour, un
+     rafraîchissement rouvrait directement la feuille d'ordres du joueur courant,
+     avec sa caisse et ses stocks, sans que personne ait déclaré tenir la
+     tablette — le rideau est le seul verrou d'identité du hotseat. */
+  const { gs, tm } = await newManager(3);
+  tm.confirmCurtain();
+  assert.equal(tm.phase, PHASE.ORDERS_SUPPLY, 'on est bien en saisie');
+
+  const repris = new TurnManager(gs, testCity());
+  repris.resumePhase();
+
+  assert.equal(repris.phase, PHASE.CURTAIN, 'la reprise commence par le rideau');
+  assert.equal(repris.currentPlayerId, tm.currentPlayerId, 'et c\'est le même joueur qui doit le lever');
+});
+
+test('recharger pendant un vote ou un draft repasse aussi par leur rideau', async () => {
+  const { gs, tm } = await newManager(3);
+  gs.tour = MANDAT;
+  tm.nextTurn();
+  tm.confirmPreElection();
+  tm.confirmElectionCurtain();
+  assert.equal(tm.phase, PHASE.ELECTION_VOTE);
+
+  const repris = new TurnManager(gs, testCity());
+  repris.resumePhase();
+
+  assert.equal(repris.phase, PHASE.ELECTION_CURTAIN, 'le bulletin est secret lui aussi');
 });

@@ -7,7 +7,7 @@ dépôt, on ne sait plus où on en était, et on referme.
 ## En trente secondes
 
 ```bash
-npm test                    # 188 tests, aucune dépendance, aucune configuration
+npm test                    # 191 tests, aucune dépendance, aucune configuration
 node tools/sim.mjs          # 40 parties simulées : le jeu est-il encore jouable ?
 npm run serve               # http://localhost:8000
 ```
@@ -190,3 +190,11 @@ suppose d'abord de réparer le banc (voir plus haut).
   `test('un flic bloque les revenus de la zone sauf pour son propriétaire')`.
 - Un système ne revient en jeu qu'en payant le péage de
   `docs/AJOUTER-UN-SYSTEME.md`.
+- **Le secret du hotseat a une seule source : `js/vues.js`.** Les points, les
+  zones et les quartiers sont publics — ils se lisent sur la carte. La caisse,
+  les stocks et la main ne sont visibles que par le joueur dont c'est le tour, et
+  par personne d'autre, à aucun moment : ni au bilan de fin de tour, ni pendant
+  la négociation, ni dans une modale de ciblage. Tout écran qui affiche une
+  ressource passe par `vueJoueurs(gs, gameplay, { revele })`, dont le paramètre
+  n'a **pas** de valeur par défaut — un appelant qui l'oublie lève une erreur au
+  lieu de fuiter en silence.

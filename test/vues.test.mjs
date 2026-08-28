@@ -30,7 +30,22 @@ test('pendant une phase secrète, on ne voit ni les lingots ni les stocks des au
   assert.equal(vues[1].armes, null);
   assert.equal(vues[1].doses, null);
   assert.equal(vues[1].cartes, null);
-  assert.equal(vues[1].points, null, 'les points trahissent le palier des lingots');
+  assert.equal(vues[1].points, 0, 'les points, eux, restent publics');
+});
+
+test('hors du tour d\'un joueur, personne ne voit sa caisse — pas même à la négociation', async () => {
+  /* La première version révélait tout dès qu'on sortait des phases de saisie.
+     Or c'est pendant la négociation que la tablette est posée sur la table, et
+     que l'onglet Stats reste à un tap : le même geste rouvrait la fuite qu'on
+     venait de fermer, une phase plus tard. */
+  const { gs, city } = await newTestGame(3);
+  dote(gs, 0, { lingots: 500, armes: 12, doses: 7 });
+
+  const vues = vueJoueurs(gs, city, { revele: 'aucun' });
+
+  assert.ok(vues.every(v => v.cache), 'aucune caisse n\'est visible');
+  assert.ok(vues.every(v => v.lingots === null && v.armes === null && v.cartes === null));
+  assert.ok(vues.every(v => typeof v.points === 'number'), 'mais le classement reste lisible');
 });
 
 test('hors phase secrète, tout le monde voit tout', async () => {
@@ -62,11 +77,17 @@ test('une vue sans destinataire déclaré est refusée plutôt que dévoilée', 
   assert.throws(() => vueJoueurs(gs, city, {}), /revele/);
 });
 
-test('on ne classe pas une vue masquée', async () => {
+test('une vue masquée reste classable : les points sont publics', async () => {
+  /* Les points ne dérivent plus que du terrain, du bâti et de la mairie — tous
+     visibles sur la carte. C'est ce qui permet d'afficher un classement en
+     permanence sur le rideau sans rien trahir. */
   const { gs, city } = await newTestGame(3);
+  ['A1', 'A2'].forEach(z => place(gs, z, 'trafiquant', 2));
 
-  assert.throws(() => classementDe(vueJoueurs(gs, city, { revele: 0 })), /masquee/);
-  assert.doesNotThrow(() => classementDe(vueJoueurs(gs, city, { revele: 'tous' })));
+  const rang = classementDe(vueJoueurs(gs, city, { revele: 'aucun' }));
+
+  assert.equal(rang[0].id, 2);
+  assert.equal(rang[0].cache, true, 'classé sans que sa caisse soit dévoilée');
 });
 
 test('le classement va du plus de points au moins', async () => {

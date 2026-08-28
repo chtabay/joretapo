@@ -274,10 +274,16 @@ function updateBarreDePartie() {
 }
 
 /**
- * Qui a le droit de tout voir en ce moment.
+ * Qui a le droit de voir les stocks en ce moment.
  *
- * Pendant une phase secrete, seul le joueur qui tient la tablette ; sinon tout
- * le monde. C'etait recalcule a cinq endroits differents, dont trois l'oubliaient.
+ * Reponse : le joueur qui tient la tablette pendant son tour, et PERSONNE
+ * d'autre, jamais. La premiere version rendait 'tous' hors des phases de saisie
+ * — donc pendant la negociation, ou la tablette est justement posee sur la table
+ * et ou la nav du bas reste accessible : le meme tap sur « Stats » rouvrait, une
+ * phase plus tard, exactement la fuite qu'on venait de fermer.
+ *
+ * Les points, eux, sont publics : ils ne derivent plus que du terrain, du bati et
+ * de la mairie. C'est js/vues.js qui fait la part des choses.
  */
 const PHASES_SECRETES = [PHASE.CURTAIN, PHASE.ORDERS_SUPPLY, PHASE.ORDERS_MOVE,
                          PHASE.ELECTION_CURTAIN, PHASE.ELECTION_VOTE,
@@ -286,7 +292,7 @@ function qui() {
   if (turnManager && PHASES_SECRETES.includes(turnManager.phase)) {
     return turnManager.currentPlayerId;
   }
-  return 'tous';
+  return 'aucun';
 }
 
 function updateHUD() {
@@ -795,6 +801,26 @@ function renderCurtain() {
   btn.textContent = `Je suis ${j.nom}`;
   btn.onclick = () => { ov.classList.add('hidden'); turnManager.confirmCurtain(); };
   ov.classList.remove('hidden');
+}
+
+/**
+ * Rideau d'election et de draft.
+ *
+ * Ils ne repeignaient que le nom et le libelle de phase, laissant en place le
+ * bloc d'etat et le libelle du bouton ecrits par le dernier rideau de phase 1 ou
+ * 4 : au tour 6, l'ecran annonçait « Passez la tablette a Joueur 1 » sous un
+ * bouton qui disait « Je suis Joueur 3 », au-dessus d'un classement datant du
+ * premier tour. Or ce bouton est le geste par lequel un joueur declare tenir la
+ * tablette : c'est sur lui que repose tout le hotseat.
+ *
+ * Ils passent donc par le meme rideau que les autres, avec leur propre libelle.
+ */
+function peindreRideauSpecial(libellePhase, suite) {
+  renderCurtain();
+  const ov = document.getElementById('curtain');
+  ov.querySelector('.curtain-phase').textContent = libellePhase;
+  const btn = ov.querySelector('#btn-curtain-go');
+  btn.onclick = () => { ov.classList.add('hidden'); suite(); };
 }
 
 /* ── Order Panel (Phase 1 & 4) ── */
@@ -2229,17 +2255,29 @@ function showHeistTargetModal(pid, heistType, refresh) {
       const ownerName = owner != null ? gameState.joueurs[owner]?.nom : '—';
       const ownerColor = owner != null ? gameState.joueurs[owner]?.couleur : '#888';
       const zoneName = gameData.gameplay.zones[z]?.nom || z;
+      /* Une FOURCHETTE, pas le chiffre. Le montant exact etait affiche derriere
+         un « ~ » qui le faisait passer pour une estimation, et la modale se
+         referme par « Annuler » : on lisait la tresorerie ou le stock de drogue
+         d'un rival sans rien depenser, avec la precision de l'unite. Le repere
+         doit suffire a choisir une cible, pas a compter ce que l'autre peut
+         acheter. */
+      const fourchette = (n, unite) => {
+        if (n <= 0) return `moins de 50 ${unite}`;
+        const pas = Math.pow(10, Math.max(1, String(Math.floor(n)).length - 1));
+        const bas = Math.floor(n / pas) * pas;
+        return `${bas}–${bas + pas} ${unite}`;
+      };
       const lootEstimate = heistType === 'casino' && owner != null
-        ? gameState.joueurs[owner].ressources.lingots + 'L'
+        ? fourchette(gameState.joueurs[owner].ressources.lingots, 'L')
         : heistType === 'labo' && owner != null
-          ? gameState.joueurs[owner].ressources.doses + ' doses'
+          ? fourchette(gameState.joueurs[owner].ressources.doses, 'doses')
           : '?';
       return `<button class="heist-target-btn" data-zone="${z}">
         <div class="heist-target-info">
           <span class="heist-target-name">${zoneName}</span>
           <span class="heist-target-owner" style="color:${ownerColor}">${ownerName}</span>
         </div>
-        <span class="heist-target-loot">~${lootEstimate}</span>
+        <span class="heist-target-loot">${lootEstimate}</span>
       </button>`;
     }).join('')}
     </div>
@@ -2269,9 +2307,11 @@ function showHeistConfirmModal(pid, heistType, targetZone, refresh) {
   if (targetZone) {
     const owner = gameState.plateau[targetZone]?.proprietaire;
     if (owner != null) {
+      /* Meme raison que dans la liste des cibles : l'ecran de confirmation
+         reaffichait le montant exact, et on pouvait encore annuler. */
       const victim = gameState.joueurs[owner];
-      if (heistType === 'casino') lootDesc = `${victim.ressources.lingots}L de ${victim.nom}`;
-      if (heistType === 'labo') lootDesc = `${victim.ressources.doses} doses de ${victim.nom}`;
+      if (heistType === 'casino') lootDesc = `la caisse de ${victim.nom}`;
+      if (heistType === 'labo') lootDesc = `le stock de doses de ${victim.nom}`;
     }
   }
 
@@ -2764,16 +2804,8 @@ function renderPreElection() {
 
 /* ── Election ── */
 function renderElectionCurtain() {
-  const ov = document.getElementById('curtain');
-  const j = turnManager.currentPlayer;
-  ov.querySelector('.curtain-player').textContent = j.nom;
-  ov.querySelector('.curtain-player').style.color = j.couleur;
-  ov.querySelector('.curtain-phase').textContent = '🗳️ Élection municipale — Vote secret';
-  ov.querySelector('#btn-curtain-go').onclick = () => {
-    ov.classList.add('hidden');
-    turnManager.confirmElectionCurtain();
-  };
-  ov.classList.remove('hidden');
+  peindreRideauSpecial('🗳️ Élection municipale — Vote secret',
+    () => turnManager.confirmElectionCurtain());
 }
 
 function renderElectionVote() {
@@ -2866,16 +2898,8 @@ function renderElectionResult() {
 
 /* ── Draft Magouille ── */
 function renderDraftCurtain() {
-  const ov = document.getElementById('curtain');
-  const j = turnManager.currentPlayer;
-  ov.querySelector('.curtain-player').textContent = j.nom;
-  ov.querySelector('.curtain-player').style.color = j.couleur;
-  ov.querySelector('.curtain-phase').textContent = '🃏 Tirage de cartes Magouille';
-  ov.querySelector('#btn-curtain-go').onclick = () => {
-    ov.classList.add('hidden');
-    turnManager.confirmDraftCurtain();
-  };
-  ov.classList.remove('hidden');
+  peindreRideauSpecial('🃏 Tirage de cartes Magouille',
+    () => turnManager.confirmDraftCurtain());
 }
 
 function renderDraftPick() {
@@ -3339,8 +3363,7 @@ function renderTurnEnd() {
           <div class="turnend-rank-detail">${zones} zones · ${quartiers.length} quartier${quartiers.length > 1 ? 's' : ''}</div>
           ${quartiers.length > 0 ? `<div class="turnend-rank-quartiers">★ ${qNames}</div>` : ''}
         </div>
-        <div class="turnend-rank-pts">${j.pts} <small>pts</small></div>
-        <div class="turnend-rank-res">💰${j.ressources.lingots} 🔫${j.ressources.armes} 💊${j.ressources.doses}</div>
+        <div class="turnend-rank-pts">${j.pts} <small>/ ${RULES.victoire}</small></div>
       </div>`;
     }).join('') + `</div>`;
 

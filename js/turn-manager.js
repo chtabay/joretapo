@@ -132,7 +132,24 @@ export class TurnManager {
    * une election repartait en phase 5.
    */
   resumePhase() {
-    if (this.gs.manche?.phase) { this._emit(); return; }
+    if (this.gs.manche?.phase) {
+      /* On ne rentre jamais dans une saisie secrete sans repasser par le rideau.
+         La sauvegarde est ecrite a chaque changement de phase : recharger la page
+         pendant le tour de J2 rouvrait directement SA feuille d'ordres, avec sa
+         caisse et ses stocks, sans que personne ait declare tenir la tablette.
+         Le rideau est le seul verrou d'identite du hotseat ; un rafraichissement
+         ne doit pas pouvoir le sauter. */
+      const RETOUR_AU_RIDEAU = {
+        [PHASE.ORDERS_SUPPLY]: PHASE.CURTAIN,
+        [PHASE.ORDERS_MOVE]: PHASE.CURTAIN,
+        [PHASE.ELECTION_VOTE]: PHASE.ELECTION_CURTAIN,
+        [PHASE.DRAFT_PICK]: PHASE.DRAFT_CURTAIN
+      };
+      const rideau = RETOUR_AU_RIDEAU[this.gs.manche.phase];
+      if (rideau) this.gs.manche.phase = rideau;
+      this._emit();
+      return;
+    }
     /* Sauvegarde d'avant cette correction : on retombe sur l'ancien comportement,
        au debut de la phase en cours. */
     const p = this.gs.phase;

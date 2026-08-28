@@ -24,6 +24,10 @@ export function vueJoueurs(gs, gameplay, options) {
     throw new Error('vueJoueurs : il faut dire QUI a le droit de voir — passer { revele }.');
   }
   const { revele } = options;
+  /* Trois etats, pas deux. « tous » n'a plus lieu d'etre pour les stocks : hors
+     du tour d'un joueur, PERSONNE ne doit voir sa caisse — pas meme pendant la
+     negociation, ou la tablette est justement posee sur la table. On passe donc
+     'aucun' partout ailleurs. */
   const visible = pid => revele === 'tous' || revele === pid;
 
   return gs.joueurs.map(j => {
@@ -39,13 +43,17 @@ export function vueJoueurs(gs, gameplay, options) {
       couleur: j.couleur,
       estMaire: !!j.est_maire,
       /* Public : ce qui se lit deja sur la carte. Personne ne gagne a le cacher,
-         et le cacher rendrait le plateau incomprehensible. */
+         et le cacher rendrait le plateau incomprehensible.
+         Les POINTS en font partie depuis que le palier des 2 000 lingots a ete
+         retire de leur calcul : ils ne derivent plus que du terrain, du bati et
+         de la mairie, tous visibles. C'est ce qui permet d'afficher un classement
+         en permanence sur le rideau. */
       zones,
+      points: gs.getPlayerPoints(j.id, gameplay),
       quartiers: quartiers.map(q => ({ id: q.id, nom: q.nom, points: q.points })),
       /* Secret : la tresorerie, les stocks, la main. Un adversaire qui les
          connait sait exactement ce que l'autre peut acheter ce tour-ci. */
       cache: !ouvert,
-      points: ouvert ? gs.getPlayerPoints(j.id, gameplay) : null,
       lingots: ouvert ? j.ressources.lingots : null,
       armes: ouvert ? j.ressources.armes : null,
       doses: ouvert ? j.ressources.doses : null,
@@ -54,11 +62,8 @@ export function vueJoueurs(gs, gameplay, options) {
   });
 }
 
-/** Les joueurs classes par points. Ne s'emploie que sur une vue revelee a tous. */
+/** Les joueurs classes par points. Les points sont publics : toujours classables. */
 export function classementDe(vues) {
-  if (vues.some(v => v.points === null)) {
-    throw new Error('classementDe : on ne classe pas une vue masquee.');
-  }
   return [...vues].sort((a, b) => b.points - a.points);
 }
 
