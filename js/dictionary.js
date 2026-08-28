@@ -1,6 +1,12 @@
 /**
  * Dictionnaire du jeu JORETAPO — pages d'information accessibles en modale
+ *
+ * Les chiffres de regle sont LUS dans js/rules.js, jamais recopies : le seuil de
+ * victoire a change trois fois, et a chaque fois le dictionnaire a continue
+ * d'annoncer l'ancien. Un joueur qui lit une regle fausse joue un autre jeu.
  */
+
+import { RULES } from './rules.js';
 
 export const DICT_ENTRIES = {
   approvisionnement_points: {
@@ -99,7 +105,7 @@ export const DICT_ENTRIES = {
   pts: {
     title: 'Points de victoire',
     content: `
-      <p><strong>Objectif</strong> : être le premier à atteindre <strong>35 points</strong>. Si personne n'y parvient, la partie s'arrête au bout de <strong>14 tours</strong> (deux mandats) et le joueur en tête l'emporte.</p>
+      <p><strong>Objectif</strong> : être le premier à atteindre <strong>${RULES.victoire} points</strong>. Si personne n'y parvient, la partie s'arrête au bout de <strong>${RULES.finDePartie} tours</strong> et le joueur en tête l'emporte — mais le dernier tour se joue en entier, résolution comprise.</p>
       <table class="dict-table">
         <tr><th>Source</th><th>Pts</th></tr>
         <tr><td>Quartier dominé (majorité stricte de ses zones)</td><td>3 à 15</td></tr>

@@ -7,7 +7,7 @@ dépôt, on ne sait plus où on en était, et on referme.
 ## En trente secondes
 
 ```bash
-npm test                    # 187 tests, aucune dépendance, aucune configuration
+npm test                    # 188 tests, aucune dépendance, aucune configuration
 node tools/sim.mjs          # 40 parties simulées : le jeu est-il encore jouable ?
 npm run serve               # http://localhost:8000
 ```
@@ -47,6 +47,8 @@ de 30 tours, et 0 % avec le moindre combat.
 | Soutien à un allié | inexistant | ordre explicite, coûte un ordre | Le comptage ne créditait que le propriétaire du pion : aider quelqu'un était impossible, et la négociation n'avait rien à négocier |
 | Sources de points | 7, dont 4 paliers (8 dealers, 8 prostituées, 6 trafiquants, 2 000 lingots) | 3 : quartiers, mairie, constructions | Les 4 paliers valaient 40 points annoncés et ne se déclenchaient **jamais** : sur 2 284 relevés, maxima 4, 4, 3 et 542. Celui des lingots faisait en outre entrer une information secrète dans un score public |
 | Ordre de passage | retiré au sort à chaque phase | tiré une fois par tour | Un joueur pouvait passer premier en phase 1 et dernier en phase 4. Un ordre qu'on ne peut pas annoncer est un ordre qu'on subit |
+| Seuil de victoire | 55, puis 35 | **34** | 55 exigeait 42 % de la carte, aucune partie ne finissait ; 35 était calé sur un banc défaillant et donnait une médiane au tour 8, avant que la mairie ait pu être reprise |
+| Durée du mandat | 7 tours | **6 tours** | À 7, avec une fin au 14ᵉ, le second scrutin tombait pile sur la fin : il n'avait jamais lieu et le maire gardait 15 points — 44 % du seuil — sans les redéfendre. Titre repris : 0 % → 48 % |
 | Vote | pour soi possible | interdit | L'auto-vote rendait le maire mécanique : le joueur déjà en tête |
 | Offre d'armes | 46/tour | 130/tour | Un joueur dépensait 3 de ses 5 ordres en courses et ne s'étendait plus |
 | Égalité de conflit | statu quo gratuit | départagée au tour même : celui qui tient la zone la garde ; sinon celui qui engage le plus de pions | 353 égalités sur 40 parties, dont 66 % rejouées à l'identique le tour suivant, pendant que 0,7 zone changeait de mains. Se bloquer était la position la moins chère du jeu |
@@ -89,18 +91,32 @@ Le seul repli sur le dealer, à graines et à règles identiques :
 | Tour de verrouillage | — | 7 (0,88 de la partie) |
 
 Il sautait par ailleurs **cinq systèmes entiers** : le draft, les cartes
-magouille, les gangs, les casses et les pouvoirs de maire. Il les joue
-maintenant, et le seuil de victoire a pu être recalé sur cette base : **35 → 38**,
-seule valeur qui place la médiane dans la fourchette visée de 10 à 14 tours.
+magouille, les gangs, les casses et les pouvoirs de maire.
+
+Et il avait un troisième défaut, découvert en cherchant pourquoi le titre de
+maire ne changeait jamais de mains : **son bot votait pour le joueur en tête**,
+c'est-à-dire pour le maire sortant — qui mène précisément *parce qu'*il a la
+mairie. Personne, à une vraie table, ne redonne 15 points à celui qui gagne
+déjà. Une fois ce vote rendu rationnel, tout se déplace.
 
 | 40 parties, banc réparé | 3 joueurs | 4 joueurs | 6 joueurs |
 |---|---|---|---|
-| Victoire (médiane) | 14 | **11** | 13 |
-| Gagnées au seuil | 50 % | 57 % | 53 % |
-| Cartes gardées / jouées | 12 / 4,2 | 16 / 5,5 | 24 / 8,7 |
-| Gangs joués | 2,3 | 3,5 | 5,9 |
-| Pouvoirs de maire | 1,7 | 1,6 | 1,7 |
+| Parties terminées | 100 % | 100 % | 100 % |
+| Victoire (médiane) | 13 | 13 | 13 |
+| **Tour de verrouillage** | **1,00** | **1,00** | **1,00** |
+| Élections tenues | 1,75 | 1,63 | 1,63 |
+| Titre repris | 55 % | 48 % | 55 % |
+| Cartes gardées / jouées | 21 / 7,3 | 26 / 8,7 | 31 / 11,5 |
+| Gangs joués | 3,6 | 4,6 | 6,8 |
+| Pouvoirs de maire | 3,1 | 2,6 | 2,5 |
 | **Casses réussis** | **0** | **0** | **0** |
+
+Un tour de verrouillage à **1,00** signifie que le meneur n'est le vainqueur
+assuré qu'au tout dernier tour : plus rien n'est joué d'avance. Il valait 0,57
+avec un mandat de sept tours.
+
+Prix payé, mesuré : les passages de tablette montent de 21,7 à 22,4 par tour à
+quatre joueurs, parce qu'il y a désormais deux scrutins au lieu d'un.
 
 **Les casses ne se déclenchent jamais.** Le hold-up de la Zurich Bank demande un
 pion armé sur quatre des six annexes — BG01, HC10, MN2, MN9, QN3, BK8, réparties

@@ -357,11 +357,26 @@ class Bot {
     return MayorEngine.execute(this.gs, this.pid, 'taxe', {}, this.city).ok ? 'taxe' : null;
   }
 
-  /** Vote : pour le joueur en tete parmi les autres, faute de mieux. */
+  /**
+   * Vote : on ne nourrit pas le meneur.
+   *
+   * Le bot votait pour le joueur en tete parmi les autres — c'est-a-dire pour le
+   * maire sortant, qui est en tete precisement PARCE QU'il a la mairie. Resultat
+   * mesure : le titre ne changeait de mains dans aucune des 40 parties, quelle
+   * que soit la duree du mandat. Ce n'etait pas une propriete du jeu, c'etait
+   * une politique absurde : personne, a une vraie table, ne redonne 15 points —
+   * 39 % du seuil — a celui qui mene deja.
+   *
+   * Politique retenue : le plus fort des candidats qui n'est PAS le meneur du
+   * moment. On soutient un contrepoids credible.
+   */
   vote(candidats) {
-    const scores = candidats.map(pid => ({ pid, pts: this.gs.getPlayerPoints(pid, this.city) }));
-    scores.sort((a, b) => b.pts - a.pts);
-    return scores[0]?.pid ?? candidats[0];
+    const pts = pid => this.gs.getPlayerPoints(pid, this.city);
+    const tous = this.gs.joueurs.map((_, i) => i);
+    const meneur = tous.reduce((a, b) => (pts(b) > pts(a) ? b : a), tous[0]);
+    const utiles = candidats.filter(pid => pid !== meneur);
+    const liste = utiles.length ? utiles : candidats;
+    return liste.reduce((a, b) => (pts(b) > pts(a) ? b : a), liste[0]);
   }
 }
 
@@ -401,6 +416,8 @@ function jouerPartie({ seed, nbJoueurs, city, adj, maxTours, detail, cartesDef }
       cassesReussis: 0,
       pouvoirsMaire: 0,
       cartesGardees: 0,
+      elections: 0,            /* scrutins reellement tenus */
+      changementsDeMaire: 0,   /* le titre passe d'un joueur a un autre */
       arret: 'max_tours'
     };
     let proprietairesPrec = null;
@@ -536,7 +553,12 @@ function jouerPartie({ seed, nbJoueurs, city, adj, maxTours, detail, cartesDef }
 
         case PHASE.ELECTION_RESULT: {
           const res = tm.getElectionResults(city);
+          const sortant = gs.maire.joueur_id;
           tm.applyElectionResult(res.winner);
+          m.elections++;
+          if (sortant !== null && sortant !== undefined && gs.maire.joueur_id !== sortant) {
+            m.changementsDeMaire++;
+          }
           break;
         }
 
@@ -650,7 +672,10 @@ function agreger(parties, maxTours) {
     systemes: {
       cartesGardees: moy('cartesGardees'), cartesJouees: moy('cartesJouees'),
       gangsActives: moy('gangsActives'), cassesReussis: moy('cassesReussis'),
-      pouvoirsMaire: moy('pouvoirsMaire')
+      pouvoirsMaire: moy('pouvoirsMaire'),
+      elections: moy('elections'),
+      changementsDeMaire: moy('changementsDeMaire'),
+      partiesAvecReprise: parties.filter(p => p.changementsDeMaire > 0).length / parties.length
     },
     maxTours,
     tauxParties: finies.length / parties.length,
@@ -731,6 +756,7 @@ if (json) {
   console.log(`  gangs joues (effet applique) ${sy.gangsActives.toFixed(2)} par partie`);
   console.log(`  casses reussis             ${sy.cassesReussis.toFixed(2)} par partie`);
   console.log(`  pouvoirs de maire exerces  ${sy.pouvoirsMaire.toFixed(2)} par partie`);
+  console.log(`  elections tenues           ${sy.elections.toFixed(2)} par partie · titre repris dans ${Math.round(sy.partiesAvecReprise * 100)} % des parties`);
   console.log('');
   console.log(`  parties avec un combat     ${pct(r.tauxCombat)}   (attaque d'une case tenue)`);
   console.log(`  premier combat (median)    tour ${r.premierCombatMedian ?? '—'}`);

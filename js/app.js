@@ -112,6 +112,15 @@ function renderTitleScreen() {
   const hasSave = GameState.hasSave();
   const btnCont = document.getElementById('btn-continue');
   btnCont.style.display = hasSave ? '' : 'none';
+  /* Le bandeau de victoire annoncait « 35 points » et « domination de marche,
+     richesse » en dur : deux paliers supprimes et un seuil recale plus tard, il
+     mentait sur les deux. Il se remplit depuis js/rules.js. */
+  const victoire = document.getElementById('intro-victory');
+  if (victoire) {
+    victoire.innerHTML = `<strong>🏆 ${RULES.victoire} points pour gagner</strong><br>` +
+      `<span style="color:#aaa;font-size:13px">Quartiers tenus à la majorité, titre de maire, ` +
+      `constructions. Partie close au ${RULES.finDePartie}<sup>e</sup> tour, dernier tour joué en entier.</span>`;
+  }
   document.getElementById('btn-new-game').onclick = () => {
     showScreen('screen-intro');
   };

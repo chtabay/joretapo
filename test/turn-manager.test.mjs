@@ -20,6 +20,8 @@ import { newTestGame, place, readJson, ROOT } from './helpers.mjs';
 
 const { TurnManager, PHASE } = await import(`${ROOT}/js/turn-manager.js`);
 const { GameState } = await import(`${ROOT}/js/game-state.js`);
+const { RULES } = await import(`${ROOT}/js/rules.js`);
+const MANDAT = RULES.toursParMandat;
 
 /** Fabrique un manager déjà branché sur une partie de test. */
 async function newManager(nbJoueurs = 3) {
@@ -254,7 +256,7 @@ test('un nouveau tour rend à chacun l\'intégralité de son budget', async () =
 test('les tours ordinaires s\'enchaînent sans élection', async () => {
   const { gs, tm } = await newManager(3);
 
-  for (let tour = 1; tour <= 6; tour++) {
+  for (let tour = 1; tour < MANDAT; tour++) {
     gs.tour = tour;
     tm.nextTurn();
     assert.equal(gs.tour, tour + 1, `le tour ${tour} mène au tour ${tour + 1}`);
@@ -263,17 +265,29 @@ test('les tours ordinaires s\'enchaînent sans élection', async () => {
   }
 });
 
-test('l\'élection se déclenche à la fin du tour 7, puis tous les sept tours', async () => {
+test('l\'élection se déclenche à la fin de chaque mandat', async () => {
+  /* La durée du mandat est un réglage : le test dit la règle, pas le chiffre.
+     Elle est passée de 7 à 6 tours parce qu'à 7, avec une fin de partie au 14e,
+     le second scrutin tombait pile sur la fin et n'avait jamais lieu. */
   const { gs, tm } = await newManager(3);
 
-  gs.tour = 7;
+  gs.tour = MANDAT;
   tm.nextTurn();
-  assert.equal(tm.phase, PHASE.PRE_ELECTION, 'fin du tour 7 : on vote');
-  assert.equal(gs.tour, 7, 'le tour n\'avance pas tant que l\'élection n\'est pas jouée');
+  assert.equal(tm.phase, PHASE.PRE_ELECTION, `fin du tour ${MANDAT} : on vote`);
+  assert.equal(gs.tour, MANDAT, 'le tour n\'avance pas tant que l\'élection n\'est pas jouée');
 
-  gs.tour = 14;
+  gs.tour = MANDAT * 2;
   tm.nextTurn();
-  assert.equal(tm.phase, PHASE.PRE_ELECTION, 'et de nouveau à la fin du tour 14');
+  assert.equal(tm.phase, PHASE.PRE_ELECTION, `et de nouveau à la fin du tour ${MANDAT * 2}`);
+});
+
+test('le second scrutin tombe avant la fin de la partie', async () => {
+  /* C'est la raison d'être du mandat de six tours : à sept, la seconde élection
+     tombait exactement sur la fin dure et le maire élu au premier scrutin
+     gardait ses 15 points — 44 % du seuil — sans jamais les redéfendre. Mesuré
+     au banc : le titre changeait de mains dans 0 % des parties. */
+  assert.ok(MANDAT * 2 < RULES.finDePartie,
+    `deux mandats de ${MANDAT} tours doivent tenir dans les ${RULES.finDePartie} tours de la partie`);
 });
 
 test('la fin de mandat est notifiée avant l\'ouverture du scrutin', async () => {
@@ -281,7 +295,7 @@ test('la fin de mandat est notifiée avant l\'ouverture du scrutin', async () =>
   let mandatsClos = 0;
   tm.onEndOfMandate = () => { mandatsClos++; };
 
-  gs.tour = 7;
+  gs.tour = MANDAT;
   tm.nextTurn();
 
   assert.equal(mandatsClos, 1);
@@ -289,7 +303,7 @@ test('la fin de mandat est notifiée avant l\'ouverture du scrutin', async () =>
 
 test('le scrutin fait voter chaque joueur derrière le rideau, une seule fois', async () => {
   const { gs, tm } = await newManager(3);
-  gs.tour = 7;
+  gs.tour = MANDAT;
   tm.nextTurn();
 
   tm.confirmPreElection();
@@ -312,7 +326,7 @@ test('le scrutin fait voter chaque joueur derrière le rideau, une seule fois', 
 
 test('après le dépouillement viennent le draft de cartes puis le tour suivant', async () => {
   const { gs, tm } = await newManager(2);
-  gs.tour = 7;
+  gs.tour = MANDAT;
   place(gs, 'A1', 'dealer', 0);
   place(gs, 'B1', 'dealer', 1);
   tm.nextTurn();
@@ -332,12 +346,12 @@ test('après le dépouillement viennent le draft de cartes puis le tour suivant'
   assert.equal(tm.phase, PHASE.DRAFT_PICK);
   tm.submitDraftPick();
   assert.equal(tm.phase, PHASE.DRAFT_CURTAIN, 'au suivant, derrière le rideau');
-  assert.equal(gs.tour, 7, 'le tour n\'a pas encore avancé');
+  assert.equal(gs.tour, MANDAT, 'le tour n\'a pas encore avancé');
 
   tm.confirmDraftCurtain();
   tm.submitDraftPick();
 
-  assert.equal(gs.tour, 8, 'le draft terminé, le tour 8 commence');
+  assert.equal(gs.tour, MANDAT + 1, `le draft terminé, le tour ${MANDAT + 1} commence`);
   assert.equal(gs.phase, 1);
   assert.equal(tm.phase, PHASE.CURTAIN);
 });
@@ -346,7 +360,7 @@ test('le vainqueur devient maire et l\'ancien maire perd son titre', async () =>
   const { gs, tm } = await newManager(3);
   gs.maire = { joueur_id: 2, privileges_restants: 1, tour_election: 1 };
   gs.joueurs[2].est_maire = true;
-  gs.tour = 7;
+  gs.tour = MANDAT;
   tm.nextTurn();
   tm.confirmPreElection();
   for (let k = 0; k < 3; k++) { tm.confirmElectionCurtain(); tm.submitVote(1); }
@@ -357,7 +371,7 @@ test('le vainqueur devient maire et l\'ancien maire perd son titre', async () =>
   assert.equal(gs.joueurs[1].est_maire, true);
   assert.equal(gs.joueurs[2].est_maire, false, 'le sortant redevient un joueur ordinaire');
   assert.equal(gs.joueurs[1].privileges_maire_restants, 2, 'le mandat rouvre deux privilèges');
-  assert.equal(gs.maire.tour_election, 7);
+  assert.equal(gs.maire.tour_election, MANDAT);
 });
 
 /* ── Dépouillement ──────────────────────────────────────────────────────── */
@@ -466,7 +480,7 @@ test('un joueur ne peut pas voter pour lui-même',
     const { gs, city, tm } = await newManager(2);
     place(gs, 'A1', 'dealer', 0);
     place(gs, 'B1', 'dealer', 1);
-    gs.tour = 7;
+    gs.tour = MANDAT;
     tm.nextTurn();
     tm.confirmPreElection();
     tm.confirmElectionCurtain();
@@ -513,7 +527,7 @@ test('les bulletins et les mains de draft survivent à une sauvegarde et un rech
     const { gs, city, tm } = await newManager(2);
     place(gs, 'A1', 'dealer', 0);
     place(gs, 'B1', 'dealer', 1);
-    gs.tour = 7;
+    gs.tour = MANDAT;
     tm.nextTurn();
     tm.confirmPreElection();
     tm.confirmElectionCurtain();
