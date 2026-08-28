@@ -125,3 +125,60 @@ test('un quartier de départ est d\'un seul tenant', () => {
   });
   assert.deepEqual(morceles, []);
 });
+
+test('un quartier de départ permet de tenir la majorité de ses zones au tour 1', async () => {
+  /* Règle de conception pour tout pack de ville. Le contrôle d'un quartier se fait
+     à la majorité stricte : un quartier de depart dont les pions initiaux ne
+     peuvent pas couvrir plus de la moitie des zones ne rapporte rien au tour 1,
+     et son libelle de points devient une contre-indication. C'est ce qui rendait
+     les quartiers a 9 et 15 points strictement moins bons que ceux a 6.
+
+     Contraintes de cohabitation : un pion arme par zone, une prostituee par zone.
+     Le nombre de zones distinctes couvrables vaut donc armes + prostituees. */
+  const insuffisants = gameplay.quartiers
+    .filter(q => q.disponible_au_lancement)
+    .map(q => {
+      const p = q.privileges_depart || {};
+      const couvrables = Math.min(
+        q.zones.length,
+        (p.trafiquants || 0) + (p.dealers || 0) + (p.prostituees_base || 0) + (p.prostituees_luxe || 0)
+      );
+      return { id: q.id, couvrables, zones: q.zones.length };
+    })
+    .filter(x => x.couvrables <= x.zones / 2)
+    .map(x => `${x.id} (${x.couvrables}/${x.zones})`);
+
+  assert.deepEqual(insuffisants, [],
+    'ces quartiers ne peuvent pas atteindre la majorite de leurs zones avec leurs pions de depart');
+});
+
+test('un quartier de départ ne reçoit pas plus de pions armés que de zones', () => {
+  /* Un seul pion arme par zone est la regle partout ailleurs — a la creation
+     comme au deplacement. Un quartier de depart qui en distribue davantage force
+     un empilement des le tour 1, que le joueur doit defaire avant de pouvoir
+     jouer. Harlem donnait 5 pions armes pour 3 zones. */
+  const surcharges = gameplay.quartiers
+    .filter(q => q.disponible_au_lancement)
+    .map(q => {
+      const p = q.privileges_depart || {};
+      return { id: q.id, armes: (p.trafiquants || 0) + (p.dealers || 0), zones: q.zones.length };
+    })
+    .filter(x => x.armes > x.zones)
+    .map(x => `${x.id} (${x.armes} pions armés pour ${x.zones} zones)`);
+
+  assert.deepEqual(surcharges, []);
+});
+
+test('un quartier de départ ne reçoit pas plus de prostituées que de zones', () => {
+  /* Meme raison : une seule prostituee par zone. */
+  const surcharges = gameplay.quartiers
+    .filter(q => q.disponible_au_lancement)
+    .map(q => {
+      const p = q.privileges_depart || {};
+      return { id: q.id, filles: (p.prostituees_base || 0) + (p.prostituees_luxe || 0), zones: q.zones.length };
+    })
+    .filter(x => x.filles > x.zones)
+    .map(x => `${x.id} (${x.filles} prostituées pour ${x.zones} zones)`);
+
+  assert.deepEqual(surcharges, []);
+});

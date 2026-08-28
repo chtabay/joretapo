@@ -3,11 +3,29 @@
  */
 
 export const DICT_ENTRIES = {
+  soutien: {
+    title: 'Soutenir un allié',
+    content: `
+      <p>Un pion armé qui ne se déplace pas peut <strong>prêter sa force</strong> à un autre
+      joueur engagé dans un conflit sur une zone <strong>adjacente à la sienne</strong>.
+      Il reste sur place ; il ajoute +1 à la force du bénéficiaire.</p>
+      <p>Le soutien coûte <strong>un ordre</strong> sur les cinq du tour. C'est ce prix qui lui
+      donne sa valeur : promettre son soutien, c'est renoncer à autre chose.</p>
+      <p><strong>Le soutien est coupé</strong> si votre propre zone est attaquée pendant le
+      même tour — sauf par le joueur que vous soutenez, qui ne peut pas se couper lui-même.
+      Un adversaire prévenu peut donc neutraliser une alliance en frappant le soutien
+      plutôt que la cible.</p>
+      <p>Vos pions immobiles défendent <strong>automatiquement</strong> vos propres zones :
+      l'ordre de soutien ne sert qu'à aider quelqu'un d'autre.</p>
+      <p class="dict-note">C'est le seul ordre du jeu qui serve autrui, et donc la seule
+      chose que la phase de négociation permette réellement de marchander.</p>
+    `
+  },
   tour: {
     title: 'Tour',
     content: `
       <p>Un <strong>tour</strong> représente un cycle complet des 5 phases du jeu.</p>
-      <p>Chaque tour, chaque joueur dispose de <strong>5 ordres</strong> au total, répartis entre la phase 1 (approvisionnement, construction) et la phase 4 (déplacements, création de pions).</p>
+      <p>Chaque tour, chaque joueur dispose de <strong>5 ordres</strong> au total, répartis entre la phase 1 (approvisionnement, construction) et la phase 4 (déplacements, création de pions, <strong>soutien à un allié</strong>).</p>
       <p><strong>Tous les 7 tours</strong> : élections municipales, tirage de cartes magouille (8→4), et activation des gangs possible à partir du tour 7.</p>
     `
   },
@@ -41,7 +59,7 @@ export const DICT_ENTRIES = {
   pts: {
     title: 'Points de victoire',
     content: `
-      <p><strong>Objectif</strong> : être le premier à atteindre <strong>55 points</strong>.</p>
+      <p><strong>Objectif</strong> : être le premier à atteindre <strong>35 points</strong>. Si personne n'y parvient, la partie s'arrête au bout de <strong>14 tours</strong> (deux mandats) et le joueur en tête l'emporte.</p>
       <table class="dict-table">
         <tr><th>Source</th><th>Pts</th></tr>
         <tr><td>Roi de la prostitution (8+ demoiselles)</td><td>10</td></tr>

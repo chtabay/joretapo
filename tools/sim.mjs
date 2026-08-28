@@ -65,6 +65,7 @@ const { GameState } = await import(`${ROOT}/js/game-state.js`);
 const { TurnManager, PHASE } = await import(`${ROOT}/js/turn-manager.js`);
 const { RevenueEngine } = await import(`${ROOT}/js/revenue-engine.js`);
 const { ConflictResolver } = await import(`${ROOT}/js/conflict-resolver.js`);
+const { RULES } = await import(`${ROOT}/js/rules.js`);
 
 const readJson = rel => JSON.parse(fs.readFileSync(path.join(ROOT, rel), 'utf8'));
 
@@ -297,6 +298,13 @@ function jouerPartie({ seed, nbJoueurs, city, adj, maxTours, detail }) {
         m.arret = 'victoire';
         return true;
       }
+      /* Fin dure : au dernier tour, le meneur l'emporte. */
+      if (gs.tour >= maxTours) {
+        m.tourVictoire = gs.tour;
+        m.vainqueur = pts.indexOf(max);
+        m.arret = 'fin_de_partie';
+        return true;
+      }
       return false;
     };
 
@@ -371,8 +379,9 @@ function jouerPartie({ seed, nbJoueurs, city, adj, maxTours, detail }) {
 
         case PHASE.ELECTION_VOTE: {
           const pid = tm.currentPlayerId;
-          const candidats = gs.joueurs.map((_, i) => i);
-          tm.submitVote(bots[pid].vote(candidats));
+          /* candidatsPour exclut le votant : submitVote refuse l'auto-vote sans
+             faire avancer la file, ce qui bloquerait l'automate. */
+          tm.submitVote(bots[pid].vote(tm.candidatsPour(pid)));
           break;
         }
 
@@ -394,6 +403,12 @@ function jouerPartie({ seed, nbJoueurs, city, adj, maxTours, detail }) {
           m.arret = `phase_inconnue:${tm.phase}`;
           boucle = LIMITE;
       }
+
+      if (boucle === LIMITE - 1) {
+        /* On a atteint le garde-fou sans victoire ni fin de partie : l'automate
+           tourne en rond. C'est un defaut, pas un resultat — il doit se voir. */
+        m.arret = `BLOCAGE en phase ${tm.phase} au tour ${gs.tour}`;
+      }
     }
 
     m.pointsFinaux = relevePoints();
@@ -408,7 +423,7 @@ function jouerPartie({ seed, nbJoueurs, city, adj, maxTours, detail }) {
    Lu depuis les regles si elles l'exposent, sinon la valeur historique. Le banc
    sert justement a le calibrer : il doit donc etre une variable, pas une constante
    dispersee dans le code. */
-let SEUIL_VICTOIRE = 55;
+let SEUIL_VICTOIRE = RULES.victoire;
 
 /* ── Agregation ────────────────────────────────────────────────────────── */
 
@@ -420,7 +435,8 @@ const mediane = xs => {
 };
 
 function agreger(parties, maxTours) {
-  const finies = parties.filter(p => p.arret === 'victoire');
+  const auSeuil = parties.filter(p => p.arret === 'victoire');
+  const finies = parties.filter(p => p.arret === 'victoire' || p.arret === 'fin_de_partie');
   const combats = parties.map(p => p.premierCombat).filter(t => t !== null);
   const accrochages = parties.map(p => p.premierAccrochage).filter(t => t !== null);
 
@@ -436,6 +452,8 @@ function agreger(parties, maxTours) {
     seuilVictoire: SEUIL_VICTOIRE,
     maxTours,
     tauxParties: finies.length / parties.length,
+    tauxAuSeuil: auSeuil.length / parties.length,
+    blocages: parties.filter(p => String(p.arret).startsWith('BLOCAGE')).length,
     tourVictoireMedian: mediane(finies.map(p => p.tourVictoire)),
     tourVictoireMin: finies.length ? Math.min(...finies.map(p => p.tourVictoire)) : null,
     tourVictoireMax: finies.length ? Math.max(...finies.map(p => p.tourVictoire)) : null,
@@ -460,10 +478,10 @@ function arg(nom, defaut) {
 
 const nbJoueurs = Number(arg('joueurs', 4));
 const nbGraines = Number(arg('graines', 40));
-const maxTours = Number(arg('tours', 40));
+const maxTours = Number(arg('tours', RULES.finDePartie));
 const detail = !!arg('detail', false);
 const json = !!arg('json', false);
-SEUIL_VICTOIRE = Number(arg('seuil', 55));
+SEUIL_VICTOIRE = Number(arg('seuil', RULES.victoire));
 
 const city = readJson('data/quartiers-gameplay.json');
 const adj = readJson('data/adjacences-osm.json');
@@ -491,6 +509,8 @@ if (json) {
   console.log(`Banc d'essai — ${r.parties} parties, ${nbJoueurs} joueurs, victoire a ${SEUIL_VICTOIRE} points, ${maxTours} tours max`);
   console.log('');
   console.log(`  parties terminees          ${pct(r.tauxParties)}`);
+  console.log(`  dont gagnees au seuil      ${pct(r.tauxAuSeuil)}   (le reste : meneur au dernier tour)`);
+  if (r.blocages) console.log(`  BLOCAGES DE L'AUTOMATE     ${r.blocages}`);
   console.log(`  tour de victoire (median)  ${r.tourVictoireMedian ?? '—'}` +
     (r.tourVictoireMin ? `   (de ${r.tourVictoireMin} a ${r.tourVictoireMax})` : ''));
   console.log(`  points du premier (median) ${r.pointsMaxMedian}`);

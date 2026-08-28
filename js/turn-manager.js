@@ -1,3 +1,5 @@
+import { RULES } from './rules.js';
+
 export const PHASE = {
   CURTAIN: 'curtain',
   ORDERS_SUPPLY: 'orders_supply',
@@ -109,7 +111,7 @@ export class TurnManager {
   endNegotiation() { this._advance(); this._emit(); }
 
   nextTurn() {
-    if (this.gs.tour > 0 && this.gs.tour % 7 === 0) {
+    if (this.gs.tour > 0 && this.gs.tour % RULES.toursParMandat === 0) {
       this._beginElection();
       return;
     }
@@ -136,8 +138,26 @@ export class TurnManager {
     this._emit();
   }
 
+  /** Candidats qu'un votant donné peut choisir : tout le monde sauf lui-même. */
+  candidatsPour(voterId) {
+    return this.gs.joueurs.map((_, i) => i).filter(i => i !== voterId);
+  }
+
+  /**
+   * Le vote pour soi-même est refusé.
+   *
+   * Tant qu'il était permis, l'équilibre rationnel était que chacun vote pour lui :
+   * le report des voix donnait alors exactement le poids électoral de chacun, et le
+   * titre de maire — 15 points, la plus grosse source unique du jeu — revenait
+   * mécaniquement au joueur qui contrôlait déjà le plus de population. L'élection
+   * n'était pas un scrutin, c'était l'affichage du classement.
+   *
+   * En s'interdisant de se voter, chacun doit choisir un adversaire, et la voix
+   * devient une monnaie d'échange pour la phase de négociation.
+   */
   submitVote(candidateId) {
     const voterId = this.currentPlayerId;
+    if (candidateId === voterId) return { ok: false, msg: 'On ne peut pas voter pour soi-même' };
     this.votes[voterId] = candidateId;
     this.currentPlayerIdx++;
     if (this.currentPlayerIdx < this.playerQueue.length) {
@@ -239,7 +259,7 @@ export class TurnManager {
   }
 
   maxOrdersForPhase(pid) {
-    const total = 5 + (this.gs.joueurs[pid].actions_bonus || 0);
+    const total = RULES.ordresParTour + (this.gs.joueurs[pid].actions_bonus || 0);
     if (this.gs.phase === 1) return total;
     return total - (this.ordersUsedP1[pid] || 0);
   }

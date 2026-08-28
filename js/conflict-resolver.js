@@ -20,10 +20,15 @@ export class ConflictResolver {
     // 1 — Parser et valider les ordres de déplacement
     const moves = [];
     const movedKeys = new Set();
+    const supports = [];
 
     Object.entries(allMoveOrders).forEach(([pid, orders]) => {
       pid = Number(pid);
       (orders || []).forEach(o => {
+        if (o.type === 'soutenir') {
+          supports.push({ pid, from: o.from, to: o.to, beneficiaire: Number(o.beneficiaire) });
+          return;
+        }
         if (o.type === 'creer_pion') {
           ConflictResolver._createPion(gs, pid, o, log);
           return;
@@ -96,7 +101,10 @@ export class ConflictResolver {
     const cancelledMoves = new Set();
 
     conflicts.forEach(c => {
-      const result = ConflictResolver._resolveConflict(c, gs, adjacencies, movedKeys, byDest, gameplayData);
+      const result = ConflictResolver._resolveConflict(
+        c, gs, adjacencies, movedKeys, byDest, gameplayData,
+        supports.filter(s => s.to === c.dest)
+      );
       log.push(...result.log);
 
       result.winners.forEach(m => resolvedMoves.push(m));
@@ -124,7 +132,7 @@ export class ConflictResolver {
     return log;
   }
 
-  static _resolveConflict(conflict, gs, adjacencies, movedKeys, allByDest, gameplayRef) {
+  static _resolveConflict(conflict, gs, adjacencies, movedKeys, allByDest, gameplayRef, explicitSupports = []) {
     const { dest, movers, attackerPids, defenderPid } = conflict;
     const result = { log: [], winners: [], cancelled: [], flights: [] };
     const adj = adjacencies[dest] || [];
@@ -133,13 +141,66 @@ export class ConflictResolver {
     const participants = new Map();
 
     attackerPids.forEach(pid => {
-      participants.set(pid, { strength: movers.filter(m => m.pid === pid).length, isDefender: false });
+      participants.set(pid, { strength: movers.filter(m => m.pid === pid).length, isDefender: false, allies: [] });
     });
     if (defenderPid !== null && !participants.has(defenderPid)) {
-      participants.set(defenderPid, { strength: 1, isDefender: true });
+      participants.set(defenderPid, { strength: 1, isDefender: true, allies: [] });
     }
 
-    // Compter les supports par participant
+    /* Un support est coupé si la zone du supporteur est elle-même attaquée —
+       sauf par celui qu'il soutient, qui ne se coupe pas lui-même. */
+    const supportCoupe = (zoneSupport, beneficiaire) =>
+      Object.values(allByDest).some(ms =>
+        ms.some(m => m.to === zoneSupport && m.pid !== beneficiaire)
+      );
+
+    /* ── Soutien explicite à un allié ────────────────────────────────────────
+       Sans lui, `participants.get(pion.joueur)` plus bas ne crédite jamais que le
+       propriétaire du pion : il était mécaniquement impossible d'aider quelqu'un
+       d'autre, alors que le panneau d'ordres l'annonçait. Or dans un jeu de type
+       Diplomacy, on négocie précisément parce que le soutien d'un tiers est la
+       seule façon de gagner un combat qu'on ne peut pas gagner seul. La phase de
+       négociation n'avait donc rien à négocier.
+
+       Le soutien coûte un ordre : c'est ce qui lui donne son prix à la table. */
+    const usedForSupport = new Set();
+
+    explicitSupports.forEach(s => {
+      const zone = gs.plateau[s.from];
+      if (!zone) return;
+      if (!adj.includes(s.from)) {
+        result.log.push({ pid: s.pid, msg: `${gs.joueurs[s.pid]?.nom}: soutien impossible, ${s.from} n'est pas adjacent à ${dest}`, type: 'warn' });
+        return;
+      }
+      const idx = zone.pions.findIndex((p, i) =>
+        IS_ARMED(p.type) && p.joueur === s.pid &&
+        !movedKeys.has(`${s.from}:${i}`) && !usedForSupport.has(`${s.from}:${i}`)
+      );
+      if (idx === -1) {
+        result.log.push({ pid: s.pid, msg: `${gs.joueurs[s.pid]?.nom}: aucun pion armé disponible sur ${s.from} pour soutenir`, type: 'warn' });
+        return;
+      }
+      const cible = participants.get(s.beneficiaire);
+      if (!cible) {
+        result.log.push({ pid: s.pid, msg: `${gs.joueurs[s.pid]?.nom}: ${gs.joueurs[s.beneficiaire]?.nom || '?'} n'est pas engagé sur ${dest}`, type: 'warn' });
+        return;
+      }
+      if (supportCoupe(s.from, s.beneficiaire)) {
+        result.log.push({ pid: s.pid, msg: `✂️ ${gs.joueurs[s.pid]?.nom}: soutien coupé, ${s.from} est attaqué`, type: 'conflict' });
+        return;
+      }
+
+      usedForSupport.add(`${s.from}:${idx}`);
+      cible.strength++;
+      if (s.pid !== s.beneficiaire) cible.allies.push(s.pid);
+      result.log.push({
+        pid: s.pid,
+        msg: `🤝 <strong style="color:${gs.joueurs[s.pid]?.couleur}">${gs.joueurs[s.pid]?.nom}</strong> soutient <strong style="color:${gs.joueurs[s.beneficiaire]?.couleur}">${gs.joueurs[s.beneficiaire]?.nom}</strong> sur ${dest}`,
+        type: 'conflict'
+      });
+    });
+
+    // Support passif : un pion armé immobile défend son propre camp
     adj.forEach(adjZone => {
       const zone = gs.plateau[adjZone];
       if (!zone) return;
@@ -147,12 +208,9 @@ export class ConflictResolver {
       zone.pions.forEach((pion, idx) => {
         if (!IS_ARMED(pion.type)) return;
         if (movedKeys.has(`${adjZone}:${idx}`)) return;
-
-        // Support coupé si la zone du supporter est elle-même attaquée par un ennemi
-        const isAttacked = Object.values(allByDest).some(ms =>
-          ms.some(m => m.to === adjZone && m.pid !== pion.joueur)
-        );
-        if (isAttacked) return;
+        /* Un pion déjà engagé dans un soutien explicite ne compte pas deux fois. */
+        if (usedForSupport.has(`${adjZone}:${idx}`)) return;
+        if (supportCoupe(adjZone, pion.joueur)) return;
 
         if (participants.has(pion.joueur)) {
           participants.get(pion.joueur).strength++;
@@ -181,7 +239,10 @@ export class ConflictResolver {
         const color = gs.joueurs[pid]?.couleur || '#888';
         const units = movers.filter(m => m.pid === pid).length;
         const supports = data.strength - units - (data.isDefender ? 1 : 0);
-        return `<span style="color:${color}">${name}</span> ${data.strength} (${units} pion${units > 1 ? 's' : ''}${supports > 0 ? ` + ${supports} support${supports > 1 ? 's' : ''}` : ''}${data.isDefender ? ' 🛡️' : ''})`;
+        const allies = (data.allies || []).length
+          ? `, dont ${[...new Set(data.allies)].map(a => gs.joueurs[a]?.nom).join(' et ')}`
+          : '';
+        return `<span style="color:${color}">${name}</span> ${data.strength} (${units} pion${units > 1 ? 's' : ''}${supports > 0 ? ` + ${supports} soutien${supports > 1 ? 's' : ''}${allies}` : ''}${data.isDefender ? ' 🛡️' : ''})`;
       }).join(' vs ');
 
     const zoneName = gameplayRef?.zones?.[dest]?.nom || dest;
@@ -404,14 +465,32 @@ export class ConflictResolver {
     log.push({ pid, msg: `🚔 ${joueur.nom} élimine un flic ${label} sur ${order.zone} (−${cost}L, −100k électeurs)`, type: 'flic' });
   }
 
+  /**
+   * Propriété des zones — une zone conquise le RESTE jusqu'à ce qu'un autre la prenne.
+   *
+   * Auparavant, une zone vidée de ses pions redevenait neutre. Un joueur qui avançait
+   * perdait donc la case qu'il quittait : le territoire ne pouvait jamais croître par
+   * le déplacement, uniquement par l'achat de nouveaux pions, à 40 ou 80 lingots
+   * pièce. Mesuré au banc d'essai : les points d'un joueur oscillaient 15 → 0 → 15
+   * d'un tour à l'autre, il avançait un pion, perdait la majorité de son quartier,
+   * puis reculait. Aucune partie ne progressait.
+   *
+   * Désormais on plante un drapeau : la zone change de main quand un autre joueur
+   * y installe ses pions, pas quand on en sort. L'occupation redevient un choix de
+   * position — tenir, avancer, laisser derrière soi — au lieu d'une obligation.
+   * Une zone n'est neutre qu'au début de la partie.
+   */
   static _updateOwnership(gs) {
-    Object.entries(gs.plateau).forEach(([zid, zone]) => {
-      if (zone.pions.length === 0 && !zone.construction) {
-        zone.proprietaire = null;
-      } else if (zone.pions.length > 0) {
-        const owners = [...new Set(zone.pions.filter(p => p.type !== 'flic').map(p => p.joueur))];
-        if (owners.length === 1) zone.proprietaire = owners[0];
-      }
+    Object.values(gs.plateau).forEach(zone => {
+      /* Les flics n'appartiennent à personne au sens territorial : ils bloquent des
+         revenus, ils ne conquièrent pas. Les gitans non plus (joueur null). */
+      const occupants = [...new Set(
+        zone.pions.filter(p => p.type !== 'flic' && p.joueur !== null && p.joueur !== undefined)
+          .map(p => p.joueur)
+      )];
+      if (occupants.length === 1) zone.proprietaire = occupants[0];
+      /* Zéro occupant : on garde le drapeau. Plusieurs : personne ne l'emporte,
+         la zone reste à qui elle était. */
     });
   }
 }

@@ -378,8 +378,10 @@ test('chaque quartier de départ est entièrement occupé par son joueur au tour
       'un joueur doit contrôler son quartier d\'origine au tour 1');
   });
 
+/* Anciennement en echec : le quartier de depart n'etait pas couvert, donc il ne
+   rapportait rien. Corrige par le nouveau placement initial et le controle a la
+   majorite — la garantie est desormais active. */
 test('un joueur marque les points de son quartier d\'origine au tour 1',
-  { todo: 'B5 — corollaire direct : le quartier de départ n\'étant pas couvert, il ne rapporte rien' },
   () => {
     const { gameplay } = loadCity();
     const sansPoints = [];

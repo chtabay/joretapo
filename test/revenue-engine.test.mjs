@@ -21,7 +21,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { newTestGame, place, ROOT } from './helpers.mjs';
 
-const { RevenueEngine, CONSTRUCTION_DEFS } = await import(`${ROOT}/js/revenue-engine.js`);
+const { RevenueEngine, CONSTRUCTION_DEFS , SUPPLY_CAPS } = await import(`${ROOT}/js/revenue-engine.js`);
 
 /** Les ressources d'un joueur, posées à plat pour que le test se lise seul. */
 function dote(gs, pid, { lingots = 0, doses = 0, armes = 0 } = {}) {
@@ -444,17 +444,21 @@ test('les points d\'approvisionnement se déduisent des facilités des zones', a
   const points = RevenueEngine.getSupplyPoints(city);
 
   assert.deepEqual(points.map(p => p.zone), ['A2'], 'seule A2 porte un port');
-  assert.deepEqual(points[0].caps, { prost: 0, armes: 10, doses: 20 });
+  /* Les valeurs viennent de SUPPLY_CAPS : la regle testee est « un point de type
+     port offre le stock d'un port », pas « un port offre 10 armes ». Le reglage
+     doit pouvoir bouger sans reecrire les tests. */
+  assert.deepEqual(points[0].caps, { ...SUPPLY_CAPS.port });
 });
 
 test('une commande est plafonnée par le stock du point', async () => {
   const { gs, city, adj } = await newTestGame(2);
   dote(gs, 0, { lingots: 1000 });
 
-  RevenueEngine.processSupplyOrders(gs, { 0: [appro('A2', 'armes', 30)] }, city, adj);
+  const stock = SUPPLY_CAPS.port.armes;
+  RevenueEngine.processSupplyOrders(gs, { 0: [appro('A2', 'armes', stock + 20)] }, city, adj);
 
-  assert.equal(ress(gs, 0).armes, 10, 'le port ne tient que 10 armes');
-  assert.equal(ress(gs, 0).lingots, 1000 - 40, '10 armes à 4 lingots');
+  assert.equal(ress(gs, 0).armes, stock, 'on ne peut pas acheter plus que le stock du point');
+  assert.equal(ress(gs, 0).lingots, 1000 - stock * 4, `${stock} armes à 4 lingots`);
 });
 
 test('une commande est plafonnée par ce que le joueur peut payer', async () => {
@@ -507,12 +511,13 @@ test('le stock d\'un point est partagé : qui arrive après ne trouve plus rien'
     dote(gs, 0, { lingots: 1000 });
     dote(gs, 1, { lingots: 1000 });
 
+    const stock = SUPPLY_CAPS.port.doses;
     const log = RevenueEngine.processSupplyOrders(gs, {
-      0: [appro('A2', 'doses', 20)],   /* J0 vide les 20 doses du port */
+      0: [appro('A2', 'doses', stock)],   /* J0 vide le stock du port */
       1: [appro('A2', 'doses', 5)]
     }, city, adj);
 
-    assert.equal(ress(gs, 0).doses, 20);
+    assert.equal(ress(gs, 0).doses, stock);
     assert.equal(ress(gs, 1).doses, 0, 'le second arrivé repart les mains vides');
     assert.equal(ress(gs, 1).lingots, 1000, 'et ne paie rien');
     assert.ok(log.some(l => l.pid === 1 && l.type === 'warn'));
@@ -528,13 +533,17 @@ test('le stock partagé se répartit à hauteur de ce qui reste', async () => {
     dote(gs, 0, { lingots: 1000 });
     dote(gs, 1, { lingots: 1000 });
 
+    /* Le premier prend les trois quarts du stock, le second n'obtient que le reste. */
+    const stock = SUPPLY_CAPS.port.armes;
+    const gros = Math.ceil(stock * 0.75);
     RevenueEngine.processSupplyOrders(gs, {
-      0: [appro('A2', 'armes', 7)],
-      1: [appro('A2', 'armes', 7)]
+      0: [appro('A2', 'armes', gros)],
+      1: [appro('A2', 'armes', gros)]
     }, city, adj);
 
-    assert.equal(ress(gs, 0).armes, 7);
-    assert.equal(ress(gs, 1).armes, 3, 'il ne restait que 3 armes sur les 10 du port');
+    assert.equal(ress(gs, 0).armes, gros);
+    assert.equal(ress(gs, 1).armes, stock - gros,
+      `il ne restait que ${stock - gros} armes sur les ${stock} du port`);
   } finally {
     rendreLeHasard();
   }

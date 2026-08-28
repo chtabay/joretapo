@@ -462,7 +462,6 @@ test('une égalité parfaite ne désigne aucun maire', async () => {
    une élection dont l'issue est calculable d'avance n'est pas une mécanique de
    jeu : on tranche pour le refus de l'auto-vote. */
 test('un joueur ne peut pas voter pour lui-même',
-  { todo: 'ELECTION — l\'auto-vote est accepté, le maire est mécaniquement le joueur déjà en tête' },
   async () => {
     const { gs, city, tm } = await newManager(2);
     place(gs, 'A1', 'dealer', 0);

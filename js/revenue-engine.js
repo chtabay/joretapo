@@ -1,7 +1,23 @@
+/**
+ * Stock disponible par point d'approvisionnement et par tour, PARTAGÉ entre tous
+ * les joueurs.
+ *
+ * Ces plafonds étaient l'étranglement central du jeu. Un ordre d'approvisionnement
+ * ne vise qu'UN point : un joueur dont les trafiquants réclamaient 21 armes par
+ * tour devait donc dépenser trois de ses cinq ordres rien qu'à faire ses courses,
+ * et n'étendait plus jamais son territoire. Mesuré sur une partie simulée : au
+ * tour 100, un joueur parti de Harlem avait 11 103 lingots et toujours 7 pions.
+ * Le budget d'ordres — la vraie monnaie du jeu — était consommé par l'intendance.
+ *
+ * L'offre mondiale passe de 46 à 130 armes par tour (3 ports, 4 péages), soit de
+ * quoi nourrir un joueur avec UN ordre au lieu de trois, tout en gardant une
+ * pénurie réelle : à 6 joueurs, la demande dépasse encore l'offre dès que le
+ * plateau se remplit, et les points restent disputés.
+ */
 const SUPPLY_CAPS = {
-  port:      { prost: 0,  armes: 10, doses: 20 },
-  aeroport:  { prost: 4,  armes: 0,  doses: 10 },
-  peage:     { prost: 1,  armes: 4,  doses: 10 }
+  port:      { prost: 0,  armes: 30, doses: 45 },
+  aeroport:  { prost: 6,  armes: 0,  doses: 25 },
+  peage:     { prost: 2,  armes: 10, doses: 20 }
 };
 
 const BUY_PRICE = { doses: 2, armes: 4, armes_gitans: 24, prostituee_base: 40, prostituee_luxe: 80 };
@@ -369,4 +385,4 @@ export class RevenueEngine {
   }
 }
 
-export { BUY_PRICE, SELL_PRICE, CONSTRUCTION_DEFS };
+export { BUY_PRICE, SELL_PRICE, CONSTRUCTION_DEFS, SUPPLY_CAPS, CONSTRUCTION_REVENUE };

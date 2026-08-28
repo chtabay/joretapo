@@ -96,6 +96,23 @@ export class GameState {
     });
   }
 
+  /**
+   * Répartit les pions de départ sur le QUARTIER D'ORIGINE en couvrant le plus de
+   * zones distinctes possible.
+   *
+   * L'ancienne version n'avançait le curseur de zone que pour les pions armés
+   * (`if (isArmed) zoneIdx++`), si bien que toutes les prostituées d'un joueur
+   * s'empilaient sur une seule et même case. South Brooklyn, annoncé à 15 points,
+   * ne couvrait ainsi que 3 de ses 9 zones — et comme le contrôle d'un quartier
+   * exigeait alors 100 % des zones, six des onze quartiers de départ rapportaient
+   * 0 point au tour 1. C'étaient exactement les six affichés à 9 et 15 points : le
+   * libellé du quartier le plus cher fonctionnait comme une contre-indication.
+   *
+   * Deux contraintes de cohabitation, les mêmes qu'en cours de partie : un seul
+   * pion armé par zone, une seule prostituée par zone. Armés et prostituées se
+   * répartissent donc sur deux passages décalés, ce qui maximise le nombre de
+   * zones occupées au lieu de les empiler.
+   */
   _placeInitialPions(gameplayData) {
     this.joueurs.forEach(joueur => {
       const quartier = gameplayData.quartiers.find(q => q.id === joueur.quartier_origine);
@@ -105,31 +122,50 @@ export class GameState {
       const init = joueur.pions_initiaux;
       if (!init) return;
 
-      const pionsToPlace = [];
-      for (let i = 0; i < (init.trafiquants || 0); i++) pionsToPlace.push('trafiquant');
-      for (let i = 0; i < (init.dealers || 0); i++) pionsToPlace.push('dealer');
-      for (let i = 0; i < (init.prostituees_base || 0); i++) pionsToPlace.push('prostituee_base');
-      for (let i = 0; i < (init.prostituees_luxe || 0); i++) pionsToPlace.push('prostituee_luxe');
+      const armes = [
+        ...Array(init.trafiquants || 0).fill('trafiquant'),
+        ...Array(init.dealers || 0).fill('dealer')
+      ];
+      const filles = [
+        ...Array(init.prostituees_luxe || 0).fill('prostituee_luxe'),
+        ...Array(init.prostituees_base || 0).fill('prostituee_base')
+      ];
 
-      let zoneIdx = 0;
-      pionsToPlace.forEach(type => {
-        const zoneId = zones[zoneIdx % zones.length];
+      const poser = (type, zoneId) => {
         const zone = this.plateau[zoneId];
+        zone.pions.push({ type, joueur: joueur.id });
+        zone.proprietaire = joueur.id;
+      };
 
-        const hasArmed = zone.pions.some(p => p.type === 'dealer' || p.type === 'trafiquant');
-        const isArmed = type === 'dealer' || type === 'trafiquant';
+      /* Les pions armés d'abord, un par zone depuis le début.
+         Le surplus — un quartier peut recevoir plus de pions armés qu'il n'a de
+         zones — est empilé sur les cases les moins chargées plutôt que perdu :
+         on ne fait jamais disparaître les pièces d'un joueur, quitte à ce qu'il
+         doive les désempiler lui-même au premier tour. La donnée de ville qui
+         provoque ce surplus est signalée par test/city-data.test.mjs. */
+      armes.forEach((type, i) => {
+        if (i < zones.length) { poser(type, zones[i]); return; }
+        const moinsChargee = zones.reduce((a, b) =>
+          this.plateau[a].pions.length <= this.plateau[b].pions.length ? a : b);
+        poser(type, moinsChargee);
+      });
 
-        if (isArmed && hasArmed) {
-          zoneIdx++;
-          const nextZone = zones[zoneIdx % zones.length];
-          this.plateau[nextZone].pions.push({ type, joueur: joueur.id });
-          this.plateau[nextZone].proprietaire = joueur.id;
-        } else {
-          zone.pions.push({ type, joueur: joueur.id });
-          zone.proprietaire = joueur.id;
+      /* Les prostituées ensuite, en repartant APRÈS le dernier pion armé : deux
+         passages décalés couvrent armes.length + filles.length zones distinctes
+         au lieu d'empiler tout le monde au même endroit. */
+      const depart = Math.min(armes.length, zones.length);
+      filles.forEach((type, i) => {
+        const zoneId = zones[(depart + i) % zones.length];
+        const zone = this.plateau[zoneId];
+        /* Une seule prostituée par zone : si le tour de piste est bouclé, on
+           cherche la première case encore libre plutôt que d'empiler. */
+        if (zone.pions.some(p => p.type === 'prostituee_base' || p.type === 'prostituee_luxe')) {
+          const libre = zones.find(z =>
+            !this.plateau[z].pions.some(p => p.type === 'prostituee_base' || p.type === 'prostituee_luxe'));
+          if (libre) poser(type, libre);
+          return;
         }
-
-        if (isArmed) zoneIdx++;
+        poser(type, zoneId);
       });
 
       delete joueur.pions_initiaux;
@@ -181,14 +217,35 @@ export class GameState {
     localStorage.removeItem(`${GameState.SAVE_KEY}-${slot}`);
   }
 
+  /**
+   * Contrôle d'un quartier — à la MAJORITÉ STRICTE de ses zones.
+   *
+   * L'unanimité était exigée auparavant, et c'est la règle qui figeait la partie.
+   * Un quartier de 9 zones demandait de tenir les 9 simultanément ; une seule case
+   * perdue faisait tomber les 15 points d'un coup, et une seule case libre suffisait
+   * à empêcher quiconque de les gagner. Conséquence mesurée sur 20 parties : aucun
+   * combat, aucun changement de main, et un plafond à 30 points sur 55.
+   *
+   * À la majorité, le territoire redevient disputable en permanence : on peut
+   * prendre un quartier sans le nettoyer entièrement, et le perdre sans être
+   * chassé partout. C'est ce qui donne une raison d'attaquer avant la fin.
+   */
   getQuartierOwner(quartierId, gameplayData) {
     const quartier = gameplayData.quartiers.find(q => q.id === quartierId);
     if (!quartier) return null;
 
-    const owners = quartier.zones.map(zid => this.plateau[zid]?.proprietaire);
-    if (owners.some(o => o === null || o === undefined)) return null;
-    const unique = [...new Set(owners)];
-    return unique.length === 1 ? unique[0] : null;
+    const compte = new Map();
+    quartier.zones.forEach(zid => {
+      const p = this.plateau[zid]?.proprietaire;
+      if (p === null || p === undefined) return;
+      compte.set(p, (compte.get(p) || 0) + 1);
+    });
+
+    const seuil = quartier.zones.length / 2;
+    for (const [pid, n] of compte) {
+      if (n > seuil) return pid;
+    }
+    return null;
   }
 
   getPlayerPoints(joueurId, gameplayData) {

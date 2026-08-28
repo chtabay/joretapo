@@ -158,12 +158,133 @@ test('créer un pion sans les ressources échoue sans rien débiter', async () =
 
 /* ── Propriété des zones ────────────────────────────────────────────────── */
 
-test('une zone vidée de ses pions cesse d\'appartenir à quiconque', async () => {
+test('une zone conquise le reste quand on en sort', async () => {
+  /* Regle changee volontairement. Une zone videe redevenait neutre, si bien qu'un
+     joueur qui avancait perdait la case qu'il quittait : le territoire ne pouvait
+     croitre que par l'achat de nouveaux pions. Mesure au banc d'essai avant/apres :
+     points du meneur au tour 30, de 16 a 44. */
   const { gs, city, adj } = await newTestGame(2);
   place(gs, 'A1', 'dealer', 0);
 
   ConflictResolver.resolve(gs, { 0: [move('A1', 'A2')] }, adj, city);
 
-  assert.equal(gs.plateau['A1'].proprietaire, null);
-  assert.equal(gs.plateau['A2'].proprietaire, 0);
+  assert.equal(gs.plateau['A1'].proprietaire, 0, 'le drapeau reste plante');
+  assert.equal(gs.plateau['A2'].proprietaire, 0, 'et la nouvelle zone est prise');
+});
+
+test('une zone change de main quand un autre joueur s\'y installe', async () => {
+  const { gs, city, adj } = await newTestGame(2);
+  place(gs, 'A1', 'dealer', 0);
+  ConflictResolver.resolve(gs, { 0: [move('A1', 'A2')] }, adj, city);
+  assert.equal(gs.plateau['A1'].proprietaire, 0);
+
+  /* Le pion de J0 repart vers A1 : A2 se vide mais garde le drapeau de J0. */
+  ConflictResolver.resolve(gs, { 0: [move('A2', 'A1')] }, adj, city);
+  assert.equal(gs.plateau['A2'].pions.length, 0, 'A2 est vide');
+  assert.equal(gs.plateau['A2'].proprietaire, 0, 'mais toujours a J0');
+
+  /* J1 vient occuper la case laissee derriere : elle bascule sans combat. */
+  place(gs, 'B1', 'dealer', 1);
+  ConflictResolver.resolve(gs, { 1: [move('B1', 'A2')] }, adj, city);
+
+  assert.equal(gs.plateau['A2'].proprietaire, 1, 'occuper une zone videe la prend');
+});
+
+/* ── Soutien à un allié ─────────────────────────────────────────────────────
+   La capacité d'aider quelqu'un d'autre n'existait pas : le comptage des forces
+   ne créditait que le propriétaire du pion. Le panneau d'ordres l'annonçait
+   pourtant. Sans elle, la phase de négociation n'a rien à négocier — dans un jeu
+   de type Diplomacy, on parle parce que le soutien d'un tiers est la seule façon
+   de gagner un combat qu'on ne peut pas gagner seul. */
+
+const soutien = (from, to, beneficiaire) => ({ type: 'soutenir', from, to, beneficiaire });
+
+test('un tiers peut soutenir un allié et faire basculer un combat', async () => {
+  const { gs, city, adj } = await newTestGame(3);
+  place(gs, 'B1', 'dealer', 1);   /* défenseur : 1 */
+  place(gs, 'A2', 'dealer', 0);   /* attaquant : 1, égalité, il perdrait seul */
+  place(gs, 'D1', 'dealer', 2);   /* J2, adjacent à B1, neutre dans l'affaire */
+
+  ConflictResolver.resolve(gs, {
+    0: [move('A2', 'B1')],
+    2: [soutien('D1', 'B1', 0)]   /* J2 prête sa force à J0 */
+  }, adj, city);
+
+  assert.equal(holds(gs, 'B1', 0), true, "l'allié fait passer l'attaquant à 2 contre 1");
+  assert.equal(holds(gs, 'D1', 2), true, 'le soutien ne bouge pas de sa case');
+});
+
+test('sans le soutien, le même assaut échoue', async () => {
+  const { gs, city, adj } = await newTestGame(3);
+  place(gs, 'B1', 'dealer', 1);
+  place(gs, 'A2', 'dealer', 0);
+  place(gs, 'D1', 'dealer', 2);   /* présent mais ne soutient pas */
+
+  ConflictResolver.resolve(gs, { 0: [move('A2', 'B1')] }, adj, city);
+
+  assert.equal(holds(gs, 'B1', 1), true, 'le défenseur tient : la présence ne suffit pas, il faut l\'ordre');
+});
+
+test('on peut aussi soutenir un défenseur', async () => {
+  const { gs, city, adj } = await newTestGame(3);
+  place(gs, 'B1', 'dealer', 1);   /* défenseur : 1 */
+  place(gs, 'A2', 'dealer', 0);   /* attaquant : 1 */
+  place(gs, 'B2', 'dealer', 0);   /* soutien passif de l'attaquant : 2 */
+  place(gs, 'D1', 'dealer', 2);   /* J2 vole au secours du défenseur : 2 partout */
+
+  ConflictResolver.resolve(gs, {
+    0: [move('A2', 'B1')],
+    2: [soutien('D1', 'B1', 1)]
+  }, adj, city);
+
+  assert.equal(holds(gs, 'B1', 1), true, 'égalité rétablie, le défenseur conserve sa zone');
+});
+
+test('un soutien est coupé si la zone du soutien est attaquée', async () => {
+  const { gs, city, adj } = await newTestGame(3);
+  place(gs, 'B1', 'dealer', 1);   /* défenseur */
+  place(gs, 'A2', 'dealer', 0);   /* attaquant */
+  place(gs, 'D1', 'dealer', 2);   /* soutiendrait J0... */
+  place(gs, 'D2', 'dealer', 1);   /* ...mais J1 attaque D1, ce qui coupe le soutien */
+
+  ConflictResolver.resolve(gs, {
+    0: [move('A2', 'B1')],
+    1: [move('D2', 'D1')],
+    2: [soutien('D1', 'B1', 0)]
+  }, adj, city);
+
+  assert.equal(holds(gs, 'B1', 1), true, 'soutien coupé : le défenseur tient');
+});
+
+test('un soutien depuis une zone non adjacente est refusé', async () => {
+  const { gs, city, adj } = await newTestGame(3);
+  place(gs, 'B1', 'dealer', 1);
+  place(gs, 'A2', 'dealer', 0);
+  place(gs, 'C2', 'dealer', 2);   /* C2 n'est pas adjacent à B1 */
+
+  const log = ConflictResolver.resolve(gs, {
+    0: [move('A2', 'B1')],
+    2: [soutien('C2', 'B1', 0)]
+  }, adj, city);
+
+  assert.equal(holds(gs, 'B1', 1), true, 'le soutien lointain ne compte pas');
+  assert.ok(log.some(l => l.type === 'warn' && /adjacent/.test(l.msg)));
+});
+
+test('un pion ne peut pas soutenir et se battre le même tour', async () => {
+  const { gs, city, adj } = await newTestGame(3);
+  place(gs, 'B1', 'dealer', 1);   /* défenseur : 1 */
+  place(gs, 'A2', 'dealer', 0);   /* attaquant : 1 */
+  place(gs, 'B2', 'dealer', 2);   /* unique pion de J2, adjacent à B1 */
+
+  /* J2 soutient J0 depuis B2 — sa force ne doit être comptée qu'une fois, pas
+     une fois pour le soutien explicite et une fois comme présence passive. */
+  ConflictResolver.resolve(gs, {
+    0: [move('A2', 'B1')],
+    2: [soutien('B2', 'B1', 0)]
+  }, adj, city);
+
+  assert.equal(holds(gs, 'B1', 0), true, "J0 l'emporte 2 contre 1");
+  assert.equal(gs.plateau['B1'].pions.filter(p => p.joueur === 0).length, 1,
+    "un seul pion occupe la zone conquise");
 });

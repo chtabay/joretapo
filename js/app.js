@@ -1,4 +1,5 @@
 import { GameState } from './game-state.js';
+import { RULES } from './rules.js';
 import { MapRenderer, QUARTIER_COLORS, setQuartierColors, FACILITE_LABELS } from './map-renderer.js';
 import { renderSetupScreen } from './setup.js';
 import { TurnManager, PHASE, GAME_PHASE_LABELS } from './turn-manager.js';
@@ -627,13 +628,14 @@ function renderOrderPanel(gamePhase) {
           <button class="op-btn" id="btn-add-build" ${remaining <= 0 ? 'disabled' : ''}>+ Construire</button>
         ` : `
           <button class="op-btn" id="btn-add-move" ${remaining <= 0 ? 'disabled' : ''}>+ Déplacer un pion</button>
+          <button class="op-btn op-btn-support" id="btn-add-support" ${remaining <= 0 ? 'disabled' : ''}>+ Soutenir un allié ${helpLink('soutien')}</button>
           <button class="op-btn" id="btn-add-create" ${remaining <= 0 ? 'disabled' : ''}>+ Créer dealer/trafiquant</button>
           <button class="op-btn" id="btn-add-flic" ${remaining <= 0 ? 'disabled' : ''}>+ Déployer un flic (180L)</button>
           <button class="op-btn" id="btn-elim-flic" ${remaining <= 0 ? 'disabled' : ''}>+ Éliminer un flic ennemi</button>
           <button class="op-btn" id="btn-elim-incorruptible">+ Éliminer un incorruptible (700L)</button>
           <button class="op-btn" id="btn-activate-gang">+ Activer un gang</button>
           <button class="op-btn" id="btn-heist" style="background:rgba(241,196,15,0.08);border-color:#f1c40f;color:#f1c40f">💰 Cambrioler</button>
-          <div class="op-hint">Les pions non déplacés soutiennent automatiquement les alliés adjacents en conflit.</div>
+          <div class="op-hint">Un pion non déplacé défend automatiquement vos propres zones. Pour aider <em>un autre joueur</em>, il faut un ordre de soutien — c'est ce qui donne du poids à la négociation.</div>
         `}
         ${MayorEngine.canUse(gameState, pid) && MayorEngine.availablePowers(gameState, pid, gamePhase).length > 0 ? `
           <button class="op-btn op-btn-mayor" id="btn-mayor-power">🏛️ Pouvoir du Maire (${gameState.maire.privileges_restants} restant${gameState.maire.privileges_restants > 1 ? 's' : ''})</button>
@@ -676,6 +678,7 @@ function renderOrderPanel(gamePhase) {
       panel.querySelector('#btn-add-build')?.addEventListener('click', () => showBuildModal(pid, refresh));
     } else {
       panel.querySelector('#btn-add-move')?.addEventListener('click', () => showMoveModal(pid, refresh));
+      panel.querySelector('#btn-add-support')?.addEventListener('click', () => showSupportModal(pid, refresh));
       panel.querySelector('#btn-add-create')?.addEventListener('click', () => showCreateModal(pid, refresh));
       panel.querySelector('#btn-add-flic')?.addEventListener('click', () => showDeployFlicModal(pid, refresh));
       panel.querySelector('#btn-elim-flic')?.addEventListener('click', () => showElimFlicModal(pid, refresh));
@@ -778,6 +781,7 @@ function formatOrder(o) {
     case 'construire': return `${o.batiment} sur ${o.zone}`;
     case 'deplacer': return `${o.pion_type} ${o.from} → ${o.to}${o.eliminer ? ' 💀' : ''}`;
     case 'creer_pion': return `Créer ${o.pion_type} sur ${o.zone}`;
+    case 'soutenir': return `🤝 ${o.from} soutient ${gameState.joueurs[o.beneficiaire]?.nom || '?'} sur ${o.to}`;
     case 'deployer_flic': return `🚔 Flic → ${o.zone} (180L)`;
     case 'eliminer_flic': return `🚔 Éliminer flic sur ${o.zone} (${o.definitif ? '550L déf.' : '300L temp.'})`;
     default: return JSON.stringify(o);
@@ -1131,6 +1135,73 @@ function showMoveModal(pid, refresh) {
     }
     bindHelpLinks();
   }, 0);
+}
+
+/**
+ * Soutien à un allié.
+ *
+ * Le seul ordre du jeu qui serve quelqu'un d'autre que soi. Il coûte un ordre sur
+ * cinq : c'est ce prix qui lui donne du poids à la table, puisqu'un joueur qui
+ * promet son soutien renonce vraiment à quelque chose.
+ */
+function showSupportModal(pid, refresh) {
+  /* Un soutien part d'une zone où l'on a un pion armé, vers une zone adjacente. */
+  const sources = Object.entries(gameState.plateau)
+    .filter(([_, z]) => z.pions.some(p => p.joueur === pid && (p.type === 'dealer' || p.type === 'trafiquant')))
+    .map(([zid]) => zid);
+
+  if (!sources.length) {
+    showMagouilleToast('Aucun pion armé pour soutenir');
+    return;
+  }
+
+  const autres = gameState.joueurs.filter(j => j.id !== pid);
+  if (!autres.length) { showMagouilleToast('Aucun allié possible'); return; }
+
+  const zoneNom = z => gameData.gameplay.zones[z]?.nom || z;
+
+  const html = `
+    <h3>🤝 Soutenir un allié ${helpLink('soutien')}</h3>
+    <p class="modal-note">Votre pion ne bouge pas : il ajoute sa force à celle d'un autre joueur
+    sur une zone voisine. Le soutien est annulé si votre propre zone est attaquée.</p>
+    <label>Mon pion (il restera sur place) :</label>
+    <select id="f-from">${sources.map(z => `<option value="${z}">${z} — ${zoneNom(z)}</option>`).join('')}</select>
+    <label>Zone à soutenir :</label>
+    <select id="f-to"></select>
+    <label>Bénéficiaire :</label>
+    <select id="f-benef">${autres.map(j => `<option value="${j.id}">${j.nom}</option>`).join('')}</select>
+    <div class="modal-actions"><button class="btn-secondary" id="modal-cancel">Annuler</button><button class="btn-primary" id="modal-ok">Soutenir</button></div>
+  `;
+
+  openModal(html, () => {
+    const to = document.getElementById('f-to').value;
+    if (!to) return;
+    pendingOrders.push({
+      type: 'soutenir',
+      from: document.getElementById('f-from').value,
+      to,
+      beneficiaire: Number(document.getElementById('f-benef').value)
+    });
+    refresh();
+  });
+
+  /* Les destinations dépendent de la source : on les recalcule à chaque choix. */
+  setTimeout(() => {
+    const selFrom = document.getElementById('f-from');
+    const selTo = document.getElementById('f-to');
+    if (!selFrom || !selTo) return;
+    const majTo = () => {
+      const voisines = (gameData.adjacencies[selFrom.value] || []).filter(z => gameState.plateau[z]);
+      selTo.innerHTML = voisines.length
+        ? voisines.map(z => `<option value="${z}">${z} — ${zoneNom(z)}</option>`).join('')
+        : '<option value="">Aucune zone voisine</option>';
+      mapRenderer?.highlightZones?.(voisines, { ownedIds: [selFrom.value], dimOthers: false });
+    };
+    selFrom.onchange = majTo;
+    majTo();
+  }, 0);
+
+  bindHelpLinks();
 }
 
 function showCreateModal(pid, refresh) {
@@ -1778,6 +1849,15 @@ function showHeistResult(result, def) {
 }
 
 /* ── Victory Check ── */
+/**
+ * Fin de partie : au seuil de points, ou au terme du dernier mandat.
+ *
+ * La limite de tours n'existait pas. Sur 40 parties simulees avant correction,
+ * AUCUNE ne s'achevait : le seuil de 55 points exigeait de tenir 42 % d'un plateau
+ * qui n'en offre que 129, et la partie restait ouverte indefiniment. Le seuil est
+ * desormais cale au banc d'essai (voir js/rules.js) et une fin dure garantit
+ * qu'une soiree se conclut, meme si personne ne prend l'avantage.
+ */
 function checkVictory() {
   if (!gameState) return null;
   const results = gameState.joueurs.map(j => ({
@@ -1785,7 +1865,9 @@ function checkVictory() {
     points: gameState.getPlayerPoints(j.id, gameData.gameplay)
   }));
   results.sort((a, b) => b.points - a.points);
-  if (results[0].points >= 55) return results[0];
+
+  if (results[0].points >= RULES.victoire) return { ...results[0], motif: 'seuil' };
+  if (gameState.tour >= RULES.finDePartie) return { ...results[0], motif: 'fin_de_partie' };
   return null;
 }
 
@@ -1798,7 +1880,10 @@ function showVictoryScreen(winner) {
       return `<div class="reveal-player"><span class="hud-player-dot" style="background:${j.couleur}"></span>
         <strong>${j.nom}</strong> — <span class="hud-player-pts">${pts} pts</span> · ${j.ressources.lingots}L · ${j.ressources.armes}A · ${j.ressources.doses}D</div>`;
     }).join('') +
-    `<div class="victory-banner" style="color:${winner.joueur.couleur}">🏆 ${winner.joueur.nom} remporte la partie avec ${winner.points} points !</div>`;
+    `<div class="victory-banner" style="color:${winner.joueur.couleur}">🏆 ${winner.joueur.nom} remporte la partie avec ${winner.points} points !</div>` +
+    (winner.motif === 'fin_de_partie'
+      ? `<div class="victory-reason">Fin du ${RULES.finDePartie}<sup>e</sup> tour : personne n'a atteint ${RULES.victoire} points, le joueur en tête l'emporte.</div>`
+      : `<div class="victory-reason">Seuil de ${RULES.victoire} points atteint au tour ${gameState.tour}.</div>`);
 
   ov.querySelector('#btn-next-turn').textContent = 'Retour au menu';
   ov.querySelector('#btn-next-turn').onclick = () => { ov.classList.add('hidden'); renderTitleScreen(); };
@@ -2124,7 +2209,9 @@ function renderElectionVote() {
   const body = ov.querySelector('.election-body');
   let selectedCandidate = null;
 
-  const candidateCards = gameState.joueurs.map(j => {
+  /* Le votant ne figure pas parmi les candidats : voir TurnManager.submitVote. */
+  const candidats = turnManager.candidatsPour(voter.id);
+  const candidateCards = gameState.joueurs.filter(j => candidats.includes(j.id)).map(j => {
     const pts = gameState.getPlayerPoints(j.id, gameData.gameplay);
     return `<div class="vote-candidate" data-pid="${j.id}" role="button" tabindex="0">
       <span class="vote-candidate-dot" style="background:${j.couleur}"></span>
@@ -2135,7 +2222,7 @@ function renderElectionVote() {
 
   body.innerHTML = `
     <div class="election-title">🗳️ Élection municipale</div>
-    <div class="election-sub">Tour ${gameState.tour} — <strong style="color:${voter.couleur}">${voter.nom}</strong>, votez pour votre candidat</div>
+    <div class="election-sub">Tour ${gameState.tour} — <strong style="color:${voter.couleur}">${voter.nom}</strong>, votez pour votre candidat<br><span style="font-size:13px;color:#8a95a1">Vous ne pouvez pas voter pour vous-même.</span></div>
     <div class="vote-candidates">${candidateCards}</div>
     <button id="btn-vote-submit" class="btn-main" disabled>Voter</button>
   `;
@@ -2734,7 +2821,7 @@ function renderTurnEnd() {
       }).join('');
   }
 
-  const winner = gameState.joueurs.find(j => gameState.getPlayerPoints(j.id, gameData.gameplay) >= 55);
+  const winner = gameState.joueurs.find(j => gameState.getPlayerPoints(j.id, gameData.gameplay) >= RULES.victoire);
   if (winner) {
     html += `<div class="victory-banner" style="color:${winner.couleur}">🏆 ${winner.nom} remporte la partie avec ${gameState.getPlayerPoints(winner.id, gameData.gameplay)} points !</div>`;
   }
