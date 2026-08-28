@@ -16,6 +16,33 @@ export const PHASE = {
   DRAFT_PICK: 'draft_pick'
 };
 
+/**
+ * Structure du tour — cinq phases, et une fusion essayee puis abandonnee.
+ *
+ * A quatre joueurs, un tour coute HUIT passages de tablette : rideau + ordres
+ * d'appro pour chacun, revelation, negociation, rideau + ordres de deplacement
+ * pour chacun, resolution. Fusionner les phases 1 et 4 en une seule saisie
+ * secrete, negociation placee avant, ramene ce compte a quatre — et c'est
+ * l'ordre de Diplomacy, dont le jeu se reclame.
+ *
+ * Cette fusion a ete implementee et mesuree au banc d'essai. Comparaison a bot
+ * identique, 30 parties a 4 joueurs :
+ *
+ *                        5 phases   3 phases fusionnees
+ *   parties terminees      100 %          100 %
+ *   tour de victoire        12             11
+ *   parties avec un combat   10 %            0 %
+ *
+ * Elle SUPPRIME les combats, et le mecanisme est clair : les ordres de
+ * deplacement sont alors ecrits AVANT l'encaissement des revenus, donc un joueur
+ * cree moins de pions, les armees ne montent pas, et un assaut — qui demande des
+ * soutiens — ne devient jamais possible. Le gain de tempo se paie du peu de
+ * conflit que le jeu produit.
+ *
+ * Elle n'est donc pas retenue. A reessayer seulement si l'economie change au
+ * point que la creation de pions ne depende plus des revenus du tour, et en
+ * revalidant sur cet indicateur-la.
+ */
 export const GAME_PHASE_LABELS = {
   1: 'Phase 1 — Approvisionnement & construction',
   2: 'Phase 2 — Révélation & récolte',

@@ -880,6 +880,31 @@ function closeModal() {
   if (gameState && mapRenderer) { mapRenderer.updateOwnership(gameState); mapRenderer.renderPions(gameState); }
 }
 
+/**
+ * Ce dont un joueur a besoin ce tour-ci pour que ses pions produisent.
+ *
+ * Sert a pre-remplir la modale d'approvisionnement. Un ordre coutait cinq taps —
+ * ouvrir, trois champs, confirmer — repete jusqu'a cinq fois par tour et par
+ * joueur. En proposant d'emblee la reponse juste, il en coute deux.
+ */
+function besoinsDuJoueur(pid) {
+  let doses = 0, armes = 0;
+  Object.entries(gameState.plateau).forEach(([zid, z]) => {
+    const zd = gameData.gameplay.zones[zid];
+    if (!zd || !z.electricite) return;
+    z.pions.forEach(p => {
+      if (p.joueur !== pid) return;
+      if (p.type === 'dealer') doses += zd.d;
+      if (p.type === 'trafiquant') armes += zd.a;
+    });
+  });
+  const j = gameState.joueurs[pid];
+  return {
+    doses: Math.max(0, doses - j.ressources.doses),
+    armes: Math.max(0, armes - j.ressources.armes)
+  };
+}
+
 function showSupplyModal(pid, refresh) {
   const sps = RevenueEngine.getSupplyPoints(gameData.gameplay).filter(sp => sp.type !== 'camp_gitans' || sp.caps.armes > 0);
   const allDenrees = [
@@ -912,7 +937,13 @@ function showSupplyModal(pid, refresh) {
     <select id="f-denree"></select>
     <div id="f-stock-info" style="font-size:12px;color:#888;margin-top:2px"></div>
     <label>Quantité :</label>
-    <input type="number" id="f-qty" value="1" min="1" max="20" />
+    <div class="qty-row">
+      <button type="button" class="qty-btn" id="f-qty-moins" aria-label="Diminuer">−</button>
+      <input type="number" id="f-qty" value="1" min="1" max="99" inputmode="numeric" />
+      <button type="button" class="qty-btn" id="f-qty-plus" aria-label="Augmenter">+</button>
+      <button type="button" class="qty-btn qty-max" id="f-qty-besoin" title="De quoi alimenter mes pions">mes besoins</button>
+      <button type="button" class="qty-btn qty-max" id="f-qty-max" title="Le maximum que je peux payer">max</button>
+    </div>
     <div id="f-cost-preview" class="modal-cost-preview"></div>
     <div class="modal-actions"><button class="btn-secondary" id="modal-cancel">Annuler</button><button class="btn-primary" id="modal-ok">Commander</button></div>
   `;
@@ -959,6 +990,53 @@ function showSupplyModal(pid, refresh) {
   document.getElementById('f-denree').addEventListener('change', updateCostPreview);
   document.getElementById('f-qty').addEventListener('input', updateCostPreview);
   updateDenreeOptions();
+
+  /* Pre-remplissage : on propose la commande que le joueur allait passer. */
+  setTimeout(() => {
+    const besoins = besoinsDuJoueur(pid);
+    const prioritaire = besoins.armes >= besoins.doses ? 'armes' : 'doses';
+    const selPoint = document.getElementById('f-point');
+    const selDenree = document.getElementById('f-denree');
+    const inQty = document.getElementById('f-qty');
+    if (!selPoint || !selDenree || !inQty) return;
+
+    if (besoins[prioritaire] > 0) {
+      /* Le point qui offre le plus de la denree manquante. */
+      const meilleur = [...sps]
+        .filter(sp => (sp.caps[prioritaire] || 0) > 0)
+        .sort((a, b) => (b.caps[prioritaire] || 0) - (a.caps[prioritaire] || 0))[0];
+      if (meilleur) {
+        selPoint.value = meilleur.zone;
+        updateDenreeOptions();
+        if ([...selDenree.options].some(o => o.value === prioritaire)) selDenree.value = prioritaire;
+      }
+    }
+
+    const fixerQuantite = n => {
+      inQty.value = String(Math.max(1, Math.round(n)));
+      updateCostPreview();
+    };
+    const detail = () => getDenreesForPoint(selPoint.value).find(x => x.id === selDenree.value);
+    const stockDe = d => (d && d.stock !== '∞' ? Number(d.stock) : Infinity);
+    const quantiteBesoin = () => {
+      const d = detail();
+      return Math.min(besoins[selDenree.value] || 1, stockDe(d),
+        Math.floor(j.ressources.lingots / (d?.prix || 1)));
+    };
+    const quantiteMax = () => {
+      const d = detail();
+      return Math.min(stockDe(d), Math.floor(j.ressources.lingots / (d?.prix || 1)));
+    };
+
+    fixerQuantite(quantiteBesoin() || 1);
+
+    document.getElementById('f-qty-moins').onclick = () => fixerQuantite((+inQty.value || 1) - 1);
+    document.getElementById('f-qty-plus').onclick = () => fixerQuantite((+inQty.value || 0) + 1);
+    document.getElementById('f-qty-besoin').onclick = () => fixerQuantite(quantiteBesoin() || 1);
+    document.getElementById('f-qty-max').onclick = () => fixerQuantite(quantiteMax() || 1);
+    selDenree.addEventListener('change', () => fixerQuantite(quantiteBesoin() || 1));
+  }, 0);
+
   bindHelpLinks();
 }
 
