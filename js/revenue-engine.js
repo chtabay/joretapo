@@ -14,6 +14,8 @@
  * pénurie réelle : à 6 joueurs, la demande dépasse encore l'offre dès que le
  * plateau se remplit, et les points restent disputés.
  */
+import { RULES } from './rules.js';
+
 const SUPPLY_CAPS = {
   port:      { prost: 0,  armes: 30, doses: 45 },
   aeroport:  { prost: 6,  armes: 0,  doses: 25 },
@@ -58,6 +60,63 @@ export class RevenueEngine {
     return bonus;
   }
 
+  /**
+   * Un point d'approvisionnement est-il un camp gitan ?
+   * Le marche noir des iles reste hors du systeme public : ni proprietaire,
+   * ni peage. C'est le recours de celui qui ne domine aucun equipement — a
+   * 24 lingots l'arme contre 4, il paie deja son independance.
+   */
+  static estMarcheNoir(pointZone) {
+    return String(pointZone).startsWith('ile_');
+  }
+
+  /** Qui controle ce point d'approvisionnement, s'il est controle. */
+  static proprietaireDuPoint(gs, pointZone) {
+    if (RevenueEngine.estMarcheNoir(pointZone)) return null;
+    const p = gs.plateau[pointZone]?.proprietaire;
+    return (p === null || p === undefined) ? null : p;
+  }
+
+  /**
+   * Prix unitaire d'une denree a un point donne, pour un joueur donne.
+   *
+   * Les points d'approvisionnement sont des EQUIPEMENTS PUBLICS : ports, peages,
+   * aeroport. Ils ne se construisent pas, ils se dominent. Auparavant n'importe
+   * qui commandait a n'importe quel port depuis n'importe ou, sans condition :
+   * la logistique n'avait aucune geographie et un port ne valait pas la peine
+   * d'etre pris. Desormais celui qui tient l'equipement prend un peage sur ceux
+   * qui s'y servent — ce qui en fait une rente, donc un objectif.
+   *
+   * Ce n'est pas un verrou : six des onze quartiers de depart ne portent aucun
+   * point, les en priver serait une condamnation. On paie plus cher, on passe
+   * apres, on peut toujours jouer.
+   */
+  static prixAppro(gs, pid, pointZone, denree, gameplay) {
+    let base = BUY_PRICE[denree] || 0;
+    if (denree === 'armes' && RevenueEngine.estMarcheNoir(pointZone)) base = BUY_PRICE.armes_gitans;
+    if (denree === 'doses') {
+      const hasLabo = Object.values(gs.plateau).some(z => z.construction === 'labo' && z.proprietaire === pid);
+      if (hasLabo) base = 1;
+    }
+
+    const proprietaire = RevenueEngine.proprietaireDuPoint(gs, pointZone);
+    const soumisAuPeage = proprietaire !== null && proprietaire !== pid;
+    const peage = soumisAuPeage ? Math.max(1, Math.ceil(base * RULES.peageApproPct)) : 0;
+
+    return { base, peage, total: base + peage, proprietaire, soumisAuPeage };
+  }
+
+  /**
+   * Traite les commandes d'approvisionnement et de recrutement.
+   *
+   * Deux effets de la domination d'un equipement, dans cet ordre :
+   *   1. PRIORITE — le stock d'un point sert d'abord celui qui le controle.
+   *      Un port dont le proprietaire vide le stock ne laisse rien aux autres.
+   *   2. PEAGE — les autres paient une surtaxe qui va dans sa poche.
+   *
+   * Hors de ca, l'ordre de service reste tire au hasard a chaque tour : on ne
+   * peut pas compter sur le fait d'etre servi.
+   */
   static processSupplyOrders(gs, allSupplyOrders, gameplay, adjacencies) {
     const log = [];
     const remaining = {};
@@ -70,58 +129,90 @@ export class RevenueEngine {
       const j = Math.floor(Math.random() * (i + 1));
       [pids[i], pids[j]] = [pids[j], pids[i]];
     }
+    const rang = Object.fromEntries(pids.map((pid, i) => [pid, i]));
 
+    const bonusDe = {};
+    pids.forEach(pid => { bonusDe[pid] = RevenueEngine._adminBonus(gs, pid, gameplay); });
+
+    /* File des commandes : proprietaire du point d'abord, puis l'ordre tire au
+       sort. Le tri de JavaScript est stable, l'ordre aleatoire est donc conserve
+       a l'interieur de chaque groupe. */
+    const commandes = [];
     pids.forEach(pid => {
-      const joueur = gs.joueurs[pid];
-      const bonus = RevenueEngine._adminBonus(gs, pid, gameplay);
-
       (allSupplyOrders[pid] || []).forEach(o => {
-        if (o.type === 'approvisionner') {
-          const pool = remaining[o.point];
-          if (!pool) return;
-          const isGitan = o.point.startsWith('ile_');
-          const capKey = o.denree === 'prostituee_base' || o.denree === 'prostituee_luxe' ? 'prost' : o.denree;
-          const cap = (pool[capKey] ?? 0) + bonus[capKey];
-          const qty = Math.min(o.quantite, cap);
-          if (qty <= 0) { log.push({ pid, msg: `${joueur.nom}: commande refusée (${o.denree} épuisé)`, type: 'warn' }); return; }
-
-          let price = BUY_PRICE[o.denree] || 0;
-          if (o.denree === 'armes' && isGitan) price = BUY_PRICE.armes_gitans;
-          const hasLabo = Object.values(gs.plateau).some(z => z.construction === 'labo' && z.proprietaire === pid);
-          if (o.denree === 'doses' && hasLabo) price = 1;
-
-          const maxAfford = Math.floor(joueur.ressources.lingots / price);
-          const actual = Math.min(qty, maxAfford);
-          if (actual <= 0) { log.push({ pid, msg: `${joueur.nom}: pas assez de lingots pour ${o.denree}`, type: 'warn' }); return; }
-
-          joueur.ressources.lingots -= actual * price;
-          if (o.denree === 'doses') joueur.ressources.doses += actual;
-          else if (o.denree === 'armes') joueur.ressources.armes += actual;
-          pool[capKey] -= actual;
-          log.push({ pid, msg: `${joueur.nom} achète ${actual} ${o.denree} (−${actual * price}L)`, type: 'buy' });
-
-        } else if (o.type === 'recruter') {
-          const pool = remaining[o.point];
-          if (!pool) return;
-          const cap = pool.prost + bonus.prost;
-          if (cap <= 0) { log.push({ pid, msg: `${joueur.nom}: pas de prostituée dispo`, type: 'warn' }); return; }
-          const price = BUY_PRICE[o.pion_type] || 40;
-          if (joueur.ressources.lingots < price) { log.push({ pid, msg: `${joueur.nom}: pas assez de lingots`, type: 'warn' }); return; }
-          const zone = gs.plateau[o.zone_dest];
-          if (!zone) return;
-          const hasProst = zone.pions.some(p => p.type === 'prostituee_base' || p.type === 'prostituee_luxe');
-          if (hasProst) { log.push({ pid, msg: `${joueur.nom}: zone ${o.zone_dest} a déjà une prostituée`, type: 'warn' }); return; }
-          joueur.ressources.lingots -= price;
-          zone.pions.push({ type: o.pion_type, joueur: pid });
-          zone.proprietaire = pid;
-          pool.prost--;
-          log.push({ pid, msg: `${joueur.nom} recrute ${o.pion_type.replace(/_/g, ' ')} → ${o.zone_dest} (−${price}L)`, type: 'buy' });
-
-        } else if (o.type === 'construire') {
-          RevenueEngine._buildConstruction(gs, pid, o, gameplay, log, adjacencies);
-        }
+        if (o.type === 'approvisionner' || o.type === 'recruter') commandes.push({ pid, o });
       });
     });
+    commandes.sort((a, b) => {
+      const pa = RevenueEngine.proprietaireDuPoint(gs, a.o.point) === a.pid ? 0 : 1;
+      const pb = RevenueEngine.proprietaireDuPoint(gs, b.o.point) === b.pid ? 0 : 1;
+      return pa - pb || rang[a.pid] - rang[b.pid];
+    });
+
+    const verserPeage = (pid, proprietaire, montant, pointZone) => {
+      if (!montant || proprietaire === null) return;
+      gs.joueurs[proprietaire].ressources.lingots += montant;
+      log.push({
+        pid: proprietaire,
+        msg: `🛃 ${gs.joueurs[proprietaire].nom} percoit ${montant}L de peage sur ${pointZone} (${gs.joueurs[pid].nom})`,
+        type: 'buy'
+      });
+    };
+
+    commandes.forEach(({ pid, o }) => {
+      const joueur = gs.joueurs[pid];
+      const bonus = bonusDe[pid];
+      const pool = remaining[o.point];
+      if (!pool) return;
+
+      if (o.type === 'approvisionner') {
+        const capKey = o.denree === 'prostituee_base' || o.denree === 'prostituee_luxe' ? 'prost' : o.denree;
+        const cap = (pool[capKey] ?? 0) + bonus[capKey];
+        const qty = Math.min(o.quantite, cap);
+        if (qty <= 0) { log.push({ pid, msg: `${joueur.nom}: commande refusée (${o.denree} épuisé à ${o.point})`, type: 'warn' }); return; }
+
+        const prix = RevenueEngine.prixAppro(gs, pid, o.point, o.denree, gameplay);
+        const maxAfford = Math.floor(joueur.ressources.lingots / prix.total);
+        const actual = Math.min(qty, maxAfford);
+        if (actual <= 0) { log.push({ pid, msg: `${joueur.nom}: pas assez de lingots pour ${o.denree}`, type: 'warn' }); return; }
+
+        joueur.ressources.lingots -= actual * prix.total;
+        if (o.denree === 'doses') joueur.ressources.doses += actual;
+        else if (o.denree === 'armes') joueur.ressources.armes += actual;
+        pool[capKey] -= actual;
+
+        const mention = prix.soumisAuPeage ? ` dont ${actual * prix.peage}L de péage` : '';
+        log.push({ pid, msg: `${joueur.nom} achète ${actual} ${o.denree} à ${o.point} (−${actual * prix.total}L${mention})`, type: 'buy' });
+        verserPeage(pid, prix.proprietaire, actual * prix.peage, o.point);
+
+      } else if (o.type === 'recruter') {
+        const cap = pool.prost + bonus.prost;
+        if (cap <= 0) { log.push({ pid, msg: `${joueur.nom}: pas de prostituée dispo à ${o.point}`, type: 'warn' }); return; }
+        const prix = RevenueEngine.prixAppro(gs, pid, o.point, o.pion_type, gameplay);
+        if (joueur.ressources.lingots < prix.total) { log.push({ pid, msg: `${joueur.nom}: pas assez de lingots`, type: 'warn' }); return; }
+        const zone = gs.plateau[o.zone_dest];
+        if (!zone) return;
+        const hasProst = zone.pions.some(p => p.type === 'prostituee_base' || p.type === 'prostituee_luxe');
+        if (hasProst) { log.push({ pid, msg: `${joueur.nom}: zone ${o.zone_dest} a déjà une prostituée`, type: 'warn' }); return; }
+
+        joueur.ressources.lingots -= prix.total;
+        zone.pions.push({ type: o.pion_type, joueur: pid });
+        zone.proprietaire = pid;
+        pool.prost--;
+        const mention = prix.soumisAuPeage ? ` dont ${prix.peage}L de péage` : '';
+        log.push({ pid, msg: `${joueur.nom} recrute ${o.pion_type.replace(/_/g, ' ')} → ${o.zone_dest} (−${prix.total}L${mention})`, type: 'buy' });
+        verserPeage(pid, prix.proprietaire, prix.peage, o.point);
+      }
+    });
+
+    /* Les constructions viennent apres : on se ravitaille, puis on batit avec
+       ce qui reste. */
+    pids.forEach(pid => {
+      (allSupplyOrders[pid] || []).forEach(o => {
+        if (o.type === 'construire') RevenueEngine._buildConstruction(gs, pid, o, gameplay, log, adjacencies);
+      });
+    });
+
     return log;
   }
 

@@ -79,9 +79,27 @@ const COUT_PION = { dealer: { lingots: 40, armes: 2 }, trafiquant: { lingots: 80
      3. attaquer une zone voisine tenue par un adversaire quand on peut la
         soutenir, sinon on n'attaque jamais et le jeu n'a aucun conflit. */
 
+/* Equipements logistiques : ce sont des objectifs, pas des cases comme les
+   autres. Les tenir donne la priorite sur leur stock et un peage sur ceux qui
+   s'y servent — un bot qui l'ignore ne dirait rien de leur valeur. */
+const FACILITES_APPRO = new Set(['port', 'peage', 'aeroport']);
+const PRIME_EQUIPEMENT = 12;
+
 class Bot {
   constructor(pid, gs, city, adj) {
     this.pid = pid; this.gs = gs; this.city = city; this.adj = adj;
+  }
+
+  /** Valeur d'une zone pour l'expansion : rendement, plus la prime d'equipement. */
+  valeurZone(zid) {
+    const zd = this.city.zones[zid];
+    if (!zd) return 0;
+    const prime = FACILITES_APPRO.has(zd.facilite) ? PRIME_EQUIPEMENT : 0;
+    /* Un equipement deja tenu par un adversaire vaut encore plus : on lui coupe
+       sa rente en meme temps qu'on prend la sienne. */
+    const proprio = this.gs.plateau[zid]?.proprietaire;
+    const arrache = prime && proprio !== null && proprio !== undefined && proprio !== this.pid ? prime / 2 : 0;
+    return zd.d + zd.a + zd.p + prime + arrache;
   }
 
   get joueur() { return this.gs.joueurs[this.pid]; }
@@ -120,7 +138,13 @@ class Bot {
 
     for (const c of cibles) {
       let reste = c.manque;
-      for (const pt of points) {
+      /* On se sert d'abord chez soi : pas de peage, et on est servi en premier. */
+      const ordreDesPoints = [...points].sort((a, b) => {
+        const ma = this.gs.plateau[a.zone]?.proprietaire === this.pid ? 0 : 1;
+        const mb = this.gs.plateau[b.zone]?.proprietaire === this.pid ? 0 : 1;
+        return ma - mb;
+      });
+      for (const pt of ordreDesPoints) {
         if (ordres.length >= budget || reste <= 0) break;
         const stock = pt.caps[c.denree === 'armes' ? 'armes' : 'doses'] || 0;
         if (stock <= 0) continue;
@@ -165,7 +189,7 @@ class Bot {
         if (!z) return;
         const zd = this.city.zones[v];
         if (!zd) return;   /* iles : le bot ne s'y aventure pas */
-        if (!frontiere.has(v)) frontiere.set(v, { depuis: [], valeur: zd.d + zd.a + zd.p });
+        if (!frontiere.has(v)) frontiere.set(v, { depuis: [], valeur: this.valeurZone(v) });
         frontiere.get(v).depuis.push(zid);
       });
     });
@@ -201,8 +225,12 @@ class Bot {
       const soutiens = (this.adj[dest] || []).filter(v =>
         !partis.has(v) && this.gs.plateau[v]?.pions.some(p => p.joueur === this.pid && IS_ARMED(p.type))
       );
-      /* Un soutien pour l'assaut, un pour le pion qui part : il en faut deux. */
-      if (soutiens.length < 2) continue;
+      /* Un soutien pour l'assaut, un pour le pion qui part : il en faut deux.
+         Sauf pour un equipement logistique : la prise vaut la priorite sur son
+         stock, la fin du peage qu'on versait et le debut de celui qu'on percoit.
+         On y va des qu'on a de quoi partir. */
+      const estEquipement = FACILITES_APPRO.has(this.city.zones[dest]?.facilite);
+      if (soutiens.length < (estEquipement ? 1 : 2)) continue;
       const src = soutiens.find(s => !partis.has(s));
       const arme = this.gs.plateau[src].pions.find(p => p.joueur === this.pid && IS_ARMED(p.type));
       ordres.push({ type: 'deplacer', from: src, to: dest, pion_type: arme.type });
@@ -267,6 +295,8 @@ function jouerPartie({ seed, nbJoueurs, city, adj, maxTours, detail }) {
       premierCombat: null,       /* on attaque une case tenue par un adversaire */
       pointsParTour: [],
       zonesReprises: 0,
+      equipementsRepris: 0,      /* un port/peage/aeroport change de main */
+      equipementsTenusFin: null, /* repartition en fin de partie */
       pointsFinaux: null,
       arret: 'max_tours'
     };
@@ -286,7 +316,10 @@ function jouerPartie({ seed, nbJoueurs, city, adj, maxTours, detail }) {
       if (proprietairesPrec) {
         for (const [z, p] of Object.entries(proprios)) {
           const avant = proprietairesPrec[z];
-          if (avant != null && p != null && avant !== p) m.zonesReprises++;
+          if (avant != null && p != null && avant !== p) {
+            m.zonesReprises++;
+            if (FACILITES_APPRO.has(city.zones[z]?.facilite)) m.equipementsRepris++;
+          }
         }
       }
       proprietairesPrec = proprios;
@@ -411,6 +444,12 @@ function jouerPartie({ seed, nbJoueurs, city, adj, maxTours, detail }) {
       }
     }
 
+    /* Qui tient les equipements a la fin : s'ils finissent tous chez le vainqueur,
+       c'est qu'ils comptent ; s'ils restent chez qui les avait au depart, non. */
+    const equip = Object.keys(city.zones).filter(z => FACILITES_APPRO.has(city.zones[z].facilite));
+    m.equipementsTenusFin = equip.filter(z => gs.plateau[z].proprietaire !== null).length;
+    m.equipementsTotal = equip.length;
+    m.equipementsDuVainqueur = null;
     m.pointsFinaux = relevePoints();
     m.toursJoues = Math.min(gs.tour, maxTours);
     return m;
@@ -463,6 +502,10 @@ function agreger(parties, maxTours) {
     premierAccrochageMedian: mediane(accrochages),
     ecartT6Median: mediane(ecarts),
     zonesReprisesMoyen: parties.reduce((s, p) => s + p.zonesReprises, 0) / parties.length,
+    equipementsReprisMoyen: parties.reduce((s, p) => s + p.equipementsRepris, 0) / parties.length,
+    partiesAvecEquipementRepris: parties.filter(p => p.equipementsRepris > 0).length / parties.length,
+    equipementsTenusMoyen: parties.reduce((s, p) => s + (p.equipementsTenusFin || 0), 0) / parties.length,
+    equipementsTotal: parties[0]?.equipementsTotal || 0,
     pointsMaxMedian: mediane(parties.map(p => Math.max(...p.pointsFinaux)))
   };
 }
@@ -519,6 +562,8 @@ if (json) {
   console.log(`  premier combat (median)    tour ${r.premierCombatMedian ?? '—'}`);
   console.log(`  premier accrochage (med.)  tour ${r.premierAccrochageMedian ?? '—'}   (case libre disputee)`);
   console.log(`  zones reprises par partie  ${r.zonesReprisesMoyen.toFixed(1)}`);
+  console.log(`  equipements repris         ${r.equipementsReprisMoyen.toFixed(1)} par partie · ${pct(r.partiesAvecEquipementRepris)} des parties`);
+  console.log(`  equipements sous controle  ${r.equipementsTenusMoyen.toFixed(1)} sur ${r.equipementsTotal} en fin de partie`);
   console.log(`  ecart 1er/dernier au T6    x${r.ecartT6Median?.toFixed(2) ?? '—'}`);
   console.log('');
 }

@@ -67,6 +67,19 @@ Une ville a besoin d'**au moins un point d'approvisionnement en armes** (`port`
 ou `peage`), faute de quoi personne ne peut alimenter ses trafiquants ni créer
 de pions.
 
+**Les points d'approvisionnement sont des objectifs, pas du décor.** Celui qui
+contrôle la zone est servi en premier sur son stock et prélève un péage de 50 %
+sur tous les autres. Deux conséquences pour le découpage d'une ville :
+
+- **Ne les concentrez pas dans un seul quartier.** Un joueur qui démarre dessus
+  taxerait toute la table. Sur New York, huit équipements sont répartis dans six
+  quartiers, dont deux non disponibles au lancement.
+- **Tous les quartiers de départ n'ont pas besoin d'en porter un** — et il vaut
+  mieux qu'ils n'en portent pas tous. Six des onze quartiers de départ de New
+  York n'en ont aucun : c'est ce qui donne à leurs joueurs une raison d'aller en
+  chercher un. Le péage n'est pas un verrou, on peut toujours se servir chez un
+  rival en payant plus cher.
+
 ---
 
 ## Le péage d'entrée
@@ -124,6 +137,7 @@ Quatre indicateurs, et ce qu'ils doivent valoir :
 | Tour de victoire (médiane) | **10 à 14** | Au-delà, la soirée n'y suffit pas ; en deçà, la partie finit avant la première élection (tour 7) |
 | Premier combat (médiane) | **≤ 6** | Tant que personne ne se touche, ce sont N réussites en parallèle |
 | Écart 1er/dernier au tour 6 | **≤ ×3** | Au-delà, la fin de partie est jouée d'avance |
+| Équipements contrôlés en fin de partie | **≥ 70 %** | S'ils restent libres, c'est qu'ils ne valent pas la peine d'être pris |
 
 Point de repère : sur New York, **avant** correction, le banc donnait 0 % de
 parties terminées et 0 % de parties avec un combat, sur 20 parties de 30 tours.

@@ -579,3 +579,104 @@ test('le bonus d\'administration ne se prélève pas sur le stock commun du poin
       rendreLeHasard();
     }
   });
+
+/* ── Domination des équipements logistiques ────────────────────────────────
+   Les ports, péages et aéroports ne se construisent pas : ce sont des
+   équipements publics qu'on domine. Auparavant n'importe qui commandait à
+   n'importe quel port depuis n'importe où, sans condition — la logistique
+   n'avait aucune géographie et prendre un port ne servait à rien.
+
+   Deux effets, et pas de verrou : six des onze quartiers de départ de New York
+   ne portent aucun point, les en priver serait une condamnation. */
+
+test('le propriétaire d\'un port ne paie aucun péage', async () => {
+  const { gs, city, adj } = await newTestGame(2);
+  gs.plateau['A2'].proprietaire = 0;          /* A2 est le port du plateau fictif */
+  dote(gs, 0, { lingots: 1000 });
+
+  RevenueEngine.processSupplyOrders(gs, { 0: [appro('A2', 'armes', 10)] }, city, adj);
+
+  assert.equal(ress(gs, 0).armes, 10);
+  assert.equal(ress(gs, 0).lingots, 1000 - 40, '10 armes au prix de base, 4L pièce');
+});
+
+test('celui qui se sert chez un autre paie une surtaxe, qui va au propriétaire', async () => {
+  const { gs, city, adj } = await newTestGame(2);
+  gs.plateau['A2'].proprietaire = 0;
+  dote(gs, 0, { lingots: 100 });
+  dote(gs, 1, { lingots: 1000 });
+
+  RevenueEngine.processSupplyOrders(gs, { 1: [appro('A2', 'armes', 10)] }, city, adj);
+
+  /* 4L de base + 2L de péage (50 %) = 6L l'arme. */
+  assert.equal(ress(gs, 1).armes, 10);
+  assert.equal(ress(gs, 1).lingots, 1000 - 60, 'le client paie base + péage');
+  assert.equal(ress(gs, 0).lingots, 100 + 20, 'le propriétaire encaisse le péage');
+});
+
+test('un point que personne ne contrôle ne prélève rien', async () => {
+  const { gs, city, adj } = await newTestGame(2);
+  gs.plateau['A2'].proprietaire = null;
+  dote(gs, 1, { lingots: 1000 });
+
+  RevenueEngine.processSupplyOrders(gs, { 1: [appro('A2', 'armes', 10)] }, city, adj);
+
+  assert.equal(ress(gs, 1).lingots, 1000 - 40, 'prix de base seulement');
+});
+
+test('le propriétaire est servi avant les autres quand le stock manque', async () => {
+  const { gs, city, adj } = await newTestGame(2);
+  const rendreLeHasard = ordreDesJoueursFige();   /* sans ça, J0 passerait déjà en premier */
+  try {
+    const stock = SUPPLY_CAPS.port.armes;
+    gs.plateau['A2'].proprietaire = 1;            /* c'est J1 qui tient le port */
+    dote(gs, 0, { lingots: 5000 });
+    dote(gs, 1, { lingots: 5000 });
+
+    /* J0 est premier dans l'ordre tiré au sort et demande tout le stock ;
+       J1, propriétaire, doit malgré tout être servi le premier. */
+    RevenueEngine.processSupplyOrders(gs, {
+      0: [appro('A2', 'armes', stock)],
+      1: [appro('A2', 'armes', stock)]
+    }, city, adj);
+
+    assert.equal(ress(gs, 1).armes, stock, 'le propriétaire prend tout le stock');
+    assert.equal(ress(gs, 0).armes, 0, 'l\'autre repart les mains vides');
+  } finally {
+    rendreLeHasard();
+  }
+});
+
+test('le marché noir des gitans échappe au système : ni propriétaire, ni péage', async () => {
+  const { gs, city, adj } = await newTestGame(2);
+  /* Une île n'existe pas sur le plateau fictif : on vérifie la règle sur la
+     fonction qui la porte, en lui passant un identifiant d'île. */
+  assert.equal(RevenueEngine.estMarcheNoir('ile_rikers'), true);
+  assert.equal(RevenueEngine.estMarcheNoir('A2'), false);
+
+  gs.plateau['ile_rikers'] = { proprietaire: 1, pions: [], construction: null, electricite: true };
+  const prix = RevenueEngine.prixAppro(gs, 0, 'ile_rikers', 'armes', city);
+
+  assert.equal(prix.peage, 0, 'aucun péage sur le marché noir');
+  assert.equal(prix.base, 24, 'mais les gitans vendent l\'arme six fois le prix');
+});
+
+test('le péage s\'applique aussi au recrutement', async () => {
+  const { gs, city, adj } = await newTestGame(2);
+  gs.plateau['A2'].proprietaire = 0;
+  /* Le port n'offre pas de prostituée : on donne la facilité péage à B1, qui
+     en propose 2, et on la fait tenir par J0. */
+  city.zones['B1'].facilite = 'peage';
+  gs.plateau['B1'].proprietaire = 0;
+  place(gs, 'C1', 'dealer', 1);
+  dote(gs, 0, { lingots: 0 });
+  dote(gs, 1, { lingots: 1000 });
+
+  RevenueEngine.processSupplyOrders(gs, {
+    1: [{ type: 'recruter', point: 'B1', pion_type: 'prostituee_base', zone_dest: 'C1' }]
+  }, city, adj);
+
+  /* 40L de base + 20L de péage. */
+  assert.equal(ress(gs, 1).lingots, 1000 - 60);
+  assert.equal(ress(gs, 0).lingots, 20, 'le propriétaire du péage encaisse');
+});

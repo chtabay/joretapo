@@ -3,6 +3,35 @@
  */
 
 export const DICT_ENTRIES = {
+  approvisionnement_points: {
+    title: 'Équipements logistiques',
+    content: `
+      <p>Les <strong>ports</strong>, <strong>péages</strong> et l'<strong>aéroport</strong> sont
+      les seuls endroits où l'on achète des doses, des armes et des passes. Ce sont des
+      <strong>équipements publics</strong> : on ne les construit pas, on les <em>domine</em>.</p>
+      <p>Ils sont marqués sur la carte (⚓ 🛣️ ✈️), et l'anneau du marqueur prend la couleur
+      de celui qui les tient.</p>
+      <p><strong>Contrôler un équipement donne deux choses :</strong></p>
+      <ul>
+        <li><strong>La priorité sur son stock.</strong> Le stock d'un point est limité et
+        partagé entre tous ; son propriétaire est servi le premier. S'il vide le port,
+        les autres repartent les mains vides.</li>
+        <li><strong>Un péage de 50 %</strong> sur tout joueur qui s'y sert, versé
+        directement dans sa poche. Trente armes achetées chez un rival lui rapportent
+        60 lingots.</li>
+      </ul>
+      <p>Ce n'est <strong>pas un verrou</strong> : on peut toujours se servir chez un
+      adversaire, on paie simplement plus cher et on passe après lui. Six des onze
+      quartiers de départ ne portent aucun équipement — en priver leurs joueurs serait
+      une condamnation.</p>
+      <p>Les <strong>camps gitans</strong> des îles échappent au système : marché noir,
+      sans propriétaire ni péage, stock d'armes illimité — mais à 24 lingots l'arme
+      contre 4. C'est le recours de celui qui ne domine rien.</p>
+      <p class="dict-note">Un port vaut donc plus que son rendement : il vaut la rente
+      qu'il rapporte et celle qu'il coupe à son ancien propriétaire. C'est ce qui en fait
+      un objectif militaire.</p>
+    `
+  },
   soutien: {
     title: 'Soutenir un allié',
     content: `
@@ -254,7 +283,8 @@ export const DICT_ENTRIES = {
 
 const DICT_INDEX_ORDER = [
   'tour', 'phase', 'joueur', 'pts', 'lingots', 'ressources', 'election',
-  'approvisionnement', 'recrutement', 'construction', 'deplacement', 'creation_pion',
+  'approvisionnement', 'approvisionnement_points', 'recrutement', 'construction',
+  'deplacement', 'soutien', 'creation_pion',
   'flic', 'incorruptible', 'gang', 'cambriolage', 'maire'
 ];
 

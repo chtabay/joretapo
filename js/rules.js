@@ -46,6 +46,21 @@ export const RULES = {
   /** Tours entre deux elections municipales. */
   toursParMandat: 7,
 
+  /**
+   * Peage preleve par celui qui controle un point d'approvisionnement, en part
+   * du prix de base, sur tout joueur qui s'y sert.
+   *
+   * Les ports, peages et aeroports sont des equipements PUBLICS : ils ne se
+   * construisent pas, ils se dominent. Sans ce peage, n'importe qui commandait a
+   * n'importe quel port depuis n'importe ou et un port ne valait pas la peine
+   * d'etre pris — la logistique n'avait aucune geographie.
+   *
+   * 0,5 place la rente a un niveau qui se remarque sans etouffer : 30 armes
+   * achetees chez un rival lui versent 60 lingots. Six des onze quartiers de
+   * depart ne portant aucun point, ce ne peut pas etre un verrou.
+   */
+  peageApproPct: 0.5,
+
   /** Draft de cartes apres chaque election : on pioche N, on en garde N/2. */
   draftPioche: 8,
   draftGarde: 4

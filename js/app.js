@@ -1,6 +1,6 @@
 import { GameState } from './game-state.js';
 import { RULES } from './rules.js';
-import { MapRenderer, QUARTIER_COLORS, setQuartierColors, FACILITE_LABELS } from './map-renderer.js';
+import { MapRenderer, QUARTIER_COLORS, setQuartierColors, FACILITE_LABELS, EQUIPEMENTS } from './map-renderer.js';
 import { renderSetupScreen } from './setup.js';
 import { TurnManager, PHASE, GAME_PHASE_LABELS } from './turn-manager.js';
 import { RevenueEngine, BUY_PRICE, CONSTRUCTION_DEFS } from './revenue-engine.js';
@@ -913,6 +913,41 @@ function showSupplyModal(pid, refresh) {
   ];
   const j = gameState.joueurs[pid];
 
+  /**
+   * Qui tient l'equipement, et ce que ca coute d'y venir.
+   *
+   * Les ports, peages et aeroports sont des equipements publics : on ne les
+   * construit pas, on les domine. Celui qui les tient est servi en premier et
+   * preleve un peage sur les autres. Le joueur doit donc voir, AVANT de
+   * commander, chez qui il se sert et ce que ca lui coute — sinon la regle
+   * existe sans que personne ne la joue.
+   */
+  function statutDuPoint(zoneId) {
+    if (RevenueEngine.estMarcheNoir(zoneId)) {
+      return { etiquette: 'marché noir', classe: 'pt-noir', proprietaire: null };
+    }
+    const owner = RevenueEngine.proprietaireDuPoint(gameState, zoneId);
+    if (owner === null) return { etiquette: 'libre', classe: 'pt-libre', proprietaire: null };
+    if (owner === pid) return { etiquette: 'à vous', classe: 'pt-mien', proprietaire: owner };
+    const pct = Math.round(RULES.peageApproPct * 100);
+    return {
+      etiquette: `à ${gameState.joueurs[owner].nom} · péage +${pct} %`,
+      classe: 'pt-autre',
+      proprietaire: owner
+    };
+  }
+
+  /* Ses propres equipements d'abord : pas de peage, et servi en premier. */
+  const pointsTries = [...sps].sort((a, b) => {
+    const rang = z => {
+      const st = statutDuPoint(z);
+      if (st.proprietaire === pid) return 0;
+      if (st.proprietaire === null) return 1;
+      return 2;
+    };
+    return rang(a.zone) - rang(b.zone);
+  });
+
   function getDenreesForPoint(pointId) {
     const sp = sps.find(s => s.zone === pointId);
     if (!sp) return [];
@@ -925,14 +960,16 @@ function showSupplyModal(pid, refresh) {
   }
 
   const html = `
-    <h3>Approvisionnement ${helpLink('approvisionnement')}</h3>
+    <h3>Approvisionnement ${helpLink('approvisionnement')} ${helpLink('approvisionnement_points', '🛃')}</h3>
     <label>Point :</label>
-    <select id="f-point">${sps.map(sp => {
+    <select id="f-point">${pointsTries.map(sp => {
       const avail = [];
       if (sp.caps.armes > 0) avail.push('🔫');
       if (sp.caps.doses > 0) avail.push('💊');
-      return `<option value="${sp.zone}">${sp.nom} (${sp.type}) ${avail.join(' ')}</option>`;
+      if (sp.caps.prost > 0) avail.push('👠');
+      return `<option value="${sp.zone}">${sp.nom} (${sp.type}) ${avail.join('')} — ${statutDuPoint(sp.zone).etiquette}</option>`;
     }).join('')}</select>
+    <div id="f-point-info" class="modal-point-info"></div>
     <label>Denrée :</label>
     <select id="f-denree"></select>
     <div id="f-stock-info" style="font-size:12px;color:#888;margin-top:2px"></div>
@@ -961,7 +998,25 @@ function showSupplyModal(pid, refresh) {
     const pointId = document.getElementById('f-point').value;
     const denrees = getDenreesForPoint(pointId);
     const sel = document.getElementById('f-denree');
-    sel.innerHTML = denrees.map(d => `<option value="${d.id}">${d.label} — ${d.prix}L/u (stock: ${d.stock})</option>`).join('');
+    sel.innerHTML = denrees.map(d => {
+      const prix = RevenueEngine.prixAppro(gameState, pid, pointId, d.id, gameData.gameplay);
+      const detail = prix.soumisAuPeage ? `${prix.base}+${prix.peage}L/u` : `${prix.total}L/u`;
+      return `<option value="${d.id}">${d.label} — ${detail} (stock : ${d.stock})</option>`;
+    }).join('');
+
+    /* Le bandeau sous la liste rappelle qui tient l'equipement. */
+    const st = statutDuPoint(pointId);
+    const bandeau = document.getElementById('f-point-info');
+    if (bandeau) {
+      bandeau.className = `modal-point-info ${st.classe}`;
+      bandeau.innerHTML = st.proprietaire === null
+        ? (st.classe === 'pt-noir'
+            ? '🏕️ Camp gitan — hors du réseau public : pas de péage, mais le prix fort.'
+            : '🏳️ Équipement libre — personne ne le contrôle, aucun péage.')
+        : (st.proprietaire === pid
+            ? '🛃 <strong>Vous contrôlez cet équipement</strong> — servi en premier, aucun péage.'
+            : `🛃 Contrôlé par <strong>${esc(gameState.joueurs[st.proprietaire].nom)}</strong> — il est servi avant vous et encaisse votre péage.`);
+    }
     const info = document.getElementById('f-stock-info');
     if (denrees.length === 0) {
       info.innerHTML = '<span style="color:#e74c3c">⚠ Aucune denrée disponible à ce point</span>';
@@ -981,9 +1036,13 @@ function showSupplyModal(pid, refresh) {
     const d = denrees.find(x => x.id === denreeId);
     const el = document.getElementById('f-cost-preview');
     if (!d) { el.innerHTML = ''; return; }
-    const total = d.prix * qty;
+    const prix = RevenueEngine.prixAppro(gameState, pid, pointId, denreeId, gameData.gameplay);
+    const total = prix.total * qty;
     const warn = total > j.ressources.lingots ? ' <span style="color:#e74c3c">⚠ Fonds insuffisants</span>' : '';
-    el.innerHTML = `💰 <strong>${qty} × ${d.prix}L = ${total}L</strong> <span style="color:#888">(solde : ${j.ressources.lingots}L)</span>${warn}`;
+    const peage = prix.soumisAuPeage
+      ? ` <span class="cout-peage">dont ${qty * prix.peage}L de péage à ${esc(gameState.joueurs[prix.proprietaire].nom)}</span>`
+      : '';
+    el.innerHTML = `💰 <strong>${qty} × ${prix.total}L = ${total}L</strong>${peage} <span style="color:#888">(solde : ${j.ressources.lingots}L)</span>${warn}`;
   }
 
   document.getElementById('f-point').addEventListener('change', updateDenreeOptions);
@@ -1002,9 +1061,13 @@ function showSupplyModal(pid, refresh) {
 
     if (besoins[prioritaire] > 0) {
       /* Le point qui offre le plus de la denree manquante. */
-      const meilleur = [...sps]
+      /* A stock comparable, on prefere un equipement qu'on tient : pas de peage. */
+      const meilleur = [...pointsTries]
         .filter(sp => (sp.caps[prioritaire] || 0) > 0)
-        .sort((a, b) => (b.caps[prioritaire] || 0) - (a.caps[prioritaire] || 0))[0];
+        .sort((a, b) => {
+          const mien = z => statutDuPoint(z).proprietaire === pid ? 0 : 1;
+          return mien(a.zone) - mien(b.zone) || (b.caps[prioritaire] || 0) - (a.caps[prioritaire] || 0);
+        })[0];
       if (meilleur) {
         selPoint.value = meilleur.zone;
         updateDenreeOptions();
@@ -1018,15 +1081,12 @@ function showSupplyModal(pid, refresh) {
     };
     const detail = () => getDenreesForPoint(selPoint.value).find(x => x.id === selDenree.value);
     const stockDe = d => (d && d.stock !== '∞' ? Number(d.stock) : Infinity);
-    const quantiteBesoin = () => {
-      const d = detail();
-      return Math.min(besoins[selDenree.value] || 1, stockDe(d),
-        Math.floor(j.ressources.lingots / (d?.prix || 1)));
-    };
-    const quantiteMax = () => {
-      const d = detail();
-      return Math.min(stockDe(d), Math.floor(j.ressources.lingots / (d?.prix || 1)));
-    };
+    const prixReel = () => RevenueEngine
+      .prixAppro(gameState, pid, selPoint.value, selDenree.value, gameData.gameplay).total || 1;
+    const quantiteBesoin = () => Math.min(besoins[selDenree.value] || 1, stockDe(detail()),
+      Math.floor(j.ressources.lingots / prixReel()));
+    const quantiteMax = () => Math.min(stockDe(detail()),
+      Math.floor(j.ressources.lingots / prixReel()));
 
     fixerQuantite(quantiteBesoin() || 1);
 
@@ -1035,6 +1095,7 @@ function showSupplyModal(pid, refresh) {
     document.getElementById('f-qty-besoin').onclick = () => fixerQuantite(quantiteBesoin() || 1);
     document.getElementById('f-qty-max').onclick = () => fixerQuantite(quantiteMax() || 1);
     selDenree.addEventListener('change', () => fixerQuantite(quantiteBesoin() || 1));
+    selPoint.addEventListener('change', () => fixerQuantite(quantiteBesoin() || 1));
   }, 0);
 
   bindHelpLinks();
@@ -2996,8 +3057,23 @@ function renderInfoPanel(id) {
     qBadge.textContent = q.nom; qBadge.style.background = c.fill; qBadge.style.color = c.stroke; qBadge.style.border = `1px solid ${c.stroke}`;
   }
 
-  document.getElementById('info-facilite').innerHTML = zd?.facilite
-    ? `<span class="facilite-tag">${FACILITE_LABELS[zd.facilite] || zd.facilite}</span>` : '';
+  /* Pour un equipement logistique, la fiche doit dire qui le tient et ce qu'il
+     en coute d'y venir : c'est ce qui en fait un objectif plutot qu'un decor. */
+  const estEquipement = !!EQUIPEMENTS[zd?.facilite];
+  let facHtml = zd?.facilite
+    ? `<span class="facilite-tag${estEquipement ? ' facilite-equipement' : ''}">${FACILITE_LABELS[zd.facilite] || zd.facilite}</span>` : '';
+  if (estEquipement && gameState) {
+    const proprio = RevenueEngine.proprietaireDuPoint(gameState, id);
+    const pct = Math.round(RULES.peageApproPct * 100);
+    facHtml += proprio === null
+      ? `<div class="equip-statut equip-libre">🏳️ <strong>Équipement logistique libre.</strong>
+           Celui qui le contrôle sera servi en premier sur son stock et prélèvera
+           un péage de ${pct} % sur les autres.</div>`
+      : `<div class="equip-statut" style="border-left-color:${gameState.joueurs[proprio].couleur}">
+           🛃 Contrôlé par <strong style="color:${gameState.joueurs[proprio].couleur}">${esc(gameState.joueurs[proprio].nom)}</strong> —
+           servi en premier, et encaisse ${pct} % de péage sur qui s'y sert.</div>`;
+  }
+  document.getElementById('info-facilite').innerHTML = facHtml;
 
   if (zd) {
     document.getElementById('info-indices').innerHTML = `

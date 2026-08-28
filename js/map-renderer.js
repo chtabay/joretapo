@@ -53,6 +53,21 @@ const PION_SYMBOLS = {
   gitan: { symbol: 'GI', color: '#795548' }
 };
 
+/**
+ * Equipements logistiques marques sur le plateau.
+ *
+ * Ports, peages et aeroport sont des equipements PUBLICS qu'on domine : celui
+ * qui les tient est servi en premier et preleve un peage sur les autres. Ce
+ * sont donc des objectifs, et un objectif qu'on ne voit pas n'est pas dispute.
+ * Ils etaient jusqu'ici invisibles : rien ne distinguait un port d'une case
+ * ordinaire, il fallait ouvrir la fiche de la zone pour l'apprendre.
+ */
+const EQUIPEMENTS = {
+  port:     { glyphe: '⚓', titre: 'Port' },
+  peage:    { glyphe: '🛣️', titre: 'Péage' },
+  aeroport: { glyphe: '✈️', titre: 'Aéroport' }
+};
+
 const NS = 'http://www.w3.org/2000/svg';
 
 /** Noir ou blanc, selon ce qui se lit sur la couleur donnée. Les couleurs de
@@ -330,6 +345,40 @@ export class MapRenderer {
       codeLabel.textContent = id;
       glyphs.appendChild(codeLabel);
 
+      /* Marqueur d'equipement, au-dessus du nom de zone. Il vit dans le groupe
+         contre-echele, donc il garde sa taille a l'ecran comme les pions. */
+      const equip = EQUIPEMENTS[zoneData?.facilite];
+      if (equip) {
+        const badge = document.createElementNS(NS, 'g');
+        badge.classList.add('zone-equipement');
+
+        const y = -PX.pionRadius - 27;
+        const halo = document.createElementNS(NS, 'circle');
+        halo.setAttribute('cx', '0');
+        halo.setAttribute('cy', String(y));
+        halo.setAttribute('r', '10');
+        halo.setAttribute('fill', 'rgba(0,0,0,0.72)');
+        halo.setAttribute('stroke', 'rgba(255,255,255,0.5)');
+        halo.setAttribute('stroke-width', '1.2');
+        halo.classList.add('equip-halo');
+        badge.appendChild(halo);
+
+        const t = document.createElementNS(NS, 'text');
+        t.setAttribute('x', '0');
+        t.setAttribute('y', String(y));
+        t.setAttribute('text-anchor', 'middle');
+        t.setAttribute('dominant-baseline', 'central');
+        t.setAttribute('font-size', '11');
+        t.textContent = equip.glyphe;
+        badge.appendChild(t);
+
+        const titre = document.createElementNS(NS, 'title');
+        titre.textContent = `${equip.titre} — équipement logistique`;
+        badge.appendChild(titre);
+
+        glyphs.appendChild(badge);
+      }
+
       this.gLabels.appendChild(glyphs);
       this.glyphGroups[id] = glyphs;
     });
@@ -533,6 +582,18 @@ export class MapRenderer {
   }
 
   updateOwnership(gameState) {
+    /* Le cercle du marqueur d'equipement prend la couleur de celui qui le tient :
+       la carte doit repondre a « qui controle les ports ? » sans ouvrir de fiche. */
+    Object.entries(this.glyphGroups).forEach(([zid, g]) => {
+      const halo = g.querySelector('.equip-halo');
+      if (!halo) return;
+      const proprio = gameState.plateau[zid]?.proprietaire;
+      const tenu = proprio !== null && proprio !== undefined;
+      halo.setAttribute('fill', tenu ? gameState.joueurs[proprio].couleur : 'rgba(0,0,0,0.72)');
+      halo.setAttribute('stroke', tenu ? '#fff' : 'rgba(255,255,255,0.5)');
+      halo.setAttribute('stroke-width', tenu ? '2' : '1.2');
+    });
+
     Object.entries(this.pathMap).forEach(([zid, path]) => {
       const zone = gameState.plateau[zid];
       if (zone && zone.proprietaire !== null && zone.proprietaire !== undefined) {
@@ -732,4 +793,4 @@ export class MapRenderer {
   }
 }
 
-export { QUARTIER_COLORS, setQuartierColors, FACILITE_LABELS, PION_SYMBOLS, PX };
+export { QUARTIER_COLORS, setQuartierColors, FACILITE_LABELS, PION_SYMBOLS, PX, EQUIPEMENTS };

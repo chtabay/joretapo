@@ -7,7 +7,7 @@ dépôt, on ne sait plus où on en était, et on referme.
 ## En trente secondes
 
 ```bash
-npm test                    # 166 tests, aucune dépendance, aucune configuration
+npm test                    # 172 tests, aucune dépendance, aucune configuration
 node tools/sim.mjs          # 40 parties simulées : le jeu est-il encore jouable ?
 npm run serve               # http://localhost:8000
 ```
@@ -47,8 +47,10 @@ de 30 tours, et 0 % avec le moindre combat.
 | Soutien à un allié | inexistant | ordre explicite, coûte un ordre | Le comptage ne créditait que le propriétaire du pion : aider quelqu'un était impossible, et la négociation n'avait rien à négocier |
 | Vote | pour soi possible | interdit | L'auto-vote rendait le maire mécanique : le joueur déjà en tête |
 | Offre d'armes | 46/tour | 130/tour | Un joueur dépensait 3 de ses 5 ordres en courses et ne s'étendait plus |
+| Points d'appro | accessibles à tous, sans condition | priorité au propriétaire + péage de 50 % | La logistique n'avait aucune géographie : prendre un port ne servait à rien. Ce sont des équipements publics qu'on domine |
 
-Après : 100 % de parties terminées, médiane au tour 13.
+Après : 100 % de parties terminées, médiane au tour 11 à 13, et 6,4 équipements
+logistiques sur 8 contrôlés en fin de partie contre presque aucun avant.
 
 ## Ce qui reste ouvert
 
