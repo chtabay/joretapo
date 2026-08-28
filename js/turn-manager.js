@@ -143,8 +143,22 @@ export class TurnManager {
     else this.startTurn();
   }
 
+  /**
+   * Ouvre une tournee de saisie secrete.
+   *
+   * L'ordre de passage etait retire au sort a CHAQUE tournee, donc deux fois par
+   * tour : un joueur pouvait passer premier en phase 1 puis dernier en phase 4,
+   * et attendre deux gestes ici, quarante-quatre la. Un ordre qu'on ne peut pas
+   * annoncer est un ordre qu'on subit.
+   *
+   * Il est desormais tire UNE fois par tour, au debut, et reutilise en phase 4 :
+   * le rideau peut donc l'afficher, chacun sait quand vient son tour, et
+   * l'attente est la meme pour tous.
+   */
   _beginHotseat() {
-    this.playerQueue = shuffle(this.gs.joueurs.map((_, i) => i));
+    if (!this.playerQueue?.length) {
+      this.playerQueue = shuffle(this.gs.joueurs.map((_, i) => i));
+    }
     this.currentPlayerIdx = 0;
     this.phase = PHASE.CURTAIN;
     this._emit();

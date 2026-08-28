@@ -107,111 +107,49 @@ test('être maire vaut quinze points', async () => {
   assert.equal(gs.getPlayerPoints(1, city), 0, 'et seulement pour le maire');
 });
 
-test('huit dealers font le roi de la drogue et valent dix points', async () => {
+test('la fortune ne donne aucun point : le score reste une information publique', async () => {
+  /* Le palier des 2 000 lingots faisait entrer la tresorerie — secrete — dans le
+     calcul des points, donc dans tout ce qui affiche un classement. Il ne s'est
+     jamais declenche : sur 40 parties simulees, la fortune maximale observee
+     etait de 542 lingots. */
   const { gs, city } = await newTestGame(2);
-  /* Deux dealers sur quatre zones de quartiers différents : aucun quartier n'est
-     complet, le seul point marqué est donc le palier. */
-  ['A1', 'B1', 'C1', 'D1'].forEach(z => {
-    place(gs, z, 'dealer', 0);
-    place(gs, z, 'dealer', 0);
-  });
-
-  assert.equal(gs.getPlayerPoints(0, city), 10);
-});
-
-test('sept dealers ne suffisent pas au palier de la drogue', async () => {
-  const { gs, city } = await newTestGame(2);
-  ['A1', 'B1', 'C1'].forEach(z => {
-    place(gs, z, 'dealer', 0);
-    place(gs, z, 'dealer', 0);
-  });
-  place(gs, 'D1', 'dealer', 0);
-
-  assert.equal(gs.getPlayerPoints(0, city), 0, 'le palier est à 8, pas à 7');
-});
-
-test('huit demoiselles, bordels de luxe inclus, valent dix points', async () => {
-  const { gs, city } = await newTestGame(2);
-  ['A1', 'B1', 'C1'].forEach(z => {
-    place(gs, z, 'prostituee_base', 0);
-    place(gs, z, 'prostituee_base', 0);
-  });
-  place(gs, 'D1', 'prostituee_luxe', 0);
-  place(gs, 'D1', 'prostituee_luxe', 0);
-
-  assert.equal(gs.getPlayerPoints(0, city), 10,
-    'les deux types de demoiselles comptent dans le même palier');
-});
-
-test('sept demoiselles ne suffisent pas au palier de la prostitution', async () => {
-  const { gs, city } = await newTestGame(2);
-  ['A1', 'B1', 'C1'].forEach(z => {
-    place(gs, z, 'prostituee_base', 0);
-    place(gs, z, 'prostituee_base', 0);
-  });
-  place(gs, 'D1', 'prostituee_luxe', 0);
-
-  assert.equal(gs.getPlayerPoints(0, city), 0);
-});
-
-test('six trafiquants font le roi des armes et valent dix points', async () => {
-  const { gs, city } = await newTestGame(2);
-  ['A1', 'B1', 'C1'].forEach(z => {
-    place(gs, z, 'trafiquant', 0);
-    place(gs, z, 'trafiquant', 0);
-  });
-
-  assert.equal(gs.getPlayerPoints(0, city), 10);
-});
-
-test('cinq trafiquants ne suffisent pas au palier des armes', async () => {
-  const { gs, city } = await newTestGame(2);
-  ['A1', 'B1'].forEach(z => {
-    place(gs, z, 'trafiquant', 0);
-    place(gs, z, 'trafiquant', 0);
-  });
-  place(gs, 'C1', 'trafiquant', 0);
-
-  assert.equal(gs.getPlayerPoints(0, city), 0);
-});
-
-test('deux mille lingots valent dix points au joueur le plus riche', async () => {
-  const { gs, city } = await newTestGame(2);
-  gs.joueurs[0].ressources.lingots = 2000;
-  gs.joueurs[1].ressources.lingots = 500;
-
-  assert.equal(gs.getPlayerPoints(0, city), 10);
-});
-
-test('deux mille lingots ne valent rien si un autre joueur est plus riche', async () => {
-  const { gs, city } = await newTestGame(2);
-  gs.joueurs[0].ressources.lingots = 2000;
-  gs.joueurs[1].ressources.lingots = 5000;
-
-  assert.equal(gs.getPlayerPoints(0, city), 0,
-    'le bonus récompense la première place, pas le seuil seul');
-  assert.equal(gs.getPlayerPoints(1, city), 10, 'et il revient bien au plus riche');
-});
-
-test('être le plus riche sans atteindre deux mille lingots ne rapporte rien', async () => {
-  const { gs, city } = await newTestGame(2);
-  gs.joueurs[0].ressources.lingots = 1999;
+  gs.joueurs[0].ressources.lingots = 99999;
   gs.joueurs[1].ressources.lingots = 0;
 
   assert.equal(gs.getPlayerPoints(0, city), 0);
+  assert.equal(gs.getPlayerPoints(1, city), 0);
 });
 
-test('les points de quartiers, de bâtiments, de mairie et de paliers s\'additionnent', async () => {
+test('accumuler des pions d\'un même type ne donne aucun point', async () => {
+  /* Trois paliers annonçaient 10 points chacun — 8 dealers, 8 prostituees,
+     6 trafiquants — pour des maxima reellement observes de 4, 4 et 3. */
+  const { gs, city } = await newTestGame(2);
+  for (let i = 0; i < 10; i++) place(gs, 'B1', 'dealer', 0);
+
+  assert.equal(gs.getPlayerPoints(0, city), 0, 'seuls le terrain, le bâti et la mairie comptent');
+});
+
+test('les points de quartiers, de bâtiments et de mairie s\'additionnent', async () => {
   const { gs, city } = await newTestGame(2);
   place(gs, 'A1', 'dealer', 0);
   place(gs, 'A2', 'dealer', 0);          /* alpha entier : 6 */
   gs.plateau['A1'].construction = 'bordel';
   gs.plateau['A2'].construction = 'entrepot';   /* 2 bâtiments : +2 */
   gs.maire.joueur_id = 0;                       /* maire : +15 */
-  for (let i = 0; i < 6; i++) place(gs, 'B1', 'dealer', 0);  /* 8 dealers : +10 */
-  gs.joueurs[0].ressources.lingots = 2000;      /* plus riche : +10 */
 
-  assert.equal(gs.getPlayerPoints(0, city), 43);
+  assert.equal(gs.getPlayerPoints(0, city), 23);
+});
+
+test('les trois seules sources de points sont le terrain, le bâti et la mairie', async () => {
+  /* Un test de completude : si l'on rajoute une source, il faut venir ici et
+     dire pourquoi elle se declenche. */
+  const { gs, city } = await newTestGame(2);
+  gs.joueurs[0].ressources.lingots = 99999;
+  gs.joueurs[0].cartes_magouille = [{ id: 'x' }, { id: 'y' }];
+  for (let i = 0; i < 9; i++) place(gs, 'C2', 'prostituee_luxe', 0);
+
+  assert.equal(gs.getPlayerPoints(0, city), 0,
+    'ni la fortune, ni la main, ni l\'accumulation de pions ne valent un point');
 });
 
 /* ── Sauvegarde et relecture ────────────────────────────────────────────────

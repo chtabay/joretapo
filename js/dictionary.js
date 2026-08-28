@@ -102,14 +102,19 @@ export const DICT_ENTRIES = {
       <p><strong>Objectif</strong> : être le premier à atteindre <strong>35 points</strong>. Si personne n'y parvient, la partie s'arrête au bout de <strong>14 tours</strong> (deux mandats) et le joueur en tête l'emporte.</p>
       <table class="dict-table">
         <tr><th>Source</th><th>Pts</th></tr>
-        <tr><td>Roi de la prostitution (8+ demoiselles)</td><td>10</td></tr>
-        <tr><td>Roi du marché de la drogue (8+ dealers)</td><td>10</td></tr>
-        <tr><td>Roi du marché des armes (6+ vendeurs)</td><td>10</td></tr>
+        <tr><td>Quartier dominé (majorité stricte de ses zones)</td><td>3 à 15</td></tr>
         <tr><td>Être maire</td><td>15</td></tr>
-        <tr><td>Être le plus riche (2000+ lingots)</td><td>10</td></tr>
         <tr><td>Chaque construction</td><td>1</td></tr>
-        <tr><td>Quartier entier</td><td>3 à 15</td></tr>
       </table>
+      <p><strong>Trois sources, pas davantage.</strong> Le terrain, la mairie, le bâti. Quatre
+      paliers annonçaient jadis 40 points de plus — 8 dealers, 8 demoiselles, 6 trafiquants,
+      2 000 lingots — mais aucun ne s'est jamais déclenché : sur 40 parties simulées, soit
+      2 284 relevés, les maxima atteints étaient de 4 dealers, 4 demoiselles, 3 trafiquants
+      et 542 lingots. Ils promettaient des stratégies que la partie ne pouvait pas
+      récompenser ; ils ont été retirés.</p>
+      <p class="dict-note">Le palier des lingots posait un second problème : il faisait entrer
+      votre trésorerie — secrète — dans un score public. C'est ce qui interdisait d'afficher
+      le classement en permanence.</p>
     `
   },
   lingots: {
@@ -118,7 +123,8 @@ export const DICT_ENTRIES = {
       <p>Les <strong>lingots</strong> sont la monnaie du jeu.</p>
       <p><strong>Revenus</strong> : prostituées (1–3L/passe), dealers (3L/dose), trafiquants (8L/arme), constructions (bordels, casinos, labos).</p>
       <p><strong>Dépenses</strong> : commandes de denrées, constructions (Zurich Bank + bakchich police), création de pions, cartes magouille.</p>
-      <p>À 2000 lingots, vous gagnez 10 pts de victoire (roi des richesses).</p>
+      <p>La fortune ne donne <strong>aucun point de victoire</strong> : elle sert à acheter
+      des denrées, des pions et des bâtiments. Ce sont les bâtiments qui marquent.</p>
     `
   },
   election: {
@@ -166,7 +172,8 @@ export const DICT_ENTRIES = {
       </table>
       <p><strong>Placement</strong> : sur une zone que vous contrôlez. Max 1 type de pion par case (les prostituées cohabitent avec les pions armés).</p>
       <p><strong>Capture</strong> : une prostituée non protégée (sans homme armé sur sa case) est capturée si un adversaire conquiert la case.</p>
-      <p><strong>Roi de la prostitution</strong> : 10 pts de victoire avec 8+ demoiselles.</p>
+      <p>Accumuler des demoiselles ne donne <strong>aucun point</strong> : elles rapportent des
+      lingots, et c'est le terrain qu'elles aident à tenir qui marque.</p>
     `
   },
 

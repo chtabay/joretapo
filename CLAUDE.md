@@ -7,7 +7,7 @@ dépôt, on ne sait plus où on en était, et on referme.
 ## En trente secondes
 
 ```bash
-npm test                    # 193 tests, aucune dépendance, aucune configuration
+npm test                    # 187 tests, aucune dépendance, aucune configuration
 node tools/sim.mjs          # 40 parties simulées : le jeu est-il encore jouable ?
 npm run serve               # http://localhost:8000
 ```
@@ -45,6 +45,8 @@ de 30 tours, et 0 % avec le moindre combat.
 | Propriété d'une zone | perdue en sortant | conservée jusqu'à ce qu'un autre la prenne | On ne pouvait grandir qu'en achetant des pions ; les points oscillaient 15 → 0 → 15 |
 | Victoire | 55 points | 35 points, fin dure au 14ᵉ tour | 55 sur un plateau qui en offre 129 demandait de tenir 42 % de la carte |
 | Soutien à un allié | inexistant | ordre explicite, coûte un ordre | Le comptage ne créditait que le propriétaire du pion : aider quelqu'un était impossible, et la négociation n'avait rien à négocier |
+| Sources de points | 7, dont 4 paliers (8 dealers, 8 prostituées, 6 trafiquants, 2 000 lingots) | 3 : quartiers, mairie, constructions | Les 4 paliers valaient 40 points annoncés et ne se déclenchaient **jamais** : sur 2 284 relevés, maxima 4, 4, 3 et 542. Celui des lingots faisait en outre entrer une information secrète dans un score public |
+| Ordre de passage | retiré au sort à chaque phase | tiré une fois par tour | Un joueur pouvait passer premier en phase 1 et dernier en phase 4. Un ordre qu'on ne peut pas annoncer est un ordre qu'on subit |
 | Vote | pour soi possible | interdit | L'auto-vote rendait le maire mécanique : le joueur déjà en tête |
 | Offre d'armes | 46/tour | 130/tour | Un joueur dépensait 3 de ses 5 ordres en courses et ne s'étendait plus |
 | Égalité de conflit | statu quo gratuit | départagée au tour même : celui qui tient la zone la garde ; sinon celui qui engage le plus de pions | 353 égalités sur 40 parties, dont 66 % rejouées à l'identique le tour suivant, pendant que 0,7 zone changeait de mains. Se bloquer était la position la moins chère du jeu |

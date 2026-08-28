@@ -691,14 +691,76 @@ function onPhaseChange() {
 }
 
 /* ── Curtain ── */
+/**
+ * Le rideau porte l'etat public de la partie.
+ *
+ * C'est l'ecran le plus vu du jeu — huit fois par tour a quatre joueurs, douze a
+ * six, soit 40 % des ecrans plein cadre de la soiree — et il n'affichait que
+ * « Tour n », un nom, un libelle de phase et un bouton : une trentaine de pixels
+ * de contenu dans 844. Pendant ce temps le joueur decidait ses cinq ordres sans
+ * savoir ou il en etait, et l'attente des autres etait du vide integral.
+ *
+ * C'est le seul endroit ou l'on peut afficher l'etat en permanence sans retirer
+ * un pixel a la carte, et il ne coute aucun passage de tablette supplementaire.
+ *
+ * Rien de secret n'y figure : ni lingots, ni stocks, ni mains. Les points le
+ * peuvent depuis que le palier des 2 000 lingots a ete retire du calcul — il
+ * faisait entrer la tresorerie dans un score public, et c'est ce qui interdisait
+ * d'afficher un classement en permanence.
+ */
 function renderCurtain() {
   const ov = document.getElementById('curtain');
   const j = turnManager.currentPlayer;
-  const phaseNum = gameState.phase;
-  ov.querySelector('.curtain-turn').textContent = `Tour ${gameState.tour}`;
+  const pid = turnManager.currentPlayerId;
+
+  ov.querySelector('.curtain-turn').textContent = `Tour ${gameState.tour} / ${RULES.finDePartie}`;
   ov.querySelector('.curtain-player').textContent = j.nom;
   ov.querySelector('.curtain-player').style.color = j.couleur;
-  ov.querySelector('.curtain-phase').textContent = GAME_PHASE_LABELS[phaseNum];
+  ov.querySelector('.curtain-phase').textContent = GAME_PHASE_LABELS[gameState.phase];
+
+  const vues = vueJoueurs(gameState, gameData.gameplay, { revele: 'tous' });
+  const rang = [...vues].sort((a, b) => b.points - a.points);
+  const meneur = rang[0]?.points ?? 0;
+
+  const classement = rang.map(v => {
+    const restant = Math.max(0, RULES.victoire - v.points);
+    return `<div class="cur-rang${v.id === pid ? ' cur-moi' : ''}">
+      <span class="cur-pastille" style="background:${v.couleur}"></span>
+      <span class="cur-nom">${esc(v.nom)}${v.estMaire ? ' 🏛️' : ''}</span>
+      <span class="cur-terr">${v.zones}z · ${v.quartiers.length}q</span>
+      <span class="cur-pts">${v.points}<small>/${RULES.victoire}</small></span>
+      <span class="cur-reste">${restant === 0 ? '★' : `−${restant}`}</span>
+    </div>`;
+  }).join('');
+
+  /* L'ordre de passage est tire une fois par tour : on peut donc l'annoncer, et
+     chacun sait combien de joueurs le separent de son prochain tour. */
+  const file = turnManager.playerQueue || [];
+  const position = turnManager.currentPlayerIdx;
+  const passage = file.map((id, i) => {
+    const v = vues[id];
+    const etat = i < position ? 'passe' : i === position ? 'courant' : 'attend';
+    return `<span class="cur-file-pion cur-${etat}" style="--c:${v.couleur}" title="${esc(v.nom)}">${i + 1}</span>`;
+  }).join('');
+
+  const disputes = quartiersDisputes(gameState, gameData.gameplay)
+    .sort((a, b) => b.points - a.points)
+    .slice(0, 3)
+    .map(d => `<li><strong>${esc(d.nom)}</strong> — ${d.points} pts, il manque une zone à ${esc(gameState.joueurs[d.joueur].nom)}</li>`)
+    .join('');
+
+  const contrats = ContractEngine.getActiveContracts(gameState)
+    .map(c => `<li>${esc(gameState.joueurs[c.joueur_a]?.nom || '?')} ↔ ${esc(gameState.joueurs[c.joueur_b]?.nom || '?')} — ${esc(CONTRACT_TYPES[c.type]?.label || c.type)}</li>`)
+    .join('');
+
+  const bloc = ov.querySelector('.curtain-etat');
+  bloc.innerHTML =
+    `<div class="cur-classement">${classement}</div>` +
+    `<div class="cur-file"><span class="cur-file-titre">Ordre du tour</span>${passage}</div>` +
+    (disputes ? `<div class="cur-section"><span class="cur-section-titre">À une zone de basculer</span><ul>${disputes}</ul></div>` : '') +
+    (contrats ? `<div class="cur-section"><span class="cur-section-titre">Contrats en cours</span><ul>${contrats}</ul></div>` : '') +
+    (estDernierTour() ? `<div class="cur-fin">🏁 Dernier tour — ${meneur >= RULES.victoire ? 'le seuil est atteint' : `fin au tour ${RULES.finDePartie}`}</div>` : '');
+
   const btn = ov.querySelector('#btn-curtain-go');
   btn.textContent = `Je suis ${j.nom}`;
   btn.onclick = () => { ov.classList.add('hidden'); turnManager.confirmCurtain(); };

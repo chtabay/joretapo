@@ -135,12 +135,46 @@
   .overlay:not(.hidden) .reveal-container, .overlay:not(.hidden) .nego-container, .overlay:not(.hidden) .turnend-container, .overlay:not(.hidden) .modal-content { animation: slideUp 0.3s ease; }
 
   /* ── Curtain ── */
-  #curtain { background: #0a0a1a; flex-direction: column; gap: 20px; }
+  /* Le rideau est l'ecran le plus vu du jeu : il porte l'etat public de la
+     partie, pas seulement un nom. Tout y est PUBLIC — aucun lingot, aucun stock. */
+  #curtain { background: #0a0a1a; flex-direction: column; gap: 12px; justify-content: flex-start;
+    padding: 20px 16px 24px; overflow-y: auto; }
   #curtain:not(.hidden) { animation: fadeIn 0.4s ease; }
-  .curtain-turn { font-size: 42px; font-weight: 800; color: #8ab4f8; letter-spacing: 3px; opacity: 0.7; }
-  .curtain-phase { font-size: 14px; color: #666; letter-spacing: 2px; text-transform: uppercase; }
-  .curtain-label { font-size: 18px; color: #888; }
-  .curtain-player { font-size: 48px; font-weight: 700; text-shadow: 0 0 40px currentColor; }
+  .curtain-turn { font-size: 26px; font-weight: 800; color: #8ab4f8; letter-spacing: 2px; opacity: 0.75; }
+  .curtain-phase { font-size: 12px; color: #7b8595; letter-spacing: 1.6px; text-transform: uppercase;
+    text-align: center; padding: 0 12px; line-height: 1.5; }
+  .curtain-label { font-size: 15px; color: #888; margin-top: 4px; }
+  .curtain-player { font-size: 34px; font-weight: 700; text-shadow: 0 0 30px currentColor; text-align: center; }
+
+  .curtain-etat { width: 100%; max-width: 420px; display: flex; flex-direction: column; gap: 10px; margin-top: 4px; }
+  .cur-classement { display: flex; flex-direction: column; gap: 2px; }
+  .cur-rang { display: grid; grid-template-columns: 10px 1fr auto auto 2.6em; align-items: center;
+    gap: 8px; padding: 5px 8px; border-radius: 5px; font-size: 13px; font-variant-numeric: tabular-nums; }
+  .cur-rang.cur-moi { background: rgba(138,180,248,0.12); box-shadow: inset 0 0 0 1px rgba(138,180,248,0.35); }
+  .cur-pastille { width: 10px; height: 10px; border-radius: 50%; }
+  .cur-nom { color: #cdd6e2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .cur-terr { color: #6c7688; font-size: 11px; }
+  .cur-pts { color: #fff; font-weight: 700; }
+  .cur-pts small { color: #6c7688; font-weight: 400; }
+  .cur-reste { color: #8ab4f8; font-size: 11.5px; text-align: right; }
+
+  .cur-file { display: flex; align-items: center; gap: 5px; flex-wrap: wrap;
+    padding: 7px 8px; border-top: 1px solid #232a38; border-bottom: 1px solid #232a38; }
+  .cur-file-titre { font-size: 10px; letter-spacing: 1.2px; text-transform: uppercase; color: #6c7688; margin-right: 4px; }
+  .cur-file-pion { width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center;
+    justify-content: center; font-size: 10px; font-weight: 700; border: 1.5px solid var(--c); color: var(--c); }
+  .cur-file-pion.cur-passe { opacity: 0.32; }
+  .cur-file-pion.cur-courant { background: var(--c); color: #0a0a1a; box-shadow: 0 0 10px var(--c); }
+  .cur-file-pion.cur-attend { opacity: 0.7; }
+
+  .cur-section { font-size: 12px; color: #98a2b0; }
+  .cur-section-titre { font-size: 10px; letter-spacing: 1.2px; text-transform: uppercase; color: #6c7688; display: block; margin-bottom: 3px; }
+  .cur-section ul { margin: 0; padding-left: 16px; }
+  .cur-section li { margin-bottom: 2px; line-height: 1.45; }
+  .cur-section strong { color: #cdd6e2; font-weight: 600; }
+  .cur-fin { font-size: 12px; color: #f1c40f; border: 1px solid #f1c40f; border-radius: 5px;
+    padding: 6px 9px; text-align: center; }
+  #btn-curtain-go { margin-top: 8px; }
 
   /* ── Order Panel ── */
   #order-panel { position: fixed; top: 0; right: 0; width: 340px; height: 100vh; height: 100dvh; background: rgba(10,10,30,0.96); border-left: 1px solid #334; z-index: 50; display: flex; flex-direction: column; padding: 16px; overflow: hidden; backdrop-filter: blur(8px); animation: slideRight 0.3s ease; transition: width 0.25s ease, padding 0.25s ease; }
@@ -715,8 +749,8 @@
     .share-actions { gap: 10px; }
     .btn-share { min-height: 44px; padding: 10px 16px; font-size: 14px; }
 
-    .curtain-turn { font-size: 28px; }
-    .curtain-player { font-size: 32px; }
+    .curtain-turn { font-size: 22px; }
+    .curtain-player { font-size: 28px; }
     .magouille-toast, .mayor-toast, .contract-toast, .coupole-toast, .heist-toast { font-size: 14px; padding: 10px 20px; left: 8px; right: 8px; transform: translateX(0); width: calc(100% - 16px); }
 
     .heist-grid { grid-template-columns: 1fr; }
@@ -848,7 +882,8 @@
     <div class="curtain-phase"></div>
     <div class="curtain-label">Passez la tablette à</div>
     <div class="curtain-player"></div>
-    <button class="btn-primary" id="btn-curtain-go" style="margin-top:32px">—</button>
+    <div class="curtain-etat"></div>
+    <button class="btn-primary" id="btn-curtain-go">—</button>
   </div>
 
   <!-- Reveal -->

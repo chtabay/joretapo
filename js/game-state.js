@@ -340,28 +340,25 @@ export class GameState {
 
     if (this.maire.joueur_id === joueurId) points += 15;
 
-    const joueur = this.joueurs[joueurId];
-
-    const dealerCount = Object.values(this.plateau)
-      .flatMap(z => z.pions)
-      .filter(p => p.joueur === joueurId && p.type === 'dealer').length;
-    if (dealerCount >= 8) points += 10;
-
-    const prostCount = Object.values(this.plateau)
-      .flatMap(z => z.pions)
-      .filter(p => p.joueur === joueurId && (p.type === 'prostituee_base' || p.type === 'prostituee_luxe')).length;
-    if (prostCount >= 8) points += 10;
-
-    const trafCount = Object.values(this.plateau)
-      .flatMap(z => z.pions)
-      .filter(p => p.joueur === joueurId && p.type === 'trafiquant').length;
-    if (trafCount >= 6) points += 10;
-
-    const maxLingots = Math.max(...this.joueurs.map(j => j.ressources.lingots));
-    if (joueur.ressources.lingots >= 2000 && joueur.ressources.lingots === maxLingots) {
-      points += 10;
-    }
-
+    /* Quatre paliers ont ete retires : 8 dealers, 8 prostituees, 6 trafiquants et
+       2 000 lingots, qui valaient ensemble 40 points annonces.
+     *
+     * Ils ne se declenchaient JAMAIS. Mesure sur 40 parties simulees, soit
+     * 2 284 releves joueur x tour : maxima observes 4 dealers, 4 prostituees,
+     * 3 trafiquants et 542 lingots, contre des seuils a 8, 8, 6 et 2 000. Zero
+     * declenchement. Ils etaient pourtant les premiers annonces a l'ecran
+     * d'introduction et en tete du dictionnaire : un joueur qui visait « roi du
+     * marche de la drogue » batissait une strategie que la partie ne pouvait pas
+     * recompenser.
+     *
+     * Le palier des lingots posait un second probleme : il faisait entrer une
+     * information SECRETE — la tresorerie — dans les points, donc dans tout ce
+     * qui affiche un classement. C'est ce qui interdisait de montrer les scores
+     * en permanence sur le rideau.
+     *
+     * Leur retrait ne deplace aucun indicateur du banc, precisement parce qu'ils
+     * ne se declenchaient pas. Le seuil de victoire reste a recaler une fois que
+     * le banc jouera les couches qu'il saute encore. */
     return points;
   }
 }
