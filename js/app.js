@@ -210,7 +210,7 @@ function updateElectionTopbar() {
     dots += `<div class="${cls}">${i}</div>`;
     if (i < CYCLE) dots += `<div class="etb-connector${i < posInCycle ? ' done' : ''}"></div>`;
   }
-  bar.innerHTML = `<div class="etb-left"><button class="etb-share" id="etb-share-btn" title="Sauvegarder & partager">💾 Sauver / Partager</button><span class="etb-tour">T${gameState.tour}</span></div>${dots}<div class="etb-right"></div>`;
+  bar.innerHTML = `<div class="etb-left"><button class="etb-share" id="etb-share-btn" title="Sauvegarder & partager" aria-label="Sauvegarder et partager">💾<span class="etb-share-label"> Sauver / Partager</span></button></div><div class="etb-dots">${dots}</div><div class="etb-right"><span class="etb-tour">T${gameState.tour}</span></div>`;
   bar.classList.add('active');
   bar.querySelector('#etb-share-btn')?.addEventListener('click', showShareModal);
 }
@@ -660,6 +660,12 @@ function renderOrderPanel(gamePhase) {
   const maxOrders = turnManager.maxOrdersForPhase(pid);
   pendingOrders = [];
 
+  /* Les equipements a portee sont cercles sur la carte pendant la phase d'achat :
+     le joueur voit ou il peut commander avant d'ouvrir quoi que ce soit. */
+  mapRenderer?.marquerPortee(gamePhase === 1
+    ? RevenueEngine.pointsAccessibles(gameState, pid, gameData.gameplay, gameData.adjacencies).map(sp => sp.zone)
+    : []);
+
   function refresh() {
     const remaining = maxOrders - pendingOrders.length;
     panel.innerHTML = `
@@ -684,6 +690,7 @@ function renderOrderPanel(gamePhase) {
           <button class="op-btn" id="btn-add-supply" ${remaining <= 0 ? 'disabled' : ''}>+ Acheter denrées</button>
           <button class="op-btn" id="btn-add-recruit" ${remaining <= 0 ? 'disabled' : ''}>+ Recruter prostituée</button>
           <button class="op-btn" id="btn-add-build" ${remaining <= 0 ? 'disabled' : ''}>+ Construire</button>
+          <div class="op-hint">On ne commande qu'aux équipements <strong>à portée</strong> — cerclés de jaune sur la carte : un pion dans leur zone, dans une zone voisine, ou la zone vous appartient.</div>
         ` : `
           <button class="op-btn" id="btn-add-move" ${remaining <= 0 ? 'disabled' : ''}>+ Déplacer un pion</button>
           <button class="op-btn op-btn-support" id="btn-add-support" ${remaining <= 0 ? 'disabled' : ''}>+ Soutenir un allié ${helpLink('soutien')}</button>
@@ -906,7 +913,36 @@ function besoinsDuJoueur(pid) {
 }
 
 function showSupplyModal(pid, refresh) {
-  const sps = RevenueEngine.getSupplyPoints(gameData.gameplay).filter(sp => sp.type !== 'camp_gitans' || sp.caps.armes > 0);
+  /**
+   * On ne propose que les equipements a portee.
+   *
+   * La liste affichait auparavant les treize points du plateau, identique pour
+   * tous les joueurs et depuis n'importe quelle position : on commandait au port
+   * du New Jersey depuis Brooklyn. Un equipement ne valait alors la peine ni
+   * d'etre pris ni d'etre defendu, puisqu'on s'y servait sans y aller.
+   */
+  const tousLesPoints = RevenueEngine.getSupplyPoints(gameData.gameplay)
+    .filter(sp => sp.type !== 'camp_gitans' || sp.caps.armes > 0);
+  const sps = tousLesPoints.filter(sp => RevenueEngine.estAPortee(gameState, pid, sp.zone, gameData.adjacencies));
+  const horsDePortee = tousLesPoints.length - sps.length;
+
+  if (sps.length === 0) {
+    openModal(`
+      <h3>Approvisionnement ${helpLink('approvisionnement_points', '🛃')}</h3>
+      <div class="modal-point-info pt-autre">
+        🚫 <strong>Aucun équipement à votre portée.</strong>
+      </div>
+      <p style="color:#aaa;font-size:13px;line-height:1.5">
+        On ne commande qu'à un port, un péage ou un aéroport où l'on est présent :
+        un pion dans sa zone, un pion dans une zone voisine, ou la zone elle-même.
+        Les ${tousLesPoints.length} équipements du plateau sont marqués ⚓ 🛣️ ✈️ — déplacez un pion
+        vers le plus proche.
+      </p>
+      <div class="modal-actions"><button class="btn-secondary" id="modal-cancel">Fermer</button></div>
+    `, null);
+    bindHelpLinks();
+    return;
+  }
   const allDenrees = [
     { id: 'doses', label: 'Doses', prix: 2, capKey: 'doses' },
     { id: 'armes', label: 'Armes', prix: 4, capKey: 'armes' }
@@ -970,6 +1006,7 @@ function showSupplyModal(pid, refresh) {
       return `<option value="${sp.zone}">${sp.nom} (${sp.type}) ${avail.join('')} — ${statutDuPoint(sp.zone).etiquette}</option>`;
     }).join('')}</select>
     <div id="f-point-info" class="modal-point-info"></div>
+    ${horsDePortee > 0 ? `<div class="modal-hors-portee">📍 ${sps.length} équipement${sps.length > 1 ? 's' : ''} à votre portée. ${horsDePortee} autre${horsDePortee > 1 ? 's sont trop loin' : ' est trop loin'} : il faut un pion sur place ou juste à côté.</div>` : ''}
     <label>Denrée :</label>
     <select id="f-denree"></select>
     <div id="f-stock-info" style="font-size:12px;color:#888;margin-top:2px"></div>
@@ -1102,11 +1139,28 @@ function showSupplyModal(pid, refresh) {
 }
 
 function showRecruitModal(pid, refresh) {
-  const sps = RevenueEngine.getSupplyPoints(gameData.gameplay).filter(sp => sp.caps.prost > 0);
+  /* Meme geographie que l'approvisionnement : on recrute la ou l'on est. */
+  const sps = RevenueEngine.getSupplyPoints(gameData.gameplay)
+    .filter(sp => sp.caps.prost > 0)
+    .filter(sp => RevenueEngine.estAPortee(gameState, pid, sp.zone, gameData.adjacencies));
   const ownedZones = Object.entries(gameState.plateau)
     .filter(([_, z]) => z.proprietaire === pid || z.pions.some(p => p.joueur === pid))
     .filter(([_, z]) => !z.pions.some(p => p.type === 'prostituee_base' || p.type === 'prostituee_luxe'))
     .map(([zid]) => zid);
+
+  if (sps.length === 0) {
+    openModal(`
+      <h3>Recruter prostituée ${helpLink('recrutement')}</h3>
+      <div class="modal-point-info pt-autre">🚫 <strong>Aucun équipement à votre portée.</strong></div>
+      <p style="color:#aaa;font-size:13px;line-height:1.5">
+        Le recrutement passe par un péage ou l'aéroport, et il faut y être :
+        un pion dans sa zone, un pion juste à côté, ou la zone elle-même.
+      </p>
+      <div class="modal-actions"><button class="btn-secondary" id="modal-cancel">Fermer</button></div>
+    `, null);
+    bindHelpLinks();
+    return;
+  }
 
   const html = `
     <h3>Recruter prostituée ${helpLink('recrutement')}</h3>

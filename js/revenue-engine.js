@@ -9,10 +9,14 @@
  * tour 100, un joueur parti de Harlem avait 11 103 lingots et toujours 7 pions.
  * Le budget d'ordres — la vraie monnaie du jeu — était consommé par l'intendance.
  *
- * L'offre mondiale passe de 46 à 130 armes par tour (3 ports, 4 péages), soit de
+ * L'offre mondiale passe de 46 à 140 armes par tour (3 ports, 5 péages), soit de
  * quoi nourrir un joueur avec UN ordre au lieu de trois, tout en gardant une
  * pénurie réelle : à 6 joueurs, la demande dépasse encore l'offre dès que le
  * plateau se remplit, et les points restent disputés.
+ *
+ * Ce chiffre est trompeur pris seul : depuis que l'approvisionnement demande
+ * d'être sur place (voir `estAPortee`), un joueur n'atteint qu'un à trois points
+ * sur treize. L'offre qui le concerne, lui, reste rare.
  */
 import { RULES } from './rules.js';
 
@@ -70,6 +74,39 @@ export class RevenueEngine {
     return String(pointZone).startsWith('ile_');
   }
 
+  /**
+   * A-t-on acces a ce point d'approvisionnement ?
+   *
+   * Il faut y etre, ou etre a sa porte : un pion dans la zone du point, un pion
+   * dans une zone adjacente, ou en etre le proprietaire.
+   *
+   * Sans cette condition, la liste des points etait la meme pour tout le monde
+   * et depuis n'importe ou : un joueur de Brooklyn commandait au port du New
+   * Jersey sans jamais y mettre les pieds. La logistique n'avait aucune
+   * geographie, et un equipement ne valait donc pas la peine d'etre pris — ni
+   * defendu. Le peage seul ne suffisait pas : il rendait l'equipement rentable,
+   * pas necessaire.
+   *
+   * Mesure sur le plateau de New York : douze points existent, un quartier de
+   * depart en atteint un a trois. C'est la contrainte qui donne un objectif
+   * militaire a un port.
+   */
+  static estAPortee(gs, pid, pointZone, adjacencies) {
+    const zone = gs.plateau[pointZone];
+    if (!zone) return false;
+    if (zone.proprietaire === pid) return true;
+
+    const occupee = zid => (gs.plateau[zid]?.pions || []).some(p => p.joueur === pid);
+    if (occupee(pointZone)) return true;
+    return (adjacencies?.[pointZone] || []).some(occupee);
+  }
+
+  /** Les points ou ce joueur peut commander, dans l'etat actuel du plateau. */
+  static pointsAccessibles(gs, pid, gameplay, adjacencies) {
+    return RevenueEngine.getSupplyPoints(gameplay)
+      .filter(sp => RevenueEngine.estAPortee(gs, pid, sp.zone, adjacencies));
+  }
+
   /** Qui controle ce point d'approvisionnement, s'il est controle. */
   static proprietaireDuPoint(gs, pointZone) {
     if (RevenueEngine.estMarcheNoir(pointZone)) return null;
@@ -87,9 +124,9 @@ export class RevenueEngine {
    * d'etre pris. Desormais celui qui tient l'equipement prend un peage sur ceux
    * qui s'y servent — ce qui en fait une rente, donc un objectif.
    *
-   * Ce n'est pas un verrou : six des onze quartiers de depart ne portent aucun
-   * point, les en priver serait une condamnation. On paie plus cher, on passe
-   * apres, on peut toujours jouer.
+   * Le peage n'est pas un verrou : on peut toujours se servir chez un rival,
+   * on paie plus cher et on passe apres lui. Le verrou, c'est la geographie
+   * (`estAPortee`) : encore faut-il avoir un pion sur place.
    */
   static prixAppro(gs, pid, pointZone, denree, gameplay) {
     let base = BUY_PRICE[denree] || 0;
@@ -164,6 +201,12 @@ export class RevenueEngine {
       const bonus = bonusDe[pid];
       const pool = remaining[o.point];
       if (!pool) return;
+
+      /* On ne commande pas a un equipement ou l'on n'a personne. */
+      if (!RevenueEngine.estAPortee(gs, pid, o.point, adjacencies)) {
+        log.push({ pid, msg: `${joueur.nom}: aucun pion a portee de ${o.point}, commande annulée`, type: 'warn' });
+        return;
+      }
 
       if (o.type === 'approvisionner') {
         const capKey = o.denree === 'prostituee_base' || o.denree === 'prostituee_luxe' ? 'prost' : o.denree;

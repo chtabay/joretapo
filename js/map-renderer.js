@@ -63,9 +63,14 @@ const PION_SYMBOLS = {
  * ordinaire, il fallait ouvrir la fiche de la zone pour l'apprendre.
  */
 const EQUIPEMENTS = {
-  port:     { glyphe: '⚓', titre: 'Port' },
-  peage:    { glyphe: '🛣️', titre: 'Péage' },
-  aeroport: { glyphe: '✈️', titre: 'Aéroport' }
+  port:        { glyphe: '⚓', titre: 'Port' },
+  peage:       { glyphe: '🛣️', titre: 'Péage' },
+  aeroport:    { glyphe: '✈️', titre: 'Aéroport' },
+  /* Le camp gitan n'est pas un equipement public — il n'a pas de proprietaire et
+     ne preleve pas de peage — mais c'est un point d'approvisionnement, et la
+     carte doit le montrer comme tel : sinon le joueur qui n'a que lui a portee
+     ne voit aucun marqueur. */
+  camp_gitans: { glyphe: '🏕️', titre: 'Camp gitan — marché noir' }
 };
 
 const NS = 'http://www.w3.org/2000/svg';
@@ -348,39 +353,42 @@ export class MapRenderer {
       /* Marqueur d'equipement, au-dessus du nom de zone. Il vit dans le groupe
          contre-echele, donc il garde sa taille a l'ecran comme les pions. */
       const equip = EQUIPEMENTS[zoneData?.facilite];
-      if (equip) {
-        const badge = document.createElementNS(NS, 'g');
-        badge.classList.add('zone-equipement');
-
-        const y = -PX.pionRadius - 27;
-        const halo = document.createElementNS(NS, 'circle');
-        halo.setAttribute('cx', '0');
-        halo.setAttribute('cy', String(y));
-        halo.setAttribute('r', '10');
-        halo.setAttribute('fill', 'rgba(0,0,0,0.72)');
-        halo.setAttribute('stroke', 'rgba(255,255,255,0.5)');
-        halo.setAttribute('stroke-width', '1.2');
-        halo.classList.add('equip-halo');
-        badge.appendChild(halo);
-
-        const t = document.createElementNS(NS, 'text');
-        t.setAttribute('x', '0');
-        t.setAttribute('y', String(y));
-        t.setAttribute('text-anchor', 'middle');
-        t.setAttribute('dominant-baseline', 'central');
-        t.setAttribute('font-size', '11');
-        t.textContent = equip.glyphe;
-        badge.appendChild(t);
-
-        const titre = document.createElementNS(NS, 'title');
-        titre.textContent = `${equip.titre} — équipement logistique`;
-        badge.appendChild(titre);
-
-        glyphs.appendChild(badge);
-      }
+      if (equip) glyphs.appendChild(this._badgeEquipement(equip));
 
       this.gLabels.appendChild(glyphs);
       this.glyphGroups[id] = glyphs;
+    });
+
+    /* Les iles n'ont pas de geometrie dans le GeoJSON : elles n'ont donc jamais
+       recu de marqueur, alors qu'un camp gitan est un point d'approvisionnement
+       comme un autre. Un joueur qui n'a que lui a portee ne voyait rien sur la
+       carte. On leur fabrique un groupe de libelles a leur position de repli. */
+    (this.gameplay.iles || []).forEach(ile => {
+      const [cx, cy] = this._fallbackCentroid(ile.id);
+      if (!Number.isFinite(cx) || !Number.isFinite(cy)) return;
+
+      const glyphs = document.createElementNS(NS, 'g');
+      glyphs.setAttribute('pointer-events', 'none');
+      glyphs.dataset.zone = ile.id;
+
+      const nom = document.createElementNS(NS, 'text');
+      nom.setAttribute('x', '0');
+      nom.setAttribute('y', String(-PX.pionRadius - 12));
+      nom.setAttribute('text-anchor', 'middle');
+      nom.setAttribute('dominant-baseline', 'central');
+      nom.setAttribute('font-size', String(PX.zoneNameFont));
+      nom.setAttribute('fill', 'rgba(255,255,255,0.92)');
+      nom.setAttribute('font-family', 'system-ui, sans-serif');
+      nom.setAttribute('font-weight', '600');
+      nom.setAttribute('stroke', 'rgba(0,0,0,0.85)');
+      nom.setAttribute('stroke-width', '3');
+      nom.setAttribute('paint-order', 'stroke');
+      nom.textContent = ile.nom;
+      glyphs.appendChild(nom);
+
+      glyphs.appendChild(this._badgeEquipement(EQUIPEMENTS.camp_gitans));
+      this.gLabels.appendChild(glyphs);
+      this.glyphGroups[ile.id] = glyphs;
     });
 
     this.svg.appendChild(this.gZones);
@@ -579,6 +587,69 @@ export class MapRenderer {
     Object.values(this.pathMap).forEach(p =>
       p.classList.remove('dimmed', 'heist-target', 'heist-owned', 'move-source', 'move-dest', 'move-conflict', 'selected', 'adjacent', 'quartier-highlight'));
     this.selectedId = null;
+  }
+
+  /**
+   * Marqueur d'un point d'approvisionnement, dans le groupe contre-echele : il
+   * garde donc sa taille a l'ecran comme les pions.
+   */
+  _badgeEquipement(equip) {
+    const badge = document.createElementNS(NS, 'g');
+    badge.classList.add('zone-equipement');
+
+    const y = -PX.pionRadius - 27;
+
+    /* Anneau « a portee » : on ne peut commander qu'aux equipements ou l'on a un
+       pion sur place ou juste a cote. Sans repere sur la carte, cette regle ne se
+       decouvre qu'en ouvrant la modale — trop tard pour decider d'un deplacement. */
+    const portee = document.createElementNS(NS, 'circle');
+    portee.setAttribute('cx', '0');
+    portee.setAttribute('cy', String(y));
+    portee.setAttribute('r', '14');
+    portee.setAttribute('fill', 'none');
+    portee.setAttribute('stroke', '#f1c40f');
+    portee.setAttribute('stroke-width', '1.6');
+    portee.setAttribute('stroke-dasharray', '3 2.5');
+    portee.setAttribute('display', 'none');
+    portee.classList.add('equip-portee');
+    badge.appendChild(portee);
+
+    const halo = document.createElementNS(NS, 'circle');
+    halo.setAttribute('cx', '0');
+    halo.setAttribute('cy', String(y));
+    halo.setAttribute('r', '10');
+    halo.setAttribute('fill', 'rgba(0,0,0,0.72)');
+    halo.setAttribute('stroke', 'rgba(255,255,255,0.5)');
+    halo.setAttribute('stroke-width', '1.2');
+    halo.classList.add('equip-halo');
+    badge.appendChild(halo);
+
+    const t = document.createElementNS(NS, 'text');
+    t.setAttribute('x', '0');
+    t.setAttribute('y', String(y));
+    t.setAttribute('text-anchor', 'middle');
+    t.setAttribute('dominant-baseline', 'central');
+    t.setAttribute('font-size', '11');
+    t.textContent = equip.glyphe;
+    badge.appendChild(t);
+
+    const titre = document.createElementNS(NS, 'title');
+    titre.textContent = `${equip.titre} — équipement logistique`;
+    badge.appendChild(titre);
+
+    return badge;
+  }
+
+  /**
+   * Signale les equipements ou le joueur courant peut commander ce tour-ci.
+   * Passer une liste vide (ou rien) efface les anneaux.
+   */
+  marquerPortee(zoneIds) {
+    const set = new Set(zoneIds || []);
+    Object.entries(this.glyphGroups).forEach(([zid, g]) => {
+      const ring = g.querySelector('.equip-portee');
+      if (ring) ring.setAttribute('display', set.has(zid) ? '' : 'none');
+    });
   }
 
   updateOwnership(gameState) {

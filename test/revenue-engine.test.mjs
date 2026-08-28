@@ -19,7 +19,7 @@
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { newTestGame, place, ROOT } from './helpers.mjs';
+import { newTestGame, place, posteAPortee, ROOT } from './helpers.mjs';
 
 const { RevenueEngine, CONSTRUCTION_DEFS , SUPPLY_CAPS } = await import(`${ROOT}/js/revenue-engine.js`);
 
@@ -452,6 +452,7 @@ test('les points d\'approvisionnement se déduisent des facilités des zones', a
 
 test('une commande est plafonnée par le stock du point', async () => {
   const { gs, city, adj } = await newTestGame(2);
+  posteAPortee(gs, 'A1', 0);          /* A1 jouxte le port A2 */
   dote(gs, 0, { lingots: 1000 });
 
   const stock = SUPPLY_CAPS.port.armes;
@@ -463,6 +464,7 @@ test('une commande est plafonnée par le stock du point', async () => {
 
 test('une commande est plafonnée par ce que le joueur peut payer', async () => {
   const { gs, city, adj } = await newTestGame(2);
+  posteAPortee(gs, 'A1', 0);
   dote(gs, 0, { lingots: 11 });
 
   RevenueEngine.processSupplyOrders(gs, { 0: [appro('A2', 'doses', 20)] }, city, adj);
@@ -473,6 +475,7 @@ test('une commande est plafonnée par ce que le joueur peut payer', async () => 
 
 test('un ordre non finançable ne débite rien et se journalise en avertissement', async () => {
   const { gs, city, adj } = await newTestGame(2);
+  posteAPortee(gs, 'A1', 0);
   dote(gs, 0, { lingots: 1 });
 
   const log = RevenueEngine.processSupplyOrders(gs, { 0: [appro('A2', 'doses', 5)] }, city, adj);
@@ -494,6 +497,7 @@ test('une commande sur un point qui n\'existe pas ne livre rien', async () => {
 
 test('un labo fait tomber la dose à un lingot pour son propriétaire', async () => {
   const { gs, city, adj } = await newTestGame(2);
+  posteAPortee(gs, 'A1', 0);
   dote(gs, 0, { lingots: 100 });
   gs.plateau['D2'].construction = 'labo';
   gs.plateau['D2'].proprietaire = 0;
@@ -508,6 +512,8 @@ test('le stock d\'un point est partagé : qui arrive après ne trouve plus rien'
   const { gs, city, adj } = await newTestGame(2);
   const rendreLeHasard = ordreDesJoueursFige();
   try {
+    posteAPortee(gs, 'A1', 0);
+    posteAPortee(gs, 'A1', 1);
     dote(gs, 0, { lingots: 1000 });
     dote(gs, 1, { lingots: 1000 });
 
@@ -530,6 +536,8 @@ test('le stock partagé se répartit à hauteur de ce qui reste', async () => {
   const { gs, city, adj } = await newTestGame(2);
   const rendreLeHasard = ordreDesJoueursFige();
   try {
+    posteAPortee(gs, 'A1', 0);
+    posteAPortee(gs, 'A1', 1);
     dote(gs, 0, { lingots: 1000 });
     dote(gs, 1, { lingots: 1000 });
 
@@ -564,6 +572,8 @@ test('le bonus d\'administration ne se prélève pas sur le stock commun du poin
     try {
       city.zones['B1'].facilite = 'ambassade';
       gs.plateau['B1'].proprietaire = 0;     /* J0 tient l'ambassade : +20 doses */
+      posteAPortee(gs, 'A1', 0);
+      posteAPortee(gs, 'A1', 1);
       dote(gs, 0, { lingots: 1000 });
       dote(gs, 1, { lingots: 1000 });
 
@@ -603,6 +613,7 @@ test('le propriétaire d\'un port ne paie aucun péage', async () => {
 test('celui qui se sert chez un autre paie une surtaxe, qui va au propriétaire', async () => {
   const { gs, city, adj } = await newTestGame(2);
   gs.plateau['A2'].proprietaire = 0;
+  posteAPortee(gs, 'A1', 1);          /* J1 est a la porte du port sans le tenir */
   dote(gs, 0, { lingots: 100 });
   dote(gs, 1, { lingots: 1000 });
 
@@ -617,6 +628,7 @@ test('celui qui se sert chez un autre paie une surtaxe, qui va au propriétaire'
 test('un point que personne ne contrôle ne prélève rien', async () => {
   const { gs, city, adj } = await newTestGame(2);
   gs.plateau['A2'].proprietaire = null;
+  posteAPortee(gs, 'A1', 1);
   dote(gs, 1, { lingots: 1000 });
 
   RevenueEngine.processSupplyOrders(gs, { 1: [appro('A2', 'armes', 10)] }, city, adj);
@@ -630,6 +642,7 @@ test('le propriétaire est servi avant les autres quand le stock manque', async 
   try {
     const stock = SUPPLY_CAPS.port.armes;
     gs.plateau['A2'].proprietaire = 1;            /* c'est J1 qui tient le port */
+    posteAPortee(gs, 'A1', 0);                    /* J0 est bien a portee : ce qui le bloque, c'est la priorite */
     dote(gs, 0, { lingots: 5000 });
     dote(gs, 1, { lingots: 5000 });
 
@@ -645,6 +658,76 @@ test('le propriétaire est servi avant les autres quand le stock manque', async 
   } finally {
     rendreLeHasard();
   }
+});
+
+/* ── Géographie de l'approvisionnement ─────────────────────────────────────
+   On ne commande qu'aux équipements où l'on est présent. Sans cette règle, la
+   liste des points était la même pour tout le monde et depuis n'importe où :
+   un joueur de Brooklyn commandait au port du New Jersey sans y aller. Un
+   équipement ne valait alors la peine ni d'être pris ni d'être défendu. */
+
+test('on ne commande pas à un port où l\'on n\'a personne', async () => {
+  const { gs, city, adj } = await newTestGame(2);
+  place(gs, 'C2', 'trafiquant', 0);   /* C2 est à quatre zones du port A2 */
+  dote(gs, 0, { lingots: 1000 });
+
+  const log = RevenueEngine.processSupplyOrders(gs, { 0: [appro('A2', 'armes', 10)] }, city, adj);
+
+  assert.equal(ress(gs, 0).armes, 0, 'rien n\'est livré');
+  assert.equal(ress(gs, 0).lingots, 1000, 'et rien n\'est débité');
+  assert.ok(log.some(l => l.pid === 0 && l.type === 'warn'), 'le refus est journalisé');
+});
+
+test('un pion dans la zone du port y donne accès', async () => {
+  const { gs, city, adj } = await newTestGame(2);
+  posteAPortee(gs, 'A2', 0);
+  dote(gs, 0, { lingots: 1000 });
+
+  RevenueEngine.processSupplyOrders(gs, { 0: [appro('A2', 'armes', 10)] }, city, adj);
+
+  assert.equal(ress(gs, 0).armes, 10);
+});
+
+test('un pion dans une zone voisine du port y donne accès', async () => {
+  const { gs, city, adj } = await newTestGame(2);
+  posteAPortee(gs, 'B1', 0);          /* B1 jouxte A2 */
+  dote(gs, 0, { lingots: 1000 });
+
+  RevenueEngine.processSupplyOrders(gs, { 0: [appro('A2', 'armes', 10)] }, city, adj);
+
+  assert.equal(ress(gs, 0).armes, 10);
+});
+
+test('posséder la zone d\'un équipement suffit à y commander, même sans pion dessus', async () => {
+  const { gs, city, adj } = await newTestGame(2);
+  gs.plateau['A2'].proprietaire = 0;   /* conquis puis quitté : la zone reste sienne */
+  dote(gs, 0, { lingots: 1000 });
+
+  RevenueEngine.processSupplyOrders(gs, { 0: [appro('A2', 'armes', 10)] }, city, adj);
+
+  assert.equal(ress(gs, 0).armes, 10, 'on ne se ferme pas son propre port');
+});
+
+test('deux zones d\'écart suffisent à couper un joueur d\'un port', async () => {
+  const { gs, city, adj } = await newTestGame(2);
+  place(gs, 'B2', 'trafiquant', 0);   /* B2 — B1 — A2 : une zone de trop */
+
+  assert.equal(RevenueEngine.estAPortee(gs, 0, 'A2', adj), false);
+  assert.equal(RevenueEngine.pointsAccessibles(gs, 0, city, adj).length, 0);
+});
+
+test('le recrutement obéit à la même géographie que l\'achat', async () => {
+  const { gs, city, adj } = await newTestGame(2);
+  city.zones['B1'].facilite = 'peage';
+  place(gs, 'C2', 'dealer', 1);       /* J1 est loin du péage B1 */
+  dote(gs, 1, { lingots: 1000 });
+
+  const log = RevenueEngine.processSupplyOrders(gs, {
+    1: [{ type: 'recruter', point: 'B1', pion_type: 'prostituee_base', zone_dest: 'C2' }]
+  }, city, adj);
+
+  assert.equal(ress(gs, 1).lingots, 1000, 'aucun recrutement, aucun débit');
+  assert.ok(log.some(l => l.pid === 1 && l.type === 'warn'));
 });
 
 test('le marché noir des gitans échappe au système : ni propriétaire, ni péage', async () => {
@@ -668,6 +751,7 @@ test('le péage s\'applique aussi au recrutement', async () => {
      en propose 2, et on la fait tenir par J0. */
   city.zones['B1'].facilite = 'peage';
   gs.plateau['B1'].proprietaire = 0;
+  posteAPortee(gs, 'B2', 1);          /* B2 jouxte B1 : J1 peut y recruter */
   place(gs, 'C1', 'dealer', 1);
   dote(gs, 0, { lingots: 0 });
   dote(gs, 1, { lingots: 1000 });

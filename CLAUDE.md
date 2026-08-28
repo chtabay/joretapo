@@ -7,7 +7,7 @@ dépôt, on ne sait plus où on en était, et on referme.
 ## En trente secondes
 
 ```bash
-npm test                    # 172 tests, aucune dépendance, aucune configuration
+npm test                    # 179 tests, aucune dépendance, aucune configuration
 node tools/sim.mjs          # 40 parties simulées : le jeu est-il encore jouable ?
 npm run serve               # http://localhost:8000
 ```
@@ -47,10 +47,26 @@ de 30 tours, et 0 % avec le moindre combat.
 | Soutien à un allié | inexistant | ordre explicite, coûte un ordre | Le comptage ne créditait que le propriétaire du pion : aider quelqu'un était impossible, et la négociation n'avait rien à négocier |
 | Vote | pour soi possible | interdit | L'auto-vote rendait le maire mécanique : le joueur déjà en tête |
 | Offre d'armes | 46/tour | 130/tour | Un joueur dépensait 3 de ses 5 ordres en courses et ne s'étendait plus |
-| Points d'appro | accessibles à tous, sans condition | priorité au propriétaire + péage de 50 % | La logistique n'avait aucune géographie : prendre un port ne servait à rien. Ce sont des équipements publics qu'on domine |
+| Points d'appro | accessibles à tous, depuis n'importe où | il faut un pion sur place ou à côté ; priorité au propriétaire + péage de 50 % | La logistique n'avait aucune géographie : la liste des 13 points était la même pour tous depuis n'importe quelle case, et prendre un port ne servait à rien. Ce sont des équipements publics qu'on domine |
 
-Après : 100 % de parties terminées, médiane au tour 11 à 13, et 6,4 équipements
-logistiques sur 8 contrôlés en fin de partie contre presque aucun avant.
+Après : 100 % de parties terminées (0 % avant), médiane au tour 13 à 4 joueurs,
+et 6,2 équipements logistiques sur 9 contrôlés en fin de partie contre presque
+aucun avant.
+
+C'est la **portée** qui a produit la tension, pas le péage. À 40 parties et
+graines identiques, avant/après la contrainte de présence :
+
+| | Péage seul | Péage + portée |
+|---|---|---|
+| Parties avec un combat, 4 joueurs | 3 % | **13 %** |
+| Parties avec un combat, 6 joueurs | 13 % | **33 %** |
+| Premier combat (médiane) | tour 10 | **tour 4** |
+
+Le péage rendait un port rentable ; la portée le rend nécessaire. Deux
+conséquences mesurées et assumées : la partie s'allonge (médiane 11 → 13) et
+Harlem n'a que le marché noir à portée au tour 1. Lui donner un péage a été
+essayé — le premier combat recule au tour 8, le taux de combat retombe à 3 %,
+et Harlem gagne *moins* souvent (8 % contre 17 %). La rareté était la tension.
 
 ## Ce qui reste ouvert
 
@@ -61,6 +77,11 @@ logistiques sur 8 contrôlés en fin de partie contre presque aucun avant.
   gloutons et prudents ; un joueur réel attaquera plus. À revérifier à la table.
 - 4 tests `todo` documentent des défauts connus non corrigés (`npm test` les
   liste). Ils ne font pas échouer la CI.
+- **Les quartiers de départ ne se valent pas**, et l'écart est large : sur 120
+  parties simulées, South Brooklyn l'emporte 6 fois sur 10, West Queens et
+  Jersey City jamais. Ce déséquilibre est antérieur à tout ce qui précède — il
+  était identique avant les changements de règles — et il n'a pas encore été
+  travaillé. C'est le prochain chantier d'équilibrage.
 - Les trois bibliothèques CDN (pako, lz-string, qrcodejs) n'ont ni SRI ni copie
   locale. Hors ligne, le partage et le QR se dégradent proprement mais se
   dégradent.

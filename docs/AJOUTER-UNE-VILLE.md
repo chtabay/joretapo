@@ -67,24 +67,37 @@ Une ville a besoin d'**au moins un point d'approvisionnement en armes** (`port`
 ou `peage`), faute de quoi personne ne peut alimenter ses trafiquants ni créer
 de pions.
 
-**Les points d'approvisionnement sont des objectifs, pas du décor.** Celui qui
-contrôle la zone est servi en premier sur son stock et prélève un péage de 50 %
-sur tous les autres. Deux conséquences pour le découpage d'une ville :
+**Les points d'approvisionnement sont des objectifs, pas du décor.** Deux règles
+les gouvernent :
+
+1. **Il faut y être.** On ne commande qu'à un équipement où l'on a un pion — dans
+   sa zone ou dans une zone voisine — ou dont on possède la zone. C'est ce qui
+   donne une géographie à la logistique. Mesuré : le taux de parties avec combat
+   passe de 3 % à 13 % à quatre joueurs, de 13 % à 33 % à six, et le premier
+   combat avance du tour 10 au tour 4.
+2. **Celui qui tient la zone** est servi en premier sur le stock et prélève un
+   péage de 50 % sur tous les autres.
+
+Trois conséquences pour le découpage d'une ville :
 
 - **Ne les concentrez pas dans un seul quartier.** Un joueur qui démarre dessus
-  taxerait toute la table. Sur New York, huit équipements sont répartis dans six
+  taxerait toute la table. Sur New York, neuf équipements sont répartis dans huit
   quartiers, dont deux non disponibles au lancement.
-- **Tous les quartiers de départ n'ont pas besoin d'en porter un** — et il vaut
-  mieux qu'ils n'en portent pas tous. Six des onze quartiers de départ de New
-  York n'en ont aucun : c'est ce qui donne à leurs joueurs une raison d'aller en
-  chercher un. Le péage n'est pas un verrou, on peut toujours se servir chez un
-  rival en payant plus cher.
+- **Chaque quartier de départ doit en avoir un à portée** — un test le vérifie.
+  Sinon son joueur ne peut ni nourrir ses trafiquants ni créer de pion au tour 1,
+  et sortir chercher lui coûte la majorité de son quartier. Midtown était dans ce
+  cas : le tunnel Lincoln (MN4) lui a été donné pour cette raison.
+- **Mais tous n'ont pas besoin d'en porter un dans leurs propres zones** — et il
+  vaut mieux qu'ils n'en portent pas tous. Cinq des onze quartiers de départ de
+  New York n'en ont aucun chez eux : c'est ce qui donne à leurs joueurs une raison
+  d'aller en chercher un. Le péage n'est pas un verrou, on peut toujours se servir
+  chez un rival en payant plus cher — encore faut-il pouvoir l'atteindre.
 
 ---
 
 ## Le péage d'entrée
 
-`npm test` fait passer **chaque** ville du catalogue par les mêmes quatorze
+`npm test` fait passer **chaque** ville du catalogue par les mêmes quinze
 vérifications. Aucune n'est décorative : chacune correspond à un défaut qui a
 réellement existé sur le plateau de New York et que personne n'avait vu.
 
@@ -104,6 +117,7 @@ réellement existé sur le plateau de New York et que personne n'avait vu.
 | Privilèges de départ complets | Un joueur qui démarre sans rien |
 | Au moins six quartiers de départ | Une partie à six joueurs impossible |
 | Îles reliées à des zones existantes | Une île inatteignable |
+| Un point d'armes à portée de chaque quartier de départ | **Midtown** ne pouvait s'approvisionner nulle part au tour 1 |
 
 **Deux règles de conception à retenir**, parce qu'elles ne sont pas évidentes :
 
@@ -114,6 +128,10 @@ réellement existé sur le plateau de New York et que personne n'avait vu.
    de NYC strictement moins bons que ceux à 6.
 2. **Un pion armé par zone, une prostituée par zone.** Un quartier de 3 zones ne
    peut pas accueillir 5 pions armés au départ.
+3. **Un quartier peut n'avoir que le marché noir à portée**, et ce n'est pas une
+   condamnation : c'est le cas de Harlem, qui l'emporte quand même dans 17 % des
+   parties simulées. Lui donner un vrai péage a été essayé — il tombe à 8 %, et
+   le plateau entier perd sa tension.
 
 ---
 
@@ -136,6 +154,7 @@ Quatre indicateurs, et ce qu'ils doivent valoir :
 | Parties terminées | **100 %** | Une soirée doit se conclure |
 | Tour de victoire (médiane) | **10 à 14** | Au-delà, la soirée n'y suffit pas ; en deçà, la partie finit avant la première élection (tour 7) |
 | Premier combat (médiane) | **≤ 6** | Tant que personne ne se touche, ce sont N réussites en parallèle |
+| Points d'appro à portée d'un quartier | **1 à 3 sur l'ensemble** | Aucun : le quartier est mort ; tous : la carte n'a plus de géographie |
 | Écart 1er/dernier au tour 6 | **≤ ×3** | Au-delà, la fin de partie est jouée d'avance |
 | Équipements contrôlés en fin de partie | **≥ 70 %** | S'ils restent libres, c'est qu'ils ne valent pas la peine d'être pris |
 

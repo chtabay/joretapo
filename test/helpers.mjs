@@ -149,6 +149,18 @@ export function place(gs, zoneId, type, joueur) {
   return gs.plateau[zoneId];
 }
 
+/**
+ * Poste un pion du joueur sur une zone SANS la lui donner.
+ *
+ * Depuis qu'on ne commande qu'aux equipements a portee, un test
+ * d'approvisionnement doit dire ou se trouve le joueur : sans presence, la
+ * commande est refusee avant meme d'etre chiffree.
+ */
+export function posteAPortee(gs, zoneId, joueur) {
+  gs.plateau[zoneId].pions.push({ type: 'trafiquant', joueur });
+  return gs.plateau[zoneId];
+}
+
 export function pionsOf(gs, zoneId) {
   return gs.plateau[zoneId].pions.map(p => `${p.type}@${p.joueur}`);
 }

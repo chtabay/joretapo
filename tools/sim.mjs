@@ -126,7 +126,8 @@ class Bot {
   ordresAppro(budget) {
     const ordres = [];
     const j = this.joueur;
-    const points = RevenueEngine.getSupplyPoints(this.city);
+    /* Le bot ne commande qu'ou il a quelqu'un : meme contrainte que le joueur. */
+    const points = RevenueEngine.pointsAccessibles(this.gs, this.pid, this.city, this.adj);
     const besoin = this.besoins();
 
     /* On vise de quoi nourrir les pions plus deux armes d'avance, sans quoi on ne

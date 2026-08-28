@@ -11,6 +11,13 @@ export const DICT_ENTRIES = {
       <strong>équipements publics</strong> : on ne les construit pas, on les <em>domine</em>.</p>
       <p>Ils sont marqués sur la carte (⚓ 🛣️ ✈️), et l'anneau du marqueur prend la couleur
       de celui qui les tient.</p>
+      <p><strong>Il faut y être pour y commander.</strong> Un équipement n'est à votre portée
+      que si vous avez un pion dans sa zone, un pion dans une zone <em>voisine</em>, ou si la
+      zone vous appartient. Pendant la phase d'achat, ceux que vous pouvez utiliser sont
+      cerclés de jaune sur la carte, et la liste ne propose qu'eux.</p>
+      <p>C'est ce qui fait la géographie du jeu : sur les treize points du plateau, un
+      quartier de départ en atteint <strong>un à trois</strong>. S'approvisionner mieux
+      demande d'aller le chercher — et donc de prendre du terrain à quelqu'un.</p>
       <p><strong>Contrôler un équipement donne deux choses :</strong></p>
       <ul>
         <li><strong>La priorité sur son stock.</strong> Le stock d'un point est limité et
@@ -20,13 +27,13 @@ export const DICT_ENTRIES = {
         directement dans sa poche. Trente armes achetées chez un rival lui rapportent
         60 lingots.</li>
       </ul>
-      <p>Ce n'est <strong>pas un verrou</strong> : on peut toujours se servir chez un
-      adversaire, on paie simplement plus cher et on passe après lui. Six des onze
-      quartiers de départ ne portent aucun équipement — en priver leurs joueurs serait
-      une condamnation.</p>
+      <p>Le péage n'est <strong>pas un verrou</strong> : si l'équipement est à votre portée,
+      vous pouvez toujours vous y servir, vous payez simplement plus cher et vous passez
+      après son propriétaire. Le verrou, c'est la distance.</p>
       <p>Les <strong>camps gitans</strong> des îles échappent au système : marché noir,
       sans propriétaire ni péage, stock d'armes illimité — mais à 24 lingots l'arme
-      contre 4. C'est le recours de celui qui ne domine rien.</p>
+      contre 4. C'est le recours de celui qui ne domine rien. Ils obéissent à la même
+      géographie : il faut un pion sur l'île ou sur une rive voisine.</p>
       <p class="dict-note">Un port vaut donc plus que son rendement : il vaut la rente
       qu'il rapporte et celle qu'il coupe à son ancien propriétaire. C'est ce qui en fait
       un objectif militaire.</p>

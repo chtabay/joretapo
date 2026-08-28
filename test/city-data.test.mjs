@@ -186,4 +186,54 @@ T('un quartier de départ ne reçoit pas plus de prostituées que de zones', () 
   assert.deepEqual(surcharges, []);
 });
 
+
+T('chaque quartier de départ a un point d\'armes à sa portée dès le tour 1', () => {
+  /* On ne commande qu'aux equipements ou l'on a un pion, sur place ou juste a
+     cote. Un quartier de depart sans aucun point a portee ne peut donc ni
+     nourrir ses trafiquants ni creer de pion : il faudrait deja sortir, et
+     sortir coute la majorite du quartier. Sur New York, Midtown etait dans ce
+     cas — d'ou le peage donne au tunnel Lincoln, en MN4.
+
+     Le marche noir d'une ile compte comme un point d'armes, a contrecoeur : il
+     vend six fois le prix. Harlem n'a que lui a portee au tour 1, et c'est
+     mesure — sur 120 parties simulees, il l'emporte dans 17 % d'entre elles,
+     davantage que six quartiers pourvus d'un vrai equipement. Lui en donner un
+     a ete essaye : Harlem tombe a 8 %, le premier combat recule du tour 4 au
+     tour 8 et le taux de parties avec combat passe de 10 % a 3 %. La rarete
+     etait la tension.
+
+     La portee se mesure a partir des zones du quartier, puisque le placement
+     initial y pose les pions. */
+  const ARMES = new Set(['port', 'peage']);
+  const pointsArmes = Object.entries(gameplay.zones)
+    .filter(([, z]) => ARMES.has(z.facilite)).map(([zid]) => zid);
+  (gameplay.iles || []).forEach(ile => pointsArmes.push(ile.id));
+
+  /* Les adjacences des iles vivent dans gameplay.iles, comme au chargement. */
+  const voisines = zid => {
+    const base = adjacences[zid] || [];
+    const ile = (gameplay.iles || []).find(i => i.id === zid);
+    return ile ? [...base, ...(ile.adjacences || [])] : base;
+  };
+  const rives = {};
+  (gameplay.iles || []).forEach(ile => {
+    (ile.adjacences || []).forEach(z => { (rives[z] = rives[z] || []).push(ile.id); });
+  });
+
+  const isoles = gameplay.quartiers
+    .filter(q => q.disponible_au_lancement)
+    .filter(q => {
+      const aPortee = new Set();
+      q.zones.forEach(z => {
+        aPortee.add(z);
+        voisines(z).forEach(v => aPortee.add(v));
+        (rives[z] || []).forEach(v => aPortee.add(v));
+      });
+      return !pointsArmes.some(pt => aPortee.has(pt));
+    })
+    .map(q => q.id);
+
+  assert.deepEqual(isoles, [], 'ces quartiers de départ ne peuvent s\'approvisionner nulle part');
+});
+
 }

@@ -103,6 +103,7 @@
   .modal-point-info.pt-libre { border-left-color: #5a8ab4; }
   .modal-point-info.pt-noir  { border-left-color: #795548; }
   .cout-peage { color: #e67e22; font-size: 12px; }
+  .modal-hors-portee { font-size: 11.5px; color: #8a94a3; margin: 2px 0 0; }
   .qty-row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
   .qty-row input { flex: 0 0 72px; text-align: center; }
   .qty-btn { min-width: 44px; min-height: 44px; padding: 0 12px; background: #1a1a35; color: #cdd6e2;
@@ -573,10 +574,14 @@
   .hud-election-progress { font-size: 10px; color: #9b59b6; margin-top: 4px; }
 
   /* ── Election progress bar (top bar) ── */
-  #election-topbar { position: fixed; top: 0; left: 0; right: 0; height: 36px; background: rgba(10,10,30,0.92); border-bottom: 2px solid #334; z-index: 40; display: none; align-items: center; justify-content: center; gap: 6px; backdrop-filter: blur(8px); transition: background 0.4s ease, border-color 0.4s ease; padding: 0 12px; }
+  /* Trois colonnes en flux, pas deux blocs en absolu par-dessus une rangee
+     centree : a 390 px de large, « Sauver / Partager » passait sur les pastilles
+     de mandat et sur le numero de tour. */
+  #election-topbar { position: fixed; top: 0; left: 0; right: 0; height: 36px; background: rgba(10,10,30,0.92); border-bottom: 2px solid #334; z-index: 40; display: none; align-items: center; justify-content: space-between; gap: 8px; backdrop-filter: blur(8px); transition: background 0.4s ease, border-color 0.4s ease; padding: 0 10px; }
   #election-topbar.active { display: flex; }
-  .etb-left { position: absolute; left: 10px; display: flex; align-items: center; gap: 6px; }
-  .etb-right { position: absolute; right: 10px; display: flex; align-items: center; gap: 6px; }
+  .etb-left { display: flex; align-items: center; gap: 6px; flex: 0 0 auto; }
+  .etb-dots { display: flex; align-items: center; justify-content: center; gap: 6px; flex: 1 1 auto; min-width: 0; overflow: hidden; }
+  .etb-right { display: flex; align-items: center; gap: 6px; flex: 0 0 auto; }
   .etb-share { background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.3); color: #fff; height: 26px; padding: 0 10px; border-radius: 6px; cursor: pointer; font-size: 12px; display: flex; align-items: center; justify-content: center; gap: 4px; transition: background 0.15s; white-space: nowrap; }
   .etb-share:hover { background: rgba(0,0,0,0.35); }
   .etb-tour { font-size: 11px; font-weight: 700; color: #fff; white-space: nowrap; }
@@ -689,9 +694,14 @@
     .modal-content, .reveal-container, .nego-container, .turnend-container, .election-container, .reminder-container, .coupole-container, .pre-election-container { width: 95%; max-width: none; max-height: 85vh; }
 
     .etb-dot { width: 24px; height: 24px; font-size: 10px; }
-    .etb-connector { width: 8px; }
+    .etb-connector { width: 6px; }
     .etb-label { font-size: 9px; }
-    #election-topbar { height: 32px; gap: 4px; }
+    #election-topbar { height: 32px; gap: 4px; padding: 0 6px; }
+    .etb-dots { gap: 3px; }
+    /* Le libelle du bouton disparait avant les pastilles : l'icone suffit a le
+       reconnaitre, la progression du mandat ne se devine pas. */
+    .etb-share-label { display: none; }
+    .etb-share { padding: 0 8px; }
 
     .intro-header h1 { font-size: 32px; letter-spacing: 4px; }
     .intro-container { padding: 20px 16px; }
