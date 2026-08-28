@@ -38,12 +38,32 @@ export function readJson(rel) {
   return JSON.parse(fs.readFileSync(path.join(ROOT, rel), 'utf8'));
 }
 
-/** Les vraies données de New York, pour les tests qui doivent voir la vraie ville. */
-export function loadCity() {
+/** Catalogue des villes livrées avec le jeu. */
+export function loadCatalogue() {
+  return readJson('data/villes.json');
+}
+
+/**
+ * Charge une ville du catalogue. Sans argument, la ville par défaut.
+ *
+ * Les tests de données bouclent sur TOUTES les villes du catalogue : ajouter
+ * Toulouse ou Châtellerault fait automatiquement passer ce pack au péage
+ * d'entrée, sans qu'on ait à écrire un seul test de plus.
+ */
+export function loadCity(villeId) {
+  const cat = loadCatalogue();
+  const v = cat.villes.find(x => x.id === (villeId || cat.defaut)) || cat.villes[0];
   return {
-    gameplay: readJson('data/quartiers-gameplay.json'),
-    adjacences: readJson('data/adjacences-osm.json')
+    ville: v,
+    gameplay: readJson(v.gameplay),
+    adjacences: readJson(v.adjacences),
+    geojson: v.geojson
   };
+}
+
+/** Toutes les villes du catalogue, pour les tests parametres. */
+export function loadToutesLesVilles() {
+  return loadCatalogue().villes.map(v => loadCity(v.id));
 }
 
 /* ── Plateau fictif ────────────────────────────────────────────────────────

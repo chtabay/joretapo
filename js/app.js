@@ -33,11 +33,29 @@ let turnManager = null;
 let pendingOrders = [];
 let turnLog = [];
 
+/**
+ * Choisit la ville a charger.
+ *
+ * Le plateau est destine a changer — Toulouse, Chatellerault… — et rien dans les
+ * moteurs n'est lie a New York : ils ne connaissent que des zones, des adjacences
+ * et des quartiers. Seul ce chargement designait les fichiers en dur. Le catalogue
+ * data/villes.json les remplace, si bien qu'ajouter une ville est une tache de
+ * DONNEES et non de code.
+ */
+async function choisirVille() {
+  const catalogue = await fetch('data/villes.json').then(r => r.json());
+  const demandee = new URLSearchParams(window.location.search).get('ville');
+  return catalogue.villes.find(v => v.id === demandee)
+      || catalogue.villes.find(v => v.id === catalogue.defaut)
+      || catalogue.villes[0];
+}
+
 async function loadGameData() {
+  const ville = await choisirVille();
   const [geoRes, adjRes, gameRes, cartesRes] = await Promise.all([
-    fetch('data/quartiers-osm.geojson').then(r => r.json()),
-    fetch('data/adjacences-osm.json').then(r => r.json()),
-    fetch('data/quartiers-gameplay.json').then(r => r.json()),
+    fetch(ville.geojson).then(r => r.json()),
+    fetch(ville.adjacences).then(r => r.json()),
+    fetch(ville.gameplay).then(r => r.json()),
     fetch('data/cartes-magouille.json').then(r => r.json())
   ]);
   cartesDef = cartesRes;
@@ -57,7 +75,7 @@ async function loadGameData() {
       if (!adjRes[adj].includes(ile.id)) adjRes[adj].push(ile.id);
     });
   });
-  return { features: geoRes.features, adjacencies: adjRes, gameplay: gameRes, zoneToQuartier };
+  return { ville, features: geoRes.features, adjacencies: adjRes, gameplay: gameRes, zoneToQuartier };
 }
 
 function showScreen(id) {
@@ -197,7 +215,7 @@ function updateHUD() {
   if (!gameState) {
     const totalPts = gameData.gameplay.quartiers.reduce((s, q) => s + q.points, 0);
     const adjCount = Object.values(gameData.adjacencies).reduce((s, a) => s + a.length, 0) / 2;
-    hud.innerHTML = `<h3>JORETAPO</h3><div id="stats-content"><strong>${gameData.features.length}</strong> zones · <strong>15</strong> quartiers<br><strong>${Math.round(adjCount)}</strong> adjacences · <strong>${totalPts}</strong> pts</div>`;
+    hud.innerHTML = `<h3>JORETAPO</h3><div id="stats-content">${esc(gameData.ville?.nom || '')}<br><strong>${gameData.features.length}</strong> zones · <strong>${gameData.gameplay.quartiers.length}</strong> quartiers<br><strong>${Math.round(adjCount)}</strong> adjacences · <strong>${totalPts}</strong> pts</div>`;
     document.getElementById('election-topbar')?.classList.remove('active');
     return;
   }

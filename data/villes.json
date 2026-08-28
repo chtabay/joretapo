@@ -1,0 +1,14 @@
+{
+  "_comment": "Catalogue des villes jouables. Ajouter une ville = ajouter une entree ici et ses trois fichiers, sans toucher au code. Voir docs/AJOUTER-UNE-VILLE.md.",
+  "defaut": "nyc",
+  "villes": [
+    {
+      "id": "nyc",
+      "nom": "New York",
+      "sous_titre": "NYC & New Jersey",
+      "geojson": "data/quartiers-osm.geojson",
+      "adjacences": "data/adjacences-osm.json",
+      "gameplay": "data/quartiers-gameplay.json"
+    }
+  ]
+}
