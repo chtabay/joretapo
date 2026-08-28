@@ -59,6 +59,24 @@ que personne ne verrait.
 
 ---
 
+### 4. Une place, sans passage de tablette en plus
+
+Le budget de **passages de tablette** est la ressource la plus contrainte d'une
+soirée : 21,8 par tour à quatre joueurs, 30,5 à six — mesurés par
+`node tools/sim.mjs`. Un système qui réclame sa propre tournée de rideaux coûte
+2N passages, c'est-à-dire l'équivalent d'une phase entière. C'est ce coût, et non
+une règle, qui interdit aujourd'hui de tenir plus d'une élection par partie.
+
+Un système nouveau se loge donc dans un passage qui existe déjà : une feuille
+d'ordres, un écran public, le rideau. S'il n'y rentre pas, il ne rentre pas.
+
+La feuille d'ordres de la phase 4 est pleine : **huit pastilles, deux rangées de
+quatre**, mesurées à 390 px pour tenir sans défilement. Une neuvième action
+demande d'en retirer une, ou de créer un troisième groupe — pas de l'ajouter en
+bas de la pile, où elle serait invisible.
+
+---
+
 ## Et ne pas dégrader la partie
 
 Après réactivation, relancer le banc et comparer :

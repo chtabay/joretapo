@@ -784,11 +784,15 @@ export class MapRenderer {
     const [cx, cy] = centroid;
     const g = document.createElementNS(NS, 'g');
     g.setAttribute('pointer-events', 'none');
+    /* Le barycentre d'un quartier tombe souvent sur le centroide d'une de ses
+       zones : sans decalage, l'etiquette se posait pile sur le nom de la zone.
+       On la remonte au-dessus de la ligne des noms. */
+    const dy = -(PX.pionRadius + 34);
 
     const largeur = Math.max(44, texte.length * 6.2);
     const fond = document.createElementNS(NS, 'rect');
     fond.setAttribute('x', (-largeur / 2).toFixed(1));
-    fond.setAttribute('y', '-9');
+    fond.setAttribute('y', String(dy - 8));
     fond.setAttribute('width', largeur.toFixed(1));
     fond.setAttribute('height', '15');
     fond.setAttribute('rx', '7');
@@ -801,7 +805,7 @@ export class MapRenderer {
 
     const t = document.createElementNS(NS, 'text');
     t.setAttribute('x', '0');
-    t.setAttribute('y', '-1.5');
+    t.setAttribute('y', String(dy - 0.5));
     t.setAttribute('text-anchor', 'middle');
     t.setAttribute('dominant-baseline', 'central');
     t.setAttribute('font-size', '10');

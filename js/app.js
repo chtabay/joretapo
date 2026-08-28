@@ -799,33 +799,41 @@ function renderOrderPanel(gamePhase) {
         </div>
         <span class="op-collapsed-label" style="color:${j.couleur}">${j.nom}</span>
       </div>
-      <div class="op-scroll">
-      <div class="op-resources">
+      <!-- Bandeau fixe : il reste hors de la zone qui defile, sinon il mange la
+           moitie des 216 px utiles et repousse les actions hors champ. -->
+      <div class="op-bandeau" title="${gamePhase === 1
+        ? `Ces ${maxOrders} ordres couvrent tout le tour : ce que vous dépensez ici en achats, vous ne l'aurez plus en phase 4.`
+        : `${ordresDejaUtilises} ordre(s) déjà dépensé(s) en approvisionnement ce tour.`}">
         <span class="op-res">💰 ${j.ressources.lingots}L</span>
         <span class="op-res">🔫 ${j.ressources.armes}</span>
         <span class="op-res">💊 ${j.ressources.doses}</span>
+        <span class="op-ordres${remaining <= 0 ? ' op-ordres-vide' : ''}">${remaining}/${maxOrders} ordre${maxOrders > 1 ? 's' : ''}<small>${gamePhase === 1 ? ' pour le tour' : ' restants'}</small></span>
       </div>
-      <div class="op-budget">${remaining} ordre${remaining > 1 ? 's' : ''} disponible${remaining > 1 ? 's' : ''} (sur ${maxOrders})${
-        gamePhase === 1
-          ? `<div class="op-budget-note">Ces ${maxOrders} ordres couvrent <strong>tout le tour</strong> : ce que vous dépensez ici en achats, vous ne l'aurez plus en phase 4 pour vos manœuvres.</div>`
-          : `<div class="op-budget-note">${ordresDejaUtilises} déjà dépensé${ordresDejaUtilises > 1 ? 's' : ''} en approvisionnement ce tour.</div>`
-      }</div>
+      <div class="op-scroll">
       <div class="op-actions">
         ${gamePhase === 1 ? `
-          <button class="op-btn" id="btn-add-supply" ${remaining <= 0 ? 'disabled' : ''}>+ Acheter denrées</button>
-          <button class="op-btn" id="btn-add-recruit" ${remaining <= 0 ? 'disabled' : ''}>+ Recruter prostituée</button>
-          <button class="op-btn" id="btn-add-build" ${remaining <= 0 ? 'disabled' : ''}>+ Construire</button>
-          <div class="op-hint">On ne commande qu'aux équipements <strong>à portée</strong> — cerclés de jaune sur la carte : un pion dans leur zone, dans une zone voisine, ou la zone vous appartient.</div>
+          <div class="op-grille">
+            <button class="op-pastille" id="btn-add-supply" title="Acheter des denrées à un équipement à portée" ${remaining <= 0 ? 'disabled' : ''}><span class="op-p-icone">📦</span>Acheter</button>
+            <button class="op-pastille" id="btn-add-recruit" title="Recruter une prostituée" ${remaining <= 0 ? 'disabled' : ''}><span class="op-p-icone">👠</span>Recruter</button>
+            <button class="op-pastille" id="btn-add-build" title="Construire un bâtiment" ${remaining <= 0 ? 'disabled' : ''}><span class="op-p-icone">🏗️</span>Construire</button>
+          </div>
+          <div class="op-hint">On ne commande qu'aux équipements <strong>à portée</strong>, cerclés de jaune sur la carte.</div>
         ` : `
-          <button class="op-btn" id="btn-add-move" ${remaining <= 0 ? 'disabled' : ''}>+ Déplacer un pion</button>
-          <button class="op-btn op-btn-support" id="btn-add-support" ${remaining <= 0 ? 'disabled' : ''}>+ Soutenir un allié ${helpLink('soutien')}</button>
-          <button class="op-btn" id="btn-add-create" ${remaining <= 0 ? 'disabled' : ''}>+ Créer dealer/trafiquant</button>
-          <button class="op-btn" id="btn-add-flic" ${remaining <= 0 ? 'disabled' : ''}>+ Déployer un flic (180L)</button>
-          <button class="op-btn" id="btn-elim-flic" ${remaining <= 0 ? 'disabled' : ''}>+ Éliminer un flic ennemi</button>
-          <button class="op-btn" id="btn-elim-incorruptible" ${remaining <= 0 ? 'disabled' : ''}>+ Éliminer un incorruptible (700L)</button>
-          <button class="op-btn" id="btn-activate-gang" ${remaining <= 0 ? 'disabled' : ''}>+ Activer un gang</button>
-          <button class="op-btn" id="btn-heist" ${remaining <= 0 ? 'disabled' : ''} style="background:rgba(241,196,15,0.08);border-color:#f1c40f;color:#f1c40f">💰 Cambrioler</button>
-          <div class="op-hint">Un pion non déplacé défend automatiquement vos propres zones. Pour aider <em>un autre joueur</em>, il faut un ordre de soutien — c'est ce qui donne du poids à la négociation.</div>
+          <div class="op-groupe">Sur le plateau</div>
+          <div class="op-grille">
+            <button class="op-pastille" id="btn-add-move" title="Déplacer un pion vers une zone voisine" ${remaining <= 0 ? 'disabled' : ''}><span class="op-p-icone">➜</span>Déplacer</button>
+            <button class="op-pastille op-p-soutien" id="btn-add-support" title="Prêter la force d'un pion immobile à un autre joueur, jusqu'à deux zones" ${remaining <= 0 ? 'disabled' : ''}><span class="op-p-icone">🤝</span>Soutenir</button>
+            <button class="op-pastille" id="btn-add-create" title="Créer un dealer ou un trafiquant sur une de vos zones" ${remaining <= 0 ? 'disabled' : ''}><span class="op-p-icone">➕</span>Créer</button>
+            <button class="op-pastille" id="btn-add-flic" title="Déployer un flic sur une zone — 180 lingots" ${remaining <= 0 ? 'disabled' : ''}><span class="op-p-icone">👮</span>Poser flic</button>
+          </div>
+          <div class="op-groupe">Coups de force</div>
+          <div class="op-grille">
+            <button class="op-pastille" id="btn-elim-flic" title="Éliminer un flic ennemi" ${remaining <= 0 ? 'disabled' : ''}><span class="op-p-icone">✖</span>Ôter flic</button>
+            <button class="op-pastille" id="btn-elim-incorruptible" title="Éliminer un incorruptible — 700 lingots" ${remaining <= 0 ? 'disabled' : ''}><span class="op-p-icone">🎖️</span>Incorrupt.</button>
+            <button class="op-pastille" id="btn-activate-gang" title="Activer le gang de votre quartier d'origine" ${remaining <= 0 ? 'disabled' : ''}><span class="op-p-icone">🔥</span>Gang</button>
+            <button class="op-pastille op-p-or" id="btn-heist" title="Cambrioler un coffre" ${remaining <= 0 ? 'disabled' : ''}><span class="op-p-icone">💰</span>Cambrioler</button>
+          </div>
+          <div class="op-hint">Aider un <em>autre</em> joueur demande un ordre de soutien ${helpLink('soutien')}.</div>
         `}
         ${MayorEngine.canUse(gameState, pid) && MayorEngine.availablePowers(gameState, pid, gamePhase).length > 0 ? `
           <button class="op-btn op-btn-mayor" id="btn-mayor-power">🏛️ Pouvoir du Maire (${gameState.maire.privileges_restants} restant${gameState.maire.privileges_restants > 1 ? 's' : ''})</button>
@@ -2386,18 +2394,23 @@ function renderNegotiation() {
   const container = ov.querySelector('.nego-container');
   const active = ContractEngine.getActiveContracts(gameState);
 
+  /* La feuille est basse et laisse la carte visible : ce qui doit tenir dans les
+     premiers pixels, c'est ce qu'on peut FAIRE, et le bouton de sortie reste
+     colle en bas — il etait sous la ligne de flottaison. */
   container.innerHTML = `
-    <div class="nego-title">Phase de négociation</div>
-    <div class="nego-sub">Discutez entre joueurs : accords, menaces, alliances…<br>Le plateau est visible derrière cet écran.</div>
-    <div class="nego-actions">
-      <button class="btn-primary" id="btn-add-contract">📜 Nouveau contrat</button>
-      <button class="btn-secondary" id="btn-coupole">⚖️ Convoquer la Coupole</button>
+    <div class="nego-defile">
+      <div class="nego-title">Phase de négociation</div>
+      <div class="nego-sub">Parlez-vous : accords, menaces, alliances. Le plateau reste visible et manipulable au-dessus.</div>
+      <div class="nego-actions">
+        <button class="btn-primary" id="btn-add-contract">📜 Nouveau contrat</button>
+        <button class="btn-secondary" id="btn-coupole">⚖️ Convoquer la Coupole</button>
+      </div>
+      ${active.length > 0 ? `
+        <div class="section-title" style="text-align:center;margin-top:4px">Contrats actifs</div>
+        <div class="nego-contracts">${active.map(c => renderContractCard(c)).join('')}</div>
+      ` : '<div style="text-align:center;font-size:12px;color:#555;margin-top:4px">Aucun contrat actif</div>'}
     </div>
-    ${active.length > 0 ? `
-      <div class="section-title" style="text-align:center;margin-top:4px">Contrats actifs</div>
-      <div class="nego-contracts">${active.map(c => renderContractCard(c)).join('')}</div>
-    ` : '<div style="text-align:center;font-size:12px;color:#555;margin-top:4px">Aucun contrat actif</div>'}
-    <button class="btn-primary" id="btn-end-nego" style="margin-top:8px">Fin des négociations</button>
+    <button class="btn-primary nego-sortie" id="btn-end-nego">Fin des négociations</button>
   `;
 
   container.querySelector('#btn-add-contract').onclick = () => showCreateContractModal(() => renderNegotiation());

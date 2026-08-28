@@ -208,6 +208,35 @@
   .op-btn { padding: 10px 14px; background: rgba(255,255,255,0.04); border: 1px solid #334; border-radius: 6px; color: #ccc; font-size: 14px; cursor: pointer; text-align: left; transition: background 0.15s; }
   .op-btn:hover:not(:disabled) { background: rgba(255,255,255,0.08); }
   .op-btn:disabled { opacity: 0.3; cursor: default; }
+
+  /* Pastilles d'action, deux par rangee.
+     La phase 4 offre huit actions ; en boutons pleine largeur elles reclamaient
+     598 px dans un panneau qui en montre 284, et « Activer un gang » comme
+     « Cambrioler » — les deux coups a plus fort levier — restaient hors champ.
+     Deux colonnes et deux groupes nommes les font toutes tenir. */
+  .op-bandeau { display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    padding: 6px 16px 8px; border-bottom: 1px solid #232a38; font-size: 12.5px;
+    font-variant-numeric: tabular-nums; }
+  .op-bandeau .op-res { color: #cdd6e2; }
+  .op-ordres { margin-left: auto; color: #8ab4f8; font-weight: 700; }
+  .op-ordres small { color: #6c7688; font-weight: 400; font-size: 10.5px; }
+  .op-ordres-vide { color: #e07a5f; }
+  .op-groupe { font-size: 10px; letter-spacing: 1.3px; text-transform: uppercase; color: #6c7688;
+    margin: 8px 0 4px; }
+  .op-groupe:first-child { margin-top: 0; }
+  .op-grille { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; }
+  .op-pastille { min-height: 46px; padding: 5px 3px; background: rgba(255,255,255,0.04);
+    border: 1px solid #334; border-radius: 8px; color: #cdd6e2; font-size: 10.5px;
+    font-weight: 600; line-height: 1.2; cursor: pointer; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 1px; text-align: center;
+    transition: background 0.15s, border-color 0.15s; }
+  .op-pastille em { font-style: normal; font-weight: 400; font-size: 9.5px; color: #7b8595; }
+  .op-p-icone { font-size: 14px; line-height: 1; }
+  .op-pastille:hover:not(:disabled) { background: rgba(255,255,255,0.08); border-color: #5a8ab4; }
+  .op-pastille:disabled { opacity: 0.3; cursor: default; }
+  .op-pastille:focus-visible { outline: 2px solid #8ab4f8; outline-offset: 2px; }
+  .op-p-soutien { border-color: #2ecc71; color: #a9e5c3; }
+  .op-p-or { border-color: #f1c40f; color: #f1c40f; }
   .op-list { flex: 1; display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px; }
   .op-empty { color: #555; font-size: 13px; font-style: italic; padding: 8px 0; }
   .op-order { display: flex; justify-content: space-between; align-items: center; background: #1a1a2e; padding: 6px 10px; border-radius: 4px; font-size: 13px; }
@@ -232,7 +261,22 @@
   .modal-actions .btn-primary, .modal-actions .btn-secondary { padding: 8px 20px; font-size: 14px; }
 
   /* ── Reveal Overlay ── */
-  #reveal-ov, #negotiation-ov, #turnend-ov { background: rgba(5,5,20,0.95); flex-direction: column; }
+  #reveal-ov, #turnend-ov { background: rgba(5,5,20,0.95); flex-direction: column; }
+  /* La negociation affirmait « le plateau est visible derriere cet ecran » tout
+     en peignant un voile opaque dessus et en interceptant les taps : la carte
+     etait a 0 % du viewport pendant la seule phase ou l'on parle du plateau.
+     Elle devient une feuille basse, et la carte reste manipulable au-dessus. */
+  #negotiation-ov { background: transparent; flex-direction: column; justify-content: flex-end;
+    pointer-events: none; }
+  #negotiation-ov .nego-container { pointer-events: auto; width: 100%; max-width: 560px;
+    background: rgba(10,10,30,0.97); border: 1px solid #334; border-bottom: none;
+    border-radius: 16px 16px 0 0; box-shadow: 0 -12px 40px rgba(0,0,0,0.6);
+    max-height: 36vh; overflow-y: auto; padding: 14px 16px; gap: 10px; }
+  #negotiation-ov .nego-container h2 { font-size: 20px; }
+  #negotiation-ov .nego-container { overflow: hidden; }
+  .nego-defile { overflow-y: auto; min-height: 0; width: 100%; display: flex; flex-direction: column;
+    align-items: center; gap: 10px; }
+  .nego-sortie { flex: 0 0 auto; width: 100%; }
   .reveal-container, .nego-container, .turnend-container { width: 90%; max-width: 560px; max-height: 80vh; display: flex; flex-direction: column; overflow-y: auto; }
   .reveal-title, .nego-title { font-size: 24px; color: #8ab4f8; margin-bottom: 16px; text-align: center; }
   .reveal-body { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; padding-right: 8px; }
@@ -668,9 +712,15 @@
     #info-panel.shifted { right: 0; left: 0; }
 
     /* Order panel = draggable bottom sheet sur mobile */
-    #order-panel { width: 100%; right: 0; left: 0; top: auto; bottom: 52px; height: 50vh; max-height: calc(100dvh - 36px - 52px); padding: 0; border-left: none; border-radius: 16px 16px 0 0; border: 1px solid #334; border-bottom: none; animation: slideSheetUp 0.3s ease; transition: height 0.25s ease; }
+    /* La feuille de negociation s'arrete au-dessus de la nav du bas, comme la
+       feuille d'ordres : sinon les onglets transparaissent derriere elle. */
+    #negotiation-ov { padding-bottom: 52px; }
+    #order-panel { width: 100%; right: 0; left: 0; top: auto; bottom: 52px; height: 42vh; max-height: calc(100dvh - 36px - 52px); padding: 0; border-left: none; border-radius: 16px 16px 0 0; border: 1px solid #334; border-bottom: none; animation: slideSheetUp 0.3s ease; transition: height 0.25s ease; }
     #order-panel.sheet-mini { height: 56px; overflow: hidden; }
-    #order-panel.sheet-mid { height: 50vh; }
+    /* 50vh laissait 39,7 % du viewport a la carte pendant qu'on decide ou aller.
+       A 42vh, la barre du haut et la nav du bas deduites, elle en reprend la
+       moitie — le minimum pour lire un rapport de force avant de trancher. */
+    #order-panel.sheet-mid { height: 42vh; }
     #order-panel.sheet-full { height: calc(100dvh - 36px - 52px); }
     #order-panel.sheet-dragging { transition: none !important; }
     .op-sheet-handle { display: flex; justify-content: center; padding: 8px 0 0; flex-shrink: 0; cursor: grab; touch-action: none; }
