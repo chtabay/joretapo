@@ -1,19 +1,39 @@
-const QUARTIER_COLORS = {
-  bergen:          { fill: '#2d5a1e', stroke: '#5ab45a' },
-  north_hudson:    { fill: '#5a1e2d', stroke: '#b45a7a' },
-  jersey_city:     { fill: '#5a3a1e', stroke: '#b48a5a' },
-  meadowlands:     { fill: '#3a3a1e', stroke: '#8a8a5a' },
-  harlem:          { fill: '#4a1e4a', stroke: '#b45ab4' },
-  upper_manhattan: { fill: '#1e3a5f', stroke: '#5a8ab4' },
-  midtown:         { fill: '#1e5a5a', stroke: '#5ab4b4' },
-  lower_manhattan: { fill: '#2a2a5a', stroke: '#7a7ab4' },
-  south_bronx:     { fill: '#5a1e1e', stroke: '#b45a5a' },
-  north_bronx:     { fill: '#3d1e5f', stroke: '#8a5ab4' },
-  west_queens:     { fill: '#5f3d1e', stroke: '#b48a5a' },
-  east_queens:     { fill: '#4a3a1e', stroke: '#9a8a5a' },
-  north_brooklyn:  { fill: '#1e5f3d', stroke: '#5ab48a' },
-  south_brooklyn:  { fill: '#1e4a4a', stroke: '#5a9a9a' },
-  staten_island:   { fill: '#4a4a1e', stroke: '#9a9a5a' }
+import { buildQuartierColors, BOARD_BG, luminance } from './palette.js';
+
+/**
+ * Couleurs des quartiers de la ville courante.
+ *
+ * Objet partagé, rempli par `setQuartierColors()` au chargement des données —
+ * jamais codé en dur. Le plateau est destiné à changer de ville : une table figée
+ * sur les identifiants de New York obligerait à repeindre chaque nouveau pack à la
+ * main. Les modules qui l'importent gardent la même référence, il est muté sur place.
+ */
+const QUARTIER_COLORS = {};
+
+/** À appeler une fois, avec les quartiers de la ville chargée. */
+function setQuartierColors(quartiers) {
+  return buildQuartierColors(quartiers, QUARTIER_COLORS);
+}
+
+const NO_QUARTIER = { fill: '#2b2b33', stroke: '#5c5c68' };
+
+/* ── Tailles à l'écran, en pixels CSS ──────────────────────────────────────
+   Les pions et les libellés sont dessinés dans un repère contre-échelé : ces
+   valeurs sont donc de vrais pixels écran, constants à tous les niveaux de zoom.
+   Avant cette correction ils étaient exprimés en unités du repère géographique,
+   où 1 unité ≈ 40 m de New York — un pion mesurait 3,48 px sur tablette et
+   1,63 px sur mobile, c'est-à-dire rien. */
+const PX = {
+  pionRadius: 9,        /* 18 px de diamètre */
+  pionGap: 20,          /* entraxe : 2 px de marge entre deux pions */
+  pionPerRow: 3,
+  pionFont: 8.5,
+  zoneNameFont: 12,
+  zoneCodeFont: 9,
+  /* En dessous de cette largeur à l'écran, une zone ne peut plus porter son nom
+     sans écraser ses voisines : on ne garde que le code, puis plus rien. */
+  nameMinZoneWidth: 78,
+  codeMinZoneWidth: 34
 };
 
 const FACILITE_LABELS = {
@@ -35,6 +55,14 @@ const PION_SYMBOLS = {
 
 const NS = 'http://www.w3.org/2000/svg';
 
+/** Noir ou blanc, selon ce qui se lit sur la couleur donnée. Les couleurs de
+    joueur sont choisies librement (sélecteur de couleur à la configuration) :
+    un symbole blanc en dur devient illisible sur un jaune. */
+function readableOn(bg) {
+  try { return luminance(bg) > 0.42 ? '#0b0b12' : '#ffffff'; }
+  catch { return '#ffffff'; }
+}
+
 export class MapRenderer {
   constructor(container, { features, adjacencies, gameplay, zoneToQuartier }) {
     this.container = container;
@@ -48,11 +76,28 @@ export class MapRenderer {
     this.selectedId = null;
     this.onZoneSelect = null;
 
+    /* Caches géométriques : centroïdes et largeurs de zone servent à chaque
+       recalcul d'échelle, c'est-à-dire à chaque image pendant un pincement. */
+    this.centroids = {};
+    this.zoneWidths = {};
+    this.glyphGroups = {};
+    this.glyphScale = 1;
+
     features.forEach(f => { this.featureMap[f.properties.id] = f; });
 
     this._computeBounds();
     this._buildSvg();
     this._setupInteraction();
+    this._updateGlyphScale();
+
+    /* Le viewBox est en unités SVG, l'échelle des pions en pixels écran : un
+       redimensionnement de fenêtre change le rapport entre les deux. */
+    this._onResize = () => this._updateGlyphScale();
+    window.addEventListener('resize', this._onResize);
+  }
+
+  destroy() {
+    window.removeEventListener('resize', this._onResize);
   }
 
   _computeBounds() {
@@ -98,12 +143,113 @@ export class MapRenderer {
   }
 
   _centroid(f) {
+    const id = f.properties?.id;
+    if (id && this.centroids[id]) return this.centroids[id];
+
     const coords = f.geometry.type === 'MultiPolygon'
       ? f.geometry.coordinates.flat(2)
       : f.geometry.coordinates.flat(1);
     let sx = 0, sy = 0;
     coords.forEach(([lon, lat]) => { sx += lon; sy += lat; });
-    return this._project(sx / coords.length, sy / coords.length);
+    const c = this._project(sx / coords.length, sy / coords.length);
+
+    if (id) {
+      this.centroids[id] = c;
+      /* Largeur de la zone en unités SVG — sert au niveau de détail des libellés. */
+      let minLon = Infinity, maxLon = -Infinity;
+      coords.forEach(([lon]) => { if (lon < minLon) minLon = lon; if (lon > maxLon) maxLon = lon; });
+      this.zoneWidths[id] = this._project(maxLon, 0)[0] - this._project(minLon, 0)[0];
+    }
+    return c;
+  }
+
+  /* ── Contre-échelle ───────────────────────────────────────────────────────
+     Le plateau est dessiné dans le repère géographique, où une unité vaut des
+     dizaines de mètres. Les pions et les libellés, eux, doivent garder une taille
+     constante À L'ÉCRAN quel que soit le zoom. On les place donc dans des groupes
+     `translate(centroïde) scale(k)`, où k est le nombre d'unités SVG par pixel
+     écran, recalculé à chaque changement de viewBox. Leur contenu est alors
+     exprimé directement en pixels. */
+
+  /**
+   * Unités SVG par pixel écran.
+   *
+   * Attention au piège : le SVG est en `width:100% height:100%` avec le
+   * preserveAspectRatio par défaut (`xMidYMid meet`). Il est donc mis à l'échelle
+   * pour TENIR dans la boîte, ce qui laisse des bandes vides sur l'axe le moins
+   * contraint. Diviser la largeur du viewBox par la largeur de l'élément donne
+   * alors un facteur faux — et des pions de taille variable selon la forme de la
+   * fenêtre. Le bon facteur est le plus contraignant des deux axes.
+   */
+  _unitsPerPixel() {
+    /* Source de vérité : la matrice de transformation réellement appliquée par le
+       navigateur. La recalculer depuis this.viewBox laisserait les deux diverger —
+       c'est exactement ce qui s'est produit tant que le viewBox d'ouverture n'était
+       pas poussé dans le DOM, et les pions sortaient à la moitié de leur taille. */
+    const ctm = this.svg?.getScreenCTM?.();
+    if (ctm && ctm.a > 0) return 1 / ctm.a;
+
+    /* Repli hors document (écran masqué, tests unitaires) : le SVG est en
+       `width/height:100%` avec le preserveAspectRatio par défaut, donc mis à
+       l'échelle pour TENIR dans la boîte. Le facteur est le plus contraignant
+       des deux axes, pas la largeur seule. */
+    const r = this.svg?.getBoundingClientRect();
+    const w = r && r.width > 1 ? r.width : (this.container?.clientWidth || 1000);
+    const h = r && r.height > 1 ? r.height : (this.container?.clientHeight || 800);
+    if (!this.viewBox) return 1;
+    return Math.max(this.viewBox.w / w, this.viewBox.h / h);
+  }
+
+  _updateGlyphScale() {
+    this.glyphScale = this._unitsPerPixel();
+    const k = this.glyphScale;
+
+    Object.entries(this.glyphGroups).forEach(([zid, g]) => {
+      const [cx, cy] = this.centroids[zid] || [0, 0];
+      g.setAttribute('transform', `translate(${cx.toFixed(2)} ${cy.toFixed(2)}) scale(${k.toFixed(5)})`);
+
+      /* Niveau de détail : une zone trop petite à l'écran perd son nom, puis son
+         code. Sans ça, les libellés restant lisibles se chevauchent au dézoom. */
+      const screenW = (this.zoneWidths[zid] || 0) / k;
+      const name = g.querySelector('.zone-name');
+      const code = g.querySelector('.zone-code');
+      if (name) name.style.display = screenW >= PX.nameMinZoneWidth ? '' : 'none';
+      if (code) code.style.display = screenW >= PX.codeMinZoneWidth ? '' : 'none';
+    });
+
+    if (this.pionsGroup) {
+      Array.from(this.pionsGroup.children).forEach(g => {
+        const zid = g.dataset.zone;
+        const [cx, cy] = this.centroids[zid] || [0, 0];
+        g.setAttribute('transform', `translate(${cx.toFixed(2)} ${cy.toFixed(2)}) scale(${k.toFixed(5)})`);
+      });
+    }
+  }
+
+  /** Recadre sur le plateau entier. */
+  recenter() {
+    this.viewBox = { x: 0, y: 0, w: this.svgW, h: this.svgH };
+    this._applyViewBox();
+  }
+
+  _applyViewBox() {
+    this.svg.setAttribute('viewBox',
+      `${this.viewBox.x} ${this.viewBox.y} ${this.viewBox.w} ${this.viewBox.h}`);
+    this._updateGlyphScale();
+  }
+
+  /** Empêche de zoomer jusqu'à l'atome ou de sortir du plateau sans retour. */
+  _clampViewBox() {
+    const vb = this.viewBox;
+    const minW = this.svgW / 14;
+    const maxW = this.svgW * 1.6;
+    if (vb.w < minW) { const r = minW / vb.w; vb.w = minW; vb.h *= r; }
+    if (vb.w > maxW) { const r = maxW / vb.w; vb.w = maxW; vb.h *= r; }
+    /* On autorise à déborder d'une demi-vue, pas davantage : le plateau reste
+       toujours au moins à moitié visible. */
+    const mx = vb.w / 2, my = vb.h / 2;
+    vb.x = Math.max(-mx, Math.min(this.svgW - vb.w + mx, vb.x));
+    vb.y = Math.max(-my, Math.min(this.svgH - vb.h + my, vb.y));
   }
 
   _buildSvg() {
@@ -111,7 +257,7 @@ export class MapRenderer {
     this.svg.setAttribute('viewBox', `0 0 ${this.svgW} ${this.svgH}`);
     this.svg.setAttribute('width', '100%');
     this.svg.setAttribute('height', '100%');
-    this.svg.style.background = '#0a0a1a';
+    this.svg.style.background = BOARD_BG;
 
     this.gZones = document.createElementNS(NS, 'g');
     this.gQuartierBorders = document.createElementNS(NS, 'g');
@@ -121,14 +267,13 @@ export class MapRenderer {
     this.features.forEach(f => {
       const id = f.properties.id;
       const q = this.zoneToQuartier[id];
-      const colors = q ? QUARTIER_COLORS[q.id] : { fill: '#333', stroke: '#555' };
+      const colors = q ? QUARTIER_COLORS[q.id] : NO_QUARTIER;
 
       const path = document.createElementNS(NS, 'path');
       path.setAttribute('d', this._featureToD(f));
       path.setAttribute('fill', colors.fill);
       path.setAttribute('stroke', colors.stroke);
       path.setAttribute('stroke-width', '0.8');
-      path.setAttribute('opacity', '0.85');
       path.setAttribute('data-id', id);
       path.setAttribute('data-quartier', q ? q.id : '');
       path.setAttribute('data-base-fill', colors.fill);
@@ -136,36 +281,57 @@ export class MapRenderer {
       this.gZones.appendChild(path);
       this.pathMap[id] = path;
 
-      const [cx, cy] = this._centroid(f);
+      /* Le centroïde alimente le cache ; la position réelle est portée par le
+         groupe contre-échelé, pas par les textes eux-mêmes. */
+      this._centroid(f);
       const zoneData = this.gameplay.zones[id];
+
+      /* Un groupe de libellés par zone. Son transform est réécrit à chaque zoom
+         par _updateGlyphScale ; à l'intérieur, tout est en pixels écran. */
+      const glyphs = document.createElementNS(NS, 'g');
+      glyphs.setAttribute('pointer-events', 'none');
+      glyphs.dataset.zone = id;
 
       if (zoneData) {
         const shortName = zoneData.nom.split(',')[0].trim();
         const nameLabel = document.createElementNS(NS, 'text');
-        nameLabel.setAttribute('x', cx.toFixed(1));
-        nameLabel.setAttribute('y', (cy - 1.5).toFixed(1));
+        nameLabel.setAttribute('x', '0');
+        /* Les libellés remontent : la rangée de pions occupe le dessous du
+           centroïde. Avant, code de zone et pions se superposaient. */
+        nameLabel.setAttribute('y', String(-PX.pionRadius - 12));
         nameLabel.setAttribute('text-anchor', 'middle');
         nameLabel.setAttribute('dominant-baseline', 'central');
-        nameLabel.setAttribute('font-size', '4.2');
-        nameLabel.setAttribute('fill', 'rgba(255,255,255,0.75)');
+        nameLabel.setAttribute('font-size', String(PX.zoneNameFont));
+        nameLabel.setAttribute('fill', 'rgba(255,255,255,0.92)');
         nameLabel.setAttribute('font-family', 'system-ui, sans-serif');
         nameLabel.setAttribute('font-weight', '600');
-        nameLabel.setAttribute('pointer-events', 'none');
+        /* Halo : le nom doit rester lisible sur un aplat clair comme sur un aplat
+           sombre, et la couleur du propriétaire change sous lui en cours de partie. */
+        nameLabel.setAttribute('stroke', 'rgba(0,0,0,0.85)');
+        nameLabel.setAttribute('stroke-width', '3');
+        nameLabel.setAttribute('paint-order', 'stroke');
+        nameLabel.classList.add('zone-name');
         nameLabel.textContent = shortName;
-        this.gLabels.appendChild(nameLabel);
+        glyphs.appendChild(nameLabel);
       }
 
       const codeLabel = document.createElementNS(NS, 'text');
-      codeLabel.setAttribute('x', cx.toFixed(1));
-      codeLabel.setAttribute('y', (cy + 2).toFixed(1));
+      codeLabel.setAttribute('x', '0');
+      codeLabel.setAttribute('y', String(-PX.pionRadius - 1));
       codeLabel.setAttribute('text-anchor', 'middle');
       codeLabel.setAttribute('dominant-baseline', 'central');
-      codeLabel.setAttribute('font-size', '3.2');
-      codeLabel.setAttribute('fill', 'rgba(255,255,255,0.4)');
+      codeLabel.setAttribute('font-size', String(PX.zoneCodeFont));
+      codeLabel.setAttribute('fill', 'rgba(255,255,255,0.62)');
       codeLabel.setAttribute('font-family', 'monospace');
-      codeLabel.setAttribute('pointer-events', 'none');
+      codeLabel.setAttribute('stroke', 'rgba(0,0,0,0.8)');
+      codeLabel.setAttribute('stroke-width', '2.5');
+      codeLabel.setAttribute('paint-order', 'stroke');
+      codeLabel.classList.add('zone-code');
       codeLabel.textContent = id;
-      this.gLabels.appendChild(codeLabel);
+      glyphs.appendChild(codeLabel);
+
+      this.gLabels.appendChild(glyphs);
+      this.glyphGroups[id] = glyphs;
     });
 
     this.svg.appendChild(this.gZones);
@@ -178,13 +344,17 @@ export class MapRenderer {
   }
 
   _setupInteraction() {
-    this.viewBox = { x: 0, y: 0, w: this.svgW, h: this.svgH };
+    /* Vue d'ouverture à mi-zoom, centrée : à pleine étendue, une zone ne fait que
+       quelques dizaines de pixels et le plateau se lit comme une tache. */
+    const w = this.svgW / 1.9, h = this.svgH / 1.9;
+    this.viewBox = { x: (this.svgW - w) / 2, y: (this.svgH - h) / 2, w, h };
+
     let dragging = false, dragStart = null, vbStart = null;
     let pinchStart = null;
 
     const updateVB = () => {
-      this.svg.setAttribute('viewBox',
-        `${this.viewBox.x} ${this.viewBox.y} ${this.viewBox.w} ${this.viewBox.h}`);
+      this._clampViewBox();
+      this._applyViewBox();
     };
 
     const zoomAt = (clientX, clientY, scale) => {
@@ -290,6 +460,12 @@ export class MapRenderer {
       const path = e.target.closest('.zone');
       if (path) this.selectZone(path.dataset.id, e);
     });
+
+    /* Pousser le viewBox d'ouverture dans le DOM. Sans ça, l'attribut reste à
+       l'étendue complète posée par _buildSvg jusqu'au premier zoom, et l'échelle
+       des pions est calculée contre une vue qui n'est pas celle affichée. */
+    this._clampViewBox();
+    this._applyViewBox();
   }
 
   selectZone(id, event) {
@@ -361,13 +537,16 @@ export class MapRenderer {
       const zone = gameState.plateau[zid];
       if (zone && zone.proprietaire !== null && zone.proprietaire !== undefined) {
         const joueur = gameState.joueurs[zone.proprietaire];
-        path.setAttribute('fill', joueur.couleur + '55');
+        /* 'B3' = 70 % d'opacité. À '55' (33 %), l'alpha effectif tombait à 0,28 et
+           une zone conquise contrastait à 1,4:1 avec le fond : prendre un territoire
+           ne le changeait pas visuellement. */
+        path.setAttribute('fill', joueur.couleur + 'B3');
         path.setAttribute('stroke', joueur.couleur);
-        path.setAttribute('stroke-width', '1.2');
+        path.setAttribute('stroke-width', '1.6');
       } else {
         path.setAttribute('fill', path.getAttribute('data-base-fill'));
         const q = this.zoneToQuartier[zid];
-        const colors = q ? QUARTIER_COLORS[q.id] : { stroke: '#555' };
+        const colors = q ? QUARTIER_COLORS[q.id] : NO_QUARTIER;
         path.setAttribute('stroke', colors.stroke);
         path.setAttribute('stroke-width', '0.8');
       }
@@ -481,44 +660,76 @@ export class MapRenderer {
 
     Object.entries(gameState.plateau).forEach(([zid, zone]) => {
       if (!zone.pions.length) return;
-      const feature = this.featureMap[zid];
-      if (!feature) return;
 
-      const [cx, cy] = this._centroid(feature);
-      const count = zone.pions.length;
-      const spacing = 4;
-      const startX = cx - ((count - 1) * spacing) / 2;
+      const feature = this.featureMap[zid];
+      /* Les îles n'ont pas de géométrie dans le GeoJSON : sans repli, leurs pions
+         — dont les gitans posés à l'initialisation — ne sont dessinés nulle part.
+         On les place au barycentre de leurs voisines déclarées. */
+      const c = feature ? this._centroid(feature) : this._fallbackCentroid(zid);
+      if (!c) return;
+      this.centroids[zid] = c;
+
+      /* Un groupe par zone, contre-échelé : tout ce qui suit est en pixels écran. */
+      const g = document.createElementNS(NS, 'g');
+      g.dataset.zone = zid;
+      g.setAttribute('pointer-events', 'none');
+
+      const n = zone.pions.length;
+      const perRow = Math.min(PX.pionPerRow, n);
+      const rows = Math.ceil(n / perRow);
 
       zone.pions.forEach((pion, i) => {
-        const px = startX + i * spacing;
+        const row = Math.floor(i / perRow);
+        const inRow = i % perRow;
+        const rowCount = Math.min(perRow, n - row * perRow);
+        const px = (inRow - (rowCount - 1) / 2) * PX.pionGap;
+        const py = PX.pionRadius + 3 + (row - (rows - 1) / 2) * PX.pionGap + (rows - 1) * PX.pionGap / 2;
+
         const joueur = gameState.joueurs[pion.joueur];
         const info = PION_SYMBOLS[pion.type] || { symbol: '?', color: '#fff' };
+        const fill = joueur ? joueur.couleur : info.color;
 
         const circle = document.createElementNS(NS, 'circle');
         circle.setAttribute('cx', px.toFixed(1));
-        circle.setAttribute('cy', (cy + 4).toFixed(1));
-        circle.setAttribute('r', '2.5');
-        circle.setAttribute('fill', joueur ? joueur.couleur : info.color);
-        circle.setAttribute('stroke', '#000');
-        circle.setAttribute('stroke-width', '0.4');
-        circle.setAttribute('pointer-events', 'none');
-        this.pionsGroup.appendChild(circle);
+        circle.setAttribute('cy', py.toFixed(1));
+        circle.setAttribute('r', String(PX.pionRadius));
+        circle.setAttribute('fill', fill);
+        circle.setAttribute('stroke', 'rgba(0,0,0,0.9)');
+        circle.setAttribute('stroke-width', '1.5');
+        g.appendChild(circle);
 
         const label = document.createElementNS(NS, 'text');
         label.setAttribute('x', px.toFixed(1));
-        label.setAttribute('y', (cy + 4.5).toFixed(1));
+        label.setAttribute('y', py.toFixed(1));
         label.setAttribute('text-anchor', 'middle');
         label.setAttribute('dominant-baseline', 'central');
-        label.setAttribute('font-size', '2.2');
-        label.setAttribute('fill', '#fff');
-        label.setAttribute('font-family', 'monospace');
+        label.setAttribute('font-size', String(PX.pionFont));
+        label.setAttribute('fill', readableOn(fill));
+        label.setAttribute('font-family', 'ui-monospace, monospace');
         label.setAttribute('font-weight', '700');
-        label.setAttribute('pointer-events', 'none');
         label.textContent = info.symbol;
-        this.pionsGroup.appendChild(label);
+        g.appendChild(label);
       });
+
+      this.pionsGroup.appendChild(g);
     });
+
+    this._updateGlyphScale();
+  }
+
+  /** Position de repli pour une zone sans géométrie (les îles). */
+  _fallbackCentroid(zid) {
+    if (this.centroids[zid]) return this.centroids[zid];
+    const ile = (this.gameplay.iles || []).find(i => i.id === zid);
+    const voisins = (ile?.adjacences || [])
+      .map(a => this.featureMap[a])
+      .filter(Boolean)
+      .map(f => this._centroid(f));
+    if (!voisins.length) return null;
+    const cx = voisins.reduce((s, p) => s + p[0], 0) / voisins.length;
+    const cy = voisins.reduce((s, p) => s + p[1], 0) / voisins.length;
+    return [cx, cy];
   }
 }
 
-export { QUARTIER_COLORS, FACILITE_LABELS, PION_SYMBOLS };
+export { QUARTIER_COLORS, setQuartierColors, FACILITE_LABELS, PION_SYMBOLS, PX };

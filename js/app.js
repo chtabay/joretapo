@@ -1,5 +1,5 @@
 import { GameState } from './game-state.js';
-import { MapRenderer, QUARTIER_COLORS, FACILITE_LABELS } from './map-renderer.js';
+import { MapRenderer, QUARTIER_COLORS, setQuartierColors, FACILITE_LABELS } from './map-renderer.js';
 import { renderSetupScreen } from './setup.js';
 import { TurnManager, PHASE, GAME_PHASE_LABELS } from './turn-manager.js';
 import { RevenueEngine, BUY_PRICE, CONSTRUCTION_DEFS } from './revenue-engine.js';
@@ -28,6 +28,12 @@ async function loadGameData() {
     fetch('data/cartes-magouille.json').then(r => r.json())
   ]);
   cartesDef = cartesRes;
+
+  /* Les couleurs de quartier sont dérivées des données de la ville, pas codées en
+     dur : un nouveau pack (Toulouse, Châtellerault…) reçoit une palette valide
+     sans qu'on repeigne quoi que ce soit à la main. */
+  setQuartierColors(gameRes.quartiers);
+
   const zoneToQuartier = {};
   gameRes.quartiers.forEach(q => { q.zones.forEach(z => { zoneToQuartier[z] = q; }); });
   (gameRes.iles || []).forEach(ile => {
@@ -99,6 +105,10 @@ function onGameStart(config) {
 /* ── Map + base game screen ── */
 function renderGameScreen() {
   const mc = document.getElementById('map-container');
+  /* L'écran de jeu peut être rendu plusieurs fois (nouvelle partie, reprise,
+     exploration) : sans ça, chaque rendu laisse derrière lui un écouteur de
+     redimensionnement pointant sur un plateau détruit. */
+  mapRenderer?.destroy();
   mapRenderer = new MapRenderer(mc, gameData);
   if (gameState) {
     mapRenderer.updateOwnership(gameState);
@@ -115,6 +125,9 @@ function renderGameScreen() {
       showZonePopup(id, event);
     }
   };
+  const recenter = document.getElementById('btn-recenter');
+  if (recenter) recenter.onclick = () => mapRenderer?.recenter();
+
   renderLegend();
   updateHUD();
   initMobileNav();
