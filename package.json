@@ -1,0 +1,15 @@
+{
+  "name": "joretapo",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Jeu de plateau numerique hotseat — moteurs testables sans navigateur",
+  "type": "module",
+  "scripts": {
+    "test": "node --test \"test/**/*.test.mjs\"",
+    "sim": "node tools/sim.mjs",
+    "serve": "npx --yes http-server -p 8000 -c-1"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

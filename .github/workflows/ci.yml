@@ -1,0 +1,42 @@
+name: CI
+
+# Le depot a vecu 42 commits sans aucun test. Ce fichier existe pour deux raisons :
+# arreter une regression avant qu'elle n'atteigne la table, et dire en trente
+# secondes, dans trois mois, si le depot tourne encore.
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  moteurs:
+    name: Tests des moteurs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # Aucune dependance a installer : les moteurs ne touchent pas au DOM et les
+      # tests n'utilisent que node:test et node:assert.
+      - name: Tests
+        run: npm test
+
+  banc:
+    name: Banc d'essai
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # Garde-fou d'equilibrage. Les tests disent si les regles s'appliquent ;
+      # le banc dit si la partie reste jouable — duree, tour du premier combat,
+      # ecart entre le premier et le dernier. Une regle peut etre correcte et
+      # rendre le jeu injouable : c'est arrive, c'est ce qu'on surveille ici.
+      - name: Parties simulees
+        run: node tools/sim.mjs --graines 30 --tours 30
