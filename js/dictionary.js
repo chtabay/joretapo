@@ -43,8 +43,12 @@ export const DICT_ENTRIES = {
     title: 'Soutenir un allié',
     content: `
       <p>Un pion armé qui ne se déplace pas peut <strong>prêter sa force</strong> à un autre
-      joueur engagé dans un conflit sur une zone <strong>adjacente à la sienne</strong>.
+      joueur engagé dans un conflit, jusqu'à <strong>deux zones de la sienne</strong>.
       Il reste sur place ; il ajoute +1 à la force du bénéficiaire.</p>
+      <p>La portée était d'une seule zone. Mesuré sur 40 parties simulées : sur 483 zones
+      disputées, un joueur non impliqué avait un pion armé juste à côté dans <strong>un
+      seul cas</strong>. À deux zones, il peut intervenir dans 8 % des disputes — rare,
+      mais plus jamais impossible.</p>
       <p>Le soutien coûte <strong>un ordre</strong> sur les cinq du tour. C'est ce prix qui lui
       donne sa valeur : promettre son soutien, c'est renoncer à autre chose.</p>
       <p><strong>Le soutien est coupé</strong> si votre propre zone est attaquée pendant le
@@ -187,14 +191,24 @@ export const DICT_ENTRIES = {
     title: 'Déplacement',
     content: `
       <p>Déplacez un pion vers une <strong>case adjacente</strong> (1 case par tour).</p>
-      <p><strong>Supports</strong> : les pions armés qui ne bougent pas supportent automatiquement les alliés adjacents en conflit. Un pion supportant qui est lui-même attaqué voit son support <strong>coupé</strong>.</p>
+      <p><strong>Supports</strong> : vos pions armés qui ne bougent pas défendent automatiquement
+      vos propres zones voisines. Pour aider <em>un autre joueur</em>, il faut un ordre de soutien —
+      il porte à deux zones. Un pion supportant qui est lui-même attaqué voit son support
+      <strong>coupé</strong>.</p>
       <h4>Résolution des conflits</h4>
       <ol>
-        <li>Le camp avec le <strong>plus de supports non coupés</strong> l'emporte</li>
-        <li><strong>Égalité</strong> = statu quo (personne ne bouge)</li>
+        <li>Le camp avec la <strong>plus grande force</strong> l'emporte</li>
+        <li>À force égale, on <strong>départage</strong> : celui qui <strong>tient la zone</strong>
+        la garde ; sinon celui qui <strong>engage le plus de pions</strong> l'emporte. Les soutiens
+        font le total, la chair fait le départage.</li>
+        <li>Égalité parfaite seulement : statu quo</li>
         <li>Le <strong>vaincu</strong> fuit vers une case adjacente libre</li>
         <li><strong>Élimination payante</strong> : possible en payant le coût du pion + perte de 100k électeurs</li>
       </ol>
+      <p class="dict-note">L'égalité était gratuite : on repassait le même ordre. Mesuré sur
+      40 parties simulées, 353 égalités par tranche de 40 parties, dont 66 % rejouées à
+      l'identique le tour suivant — pendant que 0,7 zone seulement changeait de mains. Le
+      départage en laisse 28.</p>
       <p><strong>Cohabitation</strong> : un seul pion armé (dealer ou trafiquant) par case. Les prostituées cohabitent.</p>
     `
   },

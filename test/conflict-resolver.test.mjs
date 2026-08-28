@@ -38,6 +38,53 @@ test('un déplacement vers une zone non adjacente est refusé', async () => {
 
 /* ── Conflits ───────────────────────────────────────────────────────────── */
 
+/* ── Départage des égalités ─────────────────────────────────────────────── */
+
+test('à égalité, celui qui tient la zone la garde', async () => {
+  /* On ne déloge pas sans supériorité : c'est la règle, et elle vaut aussi pour
+     le propriétaire qui a conquis la zone puis en est sorti. */
+  const { gs, city, adj } = await newTestGame(2);
+  place(gs, 'B1', 'dealer', 1);   /* défenseur */
+  place(gs, 'A2', 'dealer', 0);
+
+  ConflictResolver.resolve(gs, { 0: [move('A2', 'B1')] }, adj, city);
+
+  assert.equal(holds(gs, 'B1', 1), true);
+  assert.equal(holds(gs, 'A2', 0), true, 'l\'assaut rebondit');
+});
+
+test('sur une zone libre, à force égale, celui qui engage le plus de pions l\'emporte', async () => {
+  /* Les soutiens font le total, la chair fait le départage : une force obtenue
+     par alliance ne vaut pas une force qu'on a payée de ses propres pions. */
+  const { gs, city, adj } = await newTestGame(3);
+  place(gs, 'A2', 'dealer', 0);
+  place(gs, 'D1', 'dealer', 0);   /* J0 engage DEUX pions sur B1 */
+  place(gs, 'B2', 'dealer', 1);   /* J1 en engage un... */
+  place(gs, 'D2', 'dealer', 2);   /* ...soutenu par un tiers : total 2 contre 2 */
+
+  ConflictResolver.resolve(gs, {
+    0: [move('A2', 'B1'), move('D1', 'B1')],
+    1: [move('B2', 'B1')],
+    2: [soutien('D2', 'B1', 1)]
+  }, adj, city);
+
+  assert.equal(holds(gs, 'B1', 0), true, 'deux pions propres battent un pion soutenu');
+});
+
+test('une égalité parfaite laisse tout le monde sur place', async () => {
+  const { gs, city, adj } = await newTestGame(2);
+  place(gs, 'A2', 'dealer', 0);
+  place(gs, 'B2', 'dealer', 1);   /* un pion chacun sur une zone libre et sans propriétaire */
+
+  const log = ConflictResolver.resolve(gs, {
+    0: [move('A2', 'B1')],
+    1: [move('B2', 'B1')]
+  }, adj, city);
+
+  assert.equal(gs.plateau['B1'].pions.length, 0);
+  assert.ok(log.some(l => /Égalité parfaite/.test(l.msg)));
+});
+
 test('à forces égales, personne ne bouge', async () => {
   const { gs, city, adj } = await newTestGame(2);
   place(gs, 'A2', 'dealer', 0);
@@ -256,11 +303,32 @@ test('un soutien est coupé si la zone du soutien est attaquée', async () => {
   assert.equal(holds(gs, 'B1', 1), true, 'soutien coupé : le défenseur tient');
 });
 
-test('un soutien depuis une zone non adjacente est refusé', async () => {
+test('on soutient un allié jusqu\'à deux zones de distance', async () => {
+  /* Le soutien exigeait l'adjacence. Mesure sur 40 parties simulees : sur 529
+     zones disputees par au moins deux camps, un joueur non implique avait un
+     pion arme sur une zone VOISINE dans un seul cas — l'ordre de soutien, seul
+     objet de la phase de negociation, etait donc quasi injouable. Aider
+     deliberement porte plus loin que monter la garde. */
+  const { gs, city, adj } = await newTestGame(3);
+  place(gs, 'B1', 'dealer', 1);   /* défenseur : 1 */
+  place(gs, 'A2', 'dealer', 0);   /* attaquant : 1 */
+  place(gs, 'B2', 'dealer', 2);   /* B2 — B1 : voisin, donc à portée */
+  place(gs, 'D2', 'dealer', 2);   /* D2 — D1 — B1 : deux zones, à portée aussi */
+
+  const log = ConflictResolver.resolve(gs, {
+    0: [move('A2', 'B1')],
+    2: [soutien('D2', 'B1', 0)]
+  }, adj, city);
+
+  assert.equal(holds(gs, 'B1', 0), true, 'le soutien à deux zones fait basculer le conflit');
+  assert.ok(log.some(l => /soutient/.test(l.msg)));
+});
+
+test('un soutien depuis plus de deux zones est refusé', async () => {
   const { gs, city, adj } = await newTestGame(3);
   place(gs, 'B1', 'dealer', 1);
   place(gs, 'A2', 'dealer', 0);
-  place(gs, 'C2', 'dealer', 2);   /* C2 n'est pas adjacent à B1 */
+  place(gs, 'C2', 'dealer', 2);   /* C2 — C1 — B2 — B1 : trois zones */
 
   const log = ConflictResolver.resolve(gs, {
     0: [move('A2', 'B1')],
@@ -268,7 +336,7 @@ test('un soutien depuis une zone non adjacente est refusé', async () => {
   }, adj, city);
 
   assert.equal(holds(gs, 'B1', 1), true, 'le soutien lointain ne compte pas');
-  assert.ok(log.some(l => l.type === 'warn' && /adjacent/.test(l.msg)));
+  assert.ok(log.some(l => l.type === 'warn' && /plus de 2 zones/.test(l.msg)));
 });
 
 test('un pion ne peut pas soutenir et se battre le même tour', async () => {

@@ -4,7 +4,7 @@ import { MapRenderer, QUARTIER_COLORS, setQuartierColors, FACILITE_LABELS, EQUIP
 import { renderSetupScreen } from './setup.js';
 import { TurnManager, PHASE, GAME_PHASE_LABELS } from './turn-manager.js';
 import { RevenueEngine, BUY_PRICE, CONSTRUCTION_DEFS } from './revenue-engine.js';
-import { ConflictResolver } from './conflict-resolver.js';
+import { ConflictResolver, PORTEE_SOUTIEN } from './conflict-resolver.js';
 import { MayorEngine, MAYOR_POWERS } from './mayor-engine.js';
 import { vueJoueurs, quartiersDisputes } from './vues.js';
 import { MagouilleEngine } from './magouille-engine.js';
@@ -1494,8 +1494,23 @@ function showMoveModal(pid, refresh) {
  * cinq : c'est ce prix qui lui donne du poids à la table, puisqu'un joueur qui
  * promet son soutien renonce vraiment à quelque chose.
  */
+/** Les zones a PORTEE_SOUTIEN pas ou moins d'une zone donnee, elle exclue. */
+function zonesAPortee(depart) {
+  let front = [depart];
+  const vus = new Set([depart]);
+  for (let pas = 0; pas < PORTEE_SOUTIEN; pas++) {
+    const suivant = [];
+    front.forEach(z => (gameData.adjacencies[z] || []).forEach(v => {
+      if (!vus.has(v) && gameState.plateau[v]) { vus.add(v); suivant.push(v); }
+    }));
+    front = suivant;
+  }
+  vus.delete(depart);
+  return [...vus];
+}
+
 function showSupportModal(pid, refresh) {
-  /* Un soutien part d'une zone où l'on a un pion armé, vers une zone adjacente. */
+  /* Un soutien part d'une zone ou l'on a un pion arme, vers une zone a deux pas. */
   const sources = Object.entries(gameState.plateau)
     .filter(([_, z]) => z.pions.some(p => p.joueur === pid && (p.type === 'dealer' || p.type === 'trafiquant')))
     .map(([zid]) => zid);
@@ -1512,8 +1527,9 @@ function showSupportModal(pid, refresh) {
 
   const html = `
     <h3>🤝 Soutenir un allié ${helpLink('soutien')}</h3>
-    <p class="modal-note">Votre pion ne bouge pas : il ajoute sa force à celle d'un autre joueur
-    sur une zone voisine. Le soutien est annulé si votre propre zone est attaquée.</p>
+    <p class="modal-note">Votre pion ne bouge pas : il ajoute sa force à celle d'un autre joueur,
+    jusqu'à <strong>${PORTEE_SOUTIEN} zones</strong> de la sienne. Le soutien est annulé si votre propre
+    zone est attaquée pendant le même tour — sauf par celui que vous soutenez.</p>
     <label>Mon pion (il restera sur place) :</label>
     <select id="f-from">${sources.map(z => `<option value="${z}">${z} — ${zoneNom(z)}</option>`).join('')}</select>
     <label>Zone à soutenir :</label>
@@ -1541,11 +1557,11 @@ function showSupportModal(pid, refresh) {
     const selTo = document.getElementById('f-to');
     if (!selFrom || !selTo) return;
     const majTo = () => {
-      const voisines = (gameData.adjacencies[selFrom.value] || []).filter(z => gameState.plateau[z]);
-      selTo.innerHTML = voisines.length
-        ? voisines.map(z => `<option value="${z}">${z} — ${zoneNom(z)}</option>`).join('')
-        : '<option value="">Aucune zone voisine</option>';
-      mapRenderer?.highlightZones?.(voisines, { ownedIds: [selFrom.value], dimOthers: false });
+      const cibles = zonesAPortee(selFrom.value);
+      selTo.innerHTML = cibles.length
+        ? cibles.map(z => `<option value="${z}">${z} — ${zoneNom(z)}</option>`).join('')
+        : '<option value="">Aucune zone à portée</option>';
+      mapRenderer?.highlightZones?.(cibles, { ownedIds: [selFrom.value], dimOthers: false });
     };
     selFrom.onchange = majTo;
     majTo();

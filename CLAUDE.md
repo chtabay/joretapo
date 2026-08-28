@@ -7,7 +7,7 @@ dépôt, on ne sait plus où on en était, et on referme.
 ## En trente secondes
 
 ```bash
-npm test                    # 189 tests, aucune dépendance, aucune configuration
+npm test                    # 193 tests, aucune dépendance, aucune configuration
 node tools/sim.mjs          # 40 parties simulées : le jeu est-il encore jouable ?
 npm run serve               # http://localhost:8000
 ```
@@ -47,6 +47,8 @@ de 30 tours, et 0 % avec le moindre combat.
 | Soutien à un allié | inexistant | ordre explicite, coûte un ordre | Le comptage ne créditait que le propriétaire du pion : aider quelqu'un était impossible, et la négociation n'avait rien à négocier |
 | Vote | pour soi possible | interdit | L'auto-vote rendait le maire mécanique : le joueur déjà en tête |
 | Offre d'armes | 46/tour | 130/tour | Un joueur dépensait 3 de ses 5 ordres en courses et ne s'étendait plus |
+| Égalité de conflit | statu quo gratuit | départagée au tour même : celui qui tient la zone la garde ; sinon celui qui engage le plus de pions | 353 égalités sur 40 parties, dont 66 % rejouées à l'identique le tour suivant, pendant que 0,7 zone changeait de mains. Se bloquer était la position la moins chère du jeu |
+| Portée du soutien | zone adjacente | deux zones | Sur 483 zones disputées, un joueur non impliqué avait un pion armé juste à côté dans **un** cas. L'ordre de soutien — seul objet de la négociation — était injouable |
 | Points d'appro | accessibles à tous, depuis n'importe où | il faut un pion sur place ou à côté ; priorité au propriétaire + péage de 50 % | La logistique n'avait aucune géographie : la liste des 13 points était la même pour tous depuis n'importe quelle case, et prendre un port ne servait à rien. Ce sont des équipements publics qu'on domine |
 
 Après : 100 % de parties terminées (0 % avant), médiane au tour 13 à 4 joueurs,
@@ -94,11 +96,31 @@ Deux indicateurs ont été ajoutés pour cela :
 - **tour de verrouillage** — le premier tour à partir duquel celui qui mène est
   déjà le vainqueur dans 90 % des parties, rapporté à la durée médiane. À 1,0, le
   sort ne se scelle qu'au dernier tour ; à 0,5, la seconde moitié de la soirée ne
-  décide plus rien.
+  décide plus rien. C'est l'indicateur qui dit si le recalage du seuil est urgent :
+  à 6 joueurs il est retombé à 0,52 depuis que les égalités se départagent, non
+  parce que la partie se décide plus tôt mais parce qu'elle dure plus longtemps.
 - **passages de tablette** — le nombre d'écrans par tour qui demandent qu'on
   prenne l'appareil. C'est la ressource la plus contrainte d'une soirée : 21,9 par
   tour à 4 joueurs, 30,6 à 6. Un système nouveau qui en réclame d'autres doit se
   replier dans un passage existant.
+
+## Effet mesuré du départage des égalités
+
+40 graines identiques, banc corrigé, avant et après les deux règles de conflit :
+
+| | 4 joueurs | | 6 joueurs | |
+|---|---|---|---|---|
+| | avant | après | avant | après |
+| Égalités par partie | 8,8 | **0,7** | — | — |
+| Zones reprises par partie | 0,7 | **1,0** | 1,3 | **2,7** |
+| Victoire (médiane) | 8 | 8 | 10 | **13,5** |
+| Tour de verrouillage | 0,88 | 0,88 | 0,70 | **0,52** |
+
+Le front bouge — surtout à six joueurs, où le territoire circule deux fois plus.
+Le prix est là aussi : la partie à six s'allonge de trois tours et demi, et le
+verrouillage relatif se dégrade parce que la durée augmente sans que le tour de
+verrouillage recule. **C'est un argument de plus pour recaler le seuil**, ce qui
+suppose d'abord de réparer le banc (voir plus haut).
 
 ## Ce qui reste ouvert
 

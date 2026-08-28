@@ -1,6 +1,9 @@
 import { SpecialEntities } from './special-entities.js';
 
 const IS_ARMED = t => t === 'dealer' || t === 'trafiquant';
+
+/** Portée du soutien explicite à un allié, en nombre de zones. */
+export const PORTEE_SOUTIEN = 2;
 const IS_PROST = t => t === 'prostituee_base' || t === 'prostituee_luxe';
 
 const ELIM_COST = {
@@ -136,6 +139,8 @@ export class ConflictResolver {
     const { dest, movers, attackerPids, defenderPid } = conflict;
     const result = { log: [], winners: [], cancelled: [], flights: [] };
     const adj = adjacencies[dest] || [];
+    const zonesADeuxCases = new Set(adj);
+    adj.forEach(v => (adjacencies[v] || []).forEach(w => { if (w !== dest) zonesADeuxCases.add(w); }));
 
     // Participants : chaque joueur impliqué (attaquants + défenseur)
     const participants = new Map();
@@ -165,11 +170,20 @@ export class ConflictResolver {
        Le soutien coûte un ordre : c'est ce qui lui donne son prix à la table. */
     const usedForSupport = new Set();
 
+    /* Portee du soutien explicite : DEUX zones, la ou le soutien passif reste a
+       une. Mesure sur 40 parties simulees : sur 529 zones disputees par au moins
+       deux camps, un joueur non implique avait un pion arme sur une zone voisine
+       dans UN cas. L'ordre de soutien a un allie — la seule chose que la phase de
+       negociation avait a negocier — etait donc quasi injouable.
+       Aider deliberement porte plus loin que monter la garde : c'est un
+       deplacement de troupe qu'on renonce a faire. */
+    const aPortee = zoneSource => zonesADeuxCases.has(zoneSource);
+
     explicitSupports.forEach(s => {
       const zone = gs.plateau[s.from];
       if (!zone) return;
-      if (!adj.includes(s.from)) {
-        result.log.push({ pid: s.pid, msg: `${gs.joueurs[s.pid]?.nom}: soutien impossible, ${s.from} n'est pas adjacent à ${dest}`, type: 'warn' });
+      if (!aPortee(s.from)) {
+        result.log.push({ pid: s.pid, msg: `${gs.joueurs[s.pid]?.nom}: soutien impossible, ${s.from} est à plus de ${PORTEE_SOUTIEN} zones de ${dest}`, type: 'warn' });
         return;
       }
       const idx = zone.pions.findIndex((p, i) =>
@@ -247,10 +261,54 @@ export class ConflictResolver {
 
     const zoneName = gameplayRef?.zones?.[dest]?.nom || dest;
 
+    /* ── Departage d'une egalite ─────────────────────────────────────────────
+       Une egalite annulait tous les mouvements sans rien couter a personne. Sur
+       40 parties simulees : 353 egalites, soit 8,8 par partie, dont 66 % rejouees
+       a l'identique au tour suivant — pendant que 0,7 zone seulement changeait de
+       mains. Le front etait gele, et se bloquer etait la position la moins chere
+       du jeu : on repassait le meme ordre.
+
+       On tranche donc au tour meme, dans cet ordre :
+
+         1. Celui qui TIENT la zone l'emporte. On ne deloge pas sans superiorite —
+            c'est la regle de Diplomacy, et elle vaut aussi pour le proprietaire
+            qui a conquis la zone puis en est sorti.
+         2. Sinon, celui qui engage le PLUS DE PIONS PROPRES. Les soutiens font le
+            total, la chair fait le departage : une force obtenue par alliance ne
+            vaut pas une force qu'on a payee de ses pions.
+         3. Sinon seulement, statu quo.
+
+       Le point 2 est ce qui donne son prix a la negociation : un allie vous fait
+       gagner le total, il ne vous fait pas gagner l'egalite. */
     if (tied || winner === null) {
-      result.log.push({ pid: -1, msg: `⚔️ Conflit sur <strong>${zoneName}</strong> — ${forceDetails} → Égalité, statu quo !`, type: 'conflict' });
-      movers.forEach(m => result.cancelled.push(m));
-      return result;
+      const exAequo = [...participants.entries()].filter(([, d]) => d.strength === maxStrength);
+
+      const enPlace = exAequo.find(([pid, d]) => d.isDefender || gs.plateau[dest]?.proprietaire === pid);
+      let departage = enPlace || null;
+      let motif = enPlace ? 'tient la zone' : null;
+
+      if (!departage) {
+        const pionsDe = pid => movers.filter(m => m.pid === pid).length;
+        const meilleur = Math.max(...exAequo.map(([pid]) => pionsDe(pid)));
+        const candidats = exAequo.filter(([pid]) => pionsDe(pid) === meilleur);
+        if (candidats.length === 1) {
+          departage = candidats[0];
+          motif = `engage ${meilleur} pion${meilleur > 1 ? 's' : ''} contre moins`;
+        }
+      }
+
+      if (!departage) {
+        result.log.push({ pid: -1, msg: `⚔️ Conflit sur <strong>${zoneName}</strong> — ${forceDetails} → Égalité parfaite, statu quo !`, type: 'conflict' });
+        movers.forEach(m => result.cancelled.push(m));
+        return result;
+      }
+
+      winner = departage[0];
+      result.log.push({
+        pid: winner,
+        msg: `⚔️ Conflit sur <strong>${zoneName}</strong> — ${forceDetails} → égalité départagée : <strong style="color:${gs.joueurs[winner].couleur}">${gs.joueurs[winner].nom}</strong> l'emporte (${motif})`,
+        type: 'conflict'
+      });
     }
 
     const winnerName = gs.joueurs[winner].nom;
