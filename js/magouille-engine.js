@@ -1,8 +1,42 @@
+import { RULES } from './rules.js';
+
 export class MagouilleEngine {
 
+  /**
+   * Surface de regles activee. Injectee au chargement par app.js depuis
+   * data/ruleset.json ; vide par defaut, pour que les tests et le banc d'essai
+   * puissent tourner sans elle.
+   */
+  static ruleset = { cartes_desactivees: {}, effets_carte_desactives: {} };
+
+  static setRuleset(rs) {
+    if (rs) MagouilleEngine.ruleset = rs;
+  }
+
+  /** Un type de carte est-il en jeu ? */
+  static carteActive(type) {
+    const rs = MagouilleEngine.ruleset || {};
+    if (Object.prototype.hasOwnProperty.call(rs.cartes_desactivees || {}, type.id)) return false;
+    if (Object.prototype.hasOwnProperty.call(rs.effets_carte_desactives || {}, type.effet)) return false;
+    return true;
+  }
+
+  /**
+   * Construit la pile a partir des seuls types ACTIFS.
+   *
+   * Neuf types — quinze cartes sur soixante-cinq — tombaient dans la branche
+   * `default` de _applyEffect : elles affichaient un message de reussite et ne
+   * changeaient rien. Trois autres ecrivaient un drapeau (_verges_actif,
+   * _igor_actif, _ineligible) purge en fin de mandat et lu par aucune regle.
+   * Un joueur ne peut pas apprendre un jeu dont une partie des regles affichees
+   * est decorative : sa carte mentale ne converge jamais.
+   *
+   * Rien n'est supprime : le code et les donnees restent, la coupure tient dans
+   * un fichier de configuration et se defait par un booleen.
+   */
   static buildDeck(cartesDef) {
     const deck = [];
-    cartesDef.types.forEach(type => {
+    cartesDef.types.filter(MagouilleEngine.carteActive).forEach(type => {
       for (let i = 0; i < type.quantite; i++) {
         deck.push({ ...type, uid: `${type.id}_${i}` });
       }
@@ -42,20 +76,38 @@ export class MagouilleEngine {
     return drawn;
   }
 
+  /**
+   * Distribue le draft, en adaptant la taille de la pioche a ce que la pile
+   * peut reellement fournir.
+   *
+   * La pioche etait figee a 8 cartes par joueur. A 6 joueurs c'est 48 cartes,
+   * pour un deck qui n'en compte plus 65 depuis que les cartes sans effet ont ete
+   * ecartees : les derniers joueurs de l'ordre auraient recu moins que les
+   * premiers, ce qui est injuste et invisible. On reduit donc pour tout le monde
+   * plutot que de laisser la file s'assecher, en gardant le rapport pioche/garde.
+   */
+  static tailleDraft(gs, nbJoueurs) {
+    const dispo = (gs.deck_magouille.pile?.length || 0) + (gs.deck_magouille.defaussees?.length || 0);
+    const parJoueur = Math.floor(dispo / Math.max(1, nbJoueurs));
+    const pioche = Math.max(2, Math.min(RULES.draftPioche, parJoueur));
+    const garde = Math.max(1, Math.min(RULES.draftGarde, Math.floor(pioche / 2)));
+    return { pioche, garde };
+  }
+
   static draftPhase(gs, cartesDef) {
     MagouilleEngine._ensureIndex(gs, cartesDef);
+    const { pioche } = MagouilleEngine.tailleDraft(gs, gs.joueurs.length);
     const drafts = {};
     gs.joueurs.forEach((j, pid) => {
-      const drawn = MagouilleEngine.drawCards(gs, pid, 8, cartesDef);
-      drafts[pid] = drawn;
+      drafts[pid] = MagouilleEngine.drawCards(gs, pid, pioche, cartesDef);
     });
     return drafts;
   }
 
-  static keepCards(gs, pid, keptUids) {
+  static keepCards(gs, pid, keptUids, maxGarde = RULES.draftGarde) {
     const j = gs.joueurs[pid];
     if (!j.cartes_magouille) j.cartes_magouille = [];
-    const kept = keptUids.slice(0, 4);
+    const kept = keptUids.slice(0, maxGarde);
     j.cartes_magouille.push(...kept);
     return kept;
   }
@@ -301,7 +353,9 @@ export class MagouilleEngine {
       }
 
       default:
-        return { ok: true, msg: `${card.nom} jouée` };
+        /* Filet : si une carte sans effet arrive quand meme en main — vieille
+           sauvegarde, ruleset modifie — on le dit au lieu d'annoncer un succes. */
+        return { ok: false, msg: `${card.nom} : cette carte n'a pas d'effet dans cette version.` };
     }
   }
 

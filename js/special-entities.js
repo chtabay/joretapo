@@ -1,5 +1,24 @@
 export class SpecialEntities {
 
+  /** Surface de regles activee — voir data/ruleset.json. */
+  static ruleset = { effets_gang_desactives: {} };
+
+  static setRuleset(rs) {
+    if (rs) SpecialEntities.ruleset = rs;
+  }
+
+  /**
+   * Un effet de gang est-il reellement applique ?
+   *
+   * Huit effets sur quinze ecrivaient gs._blocages ou gs._restrictions_ethniques,
+   * que rien ne lit nulle part : l'interface affichait un succes, la partie ne
+   * changeait pas. On le dit desormais au lieu de mentir.
+   */
+  static effetGangActif(effet) {
+    const d = SpecialEntities.ruleset?.effets_gang_desactives || {};
+    return d[effet] !== true;
+  }
+
   // ═══════════════════════════════════════════
   //  GITANS
   // ═══════════════════════════════════════════
@@ -156,6 +175,10 @@ export class SpecialEntities {
     if (!gangInfo || gangInfo.joueur !== pid) return { ok: false, reason: 'Gang non actif ou pas à vous' };
 
     const gang = gangInfo.gang;
+
+    if (!SpecialEntities.effetGangActif(gang.effet)) {
+      return { ok: false, reason: `${gang.nom} : cet effet n'est pas actif dans cette version.` };
+    }
 
     switch (gang.effet) {
       case 'casino_gratuit': {

@@ -44,7 +44,11 @@ export const RULES = {
   ordresParTour: 5,
 
   /** Tours entre deux elections municipales. */
-  toursParMandat: 7
+  toursParMandat: 7,
+
+  /** Draft de cartes apres chaque election : on pioche N, on en garde N/2. */
+  draftPioche: 8,
+  draftGarde: 4
 };
 
 export default RULES;

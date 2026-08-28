@@ -58,6 +58,11 @@ async function loadGameData() {
     fetch(ville.gameplay).then(r => r.json()),
     fetch('data/cartes-magouille.json').then(r => r.json())
   ]);
+
+  /* Surface de regles activee. Ce qui n'a pas d'effet ne doit pas etre propose. */
+  const ruleset = await fetch('data/ruleset.json').then(r => r.json()).catch(() => null);
+  MagouilleEngine.setRuleset(ruleset);
+  SpecialEntities.setRuleset(ruleset);
   cartesDef = cartesRes;
 
   /* Les couleurs de quartier sont dérivées des données de la ville, pas codées en
@@ -685,9 +690,9 @@ function renderOrderPanel(gamePhase) {
           <button class="op-btn" id="btn-add-create" ${remaining <= 0 ? 'disabled' : ''}>+ Créer dealer/trafiquant</button>
           <button class="op-btn" id="btn-add-flic" ${remaining <= 0 ? 'disabled' : ''}>+ Déployer un flic (180L)</button>
           <button class="op-btn" id="btn-elim-flic" ${remaining <= 0 ? 'disabled' : ''}>+ Éliminer un flic ennemi</button>
-          <button class="op-btn" id="btn-elim-incorruptible">+ Éliminer un incorruptible (700L)</button>
-          <button class="op-btn" id="btn-activate-gang">+ Activer un gang</button>
-          <button class="op-btn" id="btn-heist" style="background:rgba(241,196,15,0.08);border-color:#f1c40f;color:#f1c40f">💰 Cambrioler</button>
+          <button class="op-btn" id="btn-elim-incorruptible" ${remaining <= 0 ? 'disabled' : ''}>+ Éliminer un incorruptible (700L)</button>
+          <button class="op-btn" id="btn-activate-gang" ${remaining <= 0 ? 'disabled' : ''}>+ Activer un gang</button>
+          <button class="op-btn" id="btn-heist" ${remaining <= 0 ? 'disabled' : ''} style="background:rgba(241,196,15,0.08);border-color:#f1c40f;color:#f1c40f">💰 Cambrioler</button>
           <div class="op-hint">Un pion non déplacé défend automatiquement vos propres zones. Pour aider <em>un autre joueur</em>, il faut un ordre de soutien — c'est ce qui donne du poids à la négociation.</div>
         `}
         ${MayorEngine.canUse(gameState, pid) && MayorEngine.availablePowers(gameState, pid, gamePhase).length > 0 ? `
@@ -2368,9 +2373,14 @@ function renderDraftPick() {
     }
     const hands = MagouilleEngine.draftPhase(gameState, cartesDef);
     turnManager.setDraftHands(hands);
+    turnManager.draftGarde = MagouilleEngine.tailleDraft(gameState, gameState.joueurs.length).garde;
   }
 
   const hand = turnManager.draftHands[pid] || [];
+  /* Le nombre a garder suit la taille reelle de la pioche : le deck peut etre
+     plus petit que 8 x nbJoueurs selon la surface de regles activee. */
+  const aGarder = turnManager.draftGarde
+    || MagouilleEngine.tailleDraft(gameState, gameState.joueurs.length).garde;
   const selected = new Set();
 
   const ov = document.getElementById('election-ov');
@@ -2398,10 +2408,10 @@ function renderDraftPick() {
 
     body.innerHTML = `
       <div class="election-title">🃏 Cartes Magouille</div>
-      <div class="election-sub"><strong style="color:${j.couleur}">${j.nom}</strong>, choisissez 4 cartes parmi 8</div>
+      <div class="election-sub"><strong style="color:${j.couleur}">${j.nom}</strong>, choisissez ${aGarder} carte${aGarder>1?'s':''} parmi ${hand.length}</div>
       <div class="draft-card-list">${cards}</div>
-      <div style="text-align:center;margin-top:8px;font-size:13px;color:#888">${selected.size}/4 sélectionnée(s)</div>
-      <button id="btn-draft-confirm" class="btn-main" style="margin-top:12px" ${selected.size !== 4 ? 'disabled' : ''}>Confirmer mon choix</button>
+      <div style="text-align:center;margin-top:8px;font-size:13px;color:#888">${selected.size}/${aGarder} sélectionnée(s)</div>
+      <button id="btn-draft-confirm" class="btn-main" style="margin-top:12px" ${selected.size !== aGarder ? 'disabled' : ''}>Confirmer mon choix</button>
     `;
 
     body.querySelectorAll('.draft-card').forEach(el => {
@@ -2409,7 +2419,7 @@ function renderDraftPick() {
         if (e.target.closest('.draft-card-actions')) return;
         const uid = el.dataset.uid;
         if (selected.has(uid)) { selected.delete(uid); }
-        else if (selected.size < 4) { selected.add(uid); }
+        else if (selected.size < aGarder) { selected.add(uid); }
         refreshDraft();
       });
     });
@@ -2417,7 +2427,7 @@ function renderDraftPick() {
       btn.addEventListener('click', () => {
         const uid = btn.closest('.draft-card').dataset.uid;
         if (selected.has(uid)) { selected.delete(uid); }
-        else if (selected.size < 4) { selected.add(uid); }
+        else if (selected.size < aGarder) { selected.add(uid); }
         refreshDraft();
       });
     });
@@ -2431,7 +2441,7 @@ function renderDraftPick() {
 
     body.querySelector('#btn-draft-confirm')?.addEventListener('click', () => {
       const keptUids = [...selected];
-      MagouilleEngine.keepCards(gameState, pid, keptUids);
+      MagouilleEngine.keepCards(gameState, pid, keptUids, aGarder);
       MagouilleEngine.discardFromDraft(gameState, hand, keptUids);
       ov.classList.add('hidden');
       turnManager.submitDraftPick();

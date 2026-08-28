@@ -1,0 +1,35 @@
+{
+  "_comment": "Surface de regles ACTIVEE. Rien n'est supprime ici : on coupe l'entree, le code et les donnees restent en place. Remettre un element en jeu coute un booleen. Le peage pour cela est decrit dans docs/AJOUTER-UN-SYSTEME.md.",
+
+  "cartes_desactivees": {
+    "_raison": "Ces types tombent dans la branche `default` de MagouilleEngine._applyEffect : ils affichent un message de reussite et ne changent rien. Un joueur ne peut pas apprendre un jeu dont une partie des regles affichees est decorative — sa carte mentale ne converge jamais. 15 cartes sur 65 sont concernees.",
+    "carte_triche": "Carte de reaction : annuler une accusation. Demande un systeme d'interruption qui n'existe pas.",
+    "anti_carte_triche": "Carte de reaction. Meme raison.",
+    "malencontreux_accident": "Carte de reaction : annuler une magouille adverse. Meme raison.",
+    "guerre_gangs": "Detruire les gangs d'un quartier. A rebrancher avec les gangs.",
+    "goudron_plumes": "Expulser un joueur d'un quartier. Aucun lecteur.",
+    "chicago": "Bloquer un quartier. Aucun lecteur.",
+    "voter_morts": "Bonus d'electeurs via le cimetiere. Effet simple, bon candidat au retour.",
+    "voleurs_velo": "Voler une cargaison. Effet simple, bon candidat au retour.",
+    "opportuniste": "Tuer un pion en fuite. Demande un point d'accroche dans la resolution des conflits."
+  },
+
+  "effets_gang_desactives": {
+    "_raison": "Ces effets ecrivent un etat (gs._blocages, gs._restrictions_ethniques, joueur._immunite_ethnie) que RIEN ne lit nulle part. L'interface affichait un succes, la partie ne changeait pas. La condition d'activation exigeant un quartier entierement controle, environ deux gangs se declenchent dans une partie reelle : cabler les lecteurs couterait plusieurs jours pour du contenu que personne ne verrait.",
+    "bloquer_ventes_armes": true,
+    "bloquer_ordres": true,
+    "bloquer_approvisionnements": true,
+    "bloquer_deplacements_manhattan": true,
+    "restriction_ethnie_caucasien_asiatique": true,
+    "restriction_ethnie_non_asiatique_non_italien": true,
+    "restriction_ethnie_non_caucasien": true,
+    "immunite_restrictions_ethniques": true
+  },
+
+  "effets_carte_desactives": {
+    "_raison": "Memes symptomes du cote des cartes : l'etat est ecrit puis purge en fin de mandat, jamais consulte.",
+    "annuler_justice": "j._verges_actif n'est lu par aucune regle.",
+    "igor_nettoyeur": "j._igor_actif n'est lu par aucune regle.",
+    "rendre_ineligible": "gs.joueurs[x]._ineligible n'est pas consulte par la liste des candidats."
+  }
+}
