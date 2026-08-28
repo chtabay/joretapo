@@ -1,9 +1,62 @@
 const PLAYER_COLORS = ['#e74c3c', '#3498db', '#2ecc71', '#f39c12', '#9b59b6', '#1abc9c'];
+
+/**
+ * Nettoie un nom de joueur a la SOURCE.
+ *
+ * Le nom est saisi librement, puis interpole dans une soixantaine de gabarits
+ * HTML — panneau d'ordres, journal de resolution, ecran de vote, bandeau de
+ * victoire — dont beaucoup vivent dans les moteurs et non dans l'interface. Le
+ * depot n'avait aucune fonction d'echappement. Comme le nom part aussi dans
+ * l'URL de partage WhatsApp et revient par `#restore=`, un lien fabrique
+ * pouvait executer du script sur l'origine du jeu.
+ *
+ * Assainir une fois a l'entree couvre tous les points d'affichage, y compris
+ * ceux qu'on ajoutera plus tard, la ou echapper a chaque interpolation aurait
+ * laisse passer le premier oubli.
+ */
+function nomPropre(nom, defaut = 'Joueur') {
+  const propre = String(nom ?? '')
+    .replace(/[<>&"'`]/g, '')
+    .replace(/[\u0000-\u001F\u007F]/g, '')
+    .trim()
+    .slice(0, 24);
+  return propre || defaut;
+}
+
+/** Couleur CSS sure : seul le format hexadecimal est accepte. */
+function couleurPropre(c, defaut) {
+  return /^#[0-9a-fA-F]{3,8}$/.test(String(c || '')) ? c : defaut;
+}
+
 const ETHNIES = ['caucasien', 'afro_americain', 'asiatique', 'italien'];
 
 export class GameState {
-  static VERSION = '2.0';
+  /**
+   * Version du format de sauvegarde.
+   *
+   * Le champ existait et etait ecrit a chaque partie, mais AUCUN code ne le
+   * relisait jamais — ni load(), ni l'import depuis une URL partagee. Or la forme
+   * de l'etat a change (gs.manche) et les regles aussi (controle a la majorite,
+   * propriete persistante, seuil de victoire) : une vieille sauvegarde chargee en
+   * silence aurait produit une partie incoherente sans que personne sache si le
+   * probleme venait d'une regle ou d'un format perime.
+   *
+   * 2.0 : format d'origine.
+   * 3.0 : etat de la manche serialise, controle a la majorite, seuil a 35 points.
+   */
+  static VERSION = '3.0';
+  static VERSIONS_ACCEPTEES = ['2.0', '3.0'];
   static SAVE_KEY = 'joretapo-save';
+
+  /** Une sauvegarde est-elle lisible par cette version du jeu ? */
+  static estCompatible(data) {
+    const v = data?.version;
+    if (!v) return { ok: false, raison: 'Sauvegarde sans numéro de version.' };
+    if (!GameState.VERSIONS_ACCEPTEES.includes(v)) {
+      return { ok: false, raison: `Sauvegarde en version ${v}, ce jeu lit ${GameState.VERSIONS_ACCEPTEES.join(' et ')}.` };
+    }
+    return { ok: true, migration: v !== GameState.VERSION ? v : null };
+  }
 
   static create(config, gameplayData) {
     const state = new GameState();
@@ -16,8 +69,8 @@ export class GameState {
 
     state.joueurs = config.joueurs.map((j, i) => ({
       id: i,
-      nom: j.nom,
-      couleur: j.couleur || PLAYER_COLORS[i],
+      nom: nomPropre(j.nom, `Joueur ${i + 1}`),
+      couleur: couleurPropre(j.couleur, PLAYER_COLORS[i % PLAYER_COLORS.length]),
       ethnie: j.ethnie,
       quartier_origine: j.quartier_origine,
       ressources: { lingots: 0, doses: 0, armes: 0 },
@@ -204,8 +257,30 @@ export class GameState {
     if (!raw) return null;
 
     const data = JSON.parse(raw);
+    return GameState.fromPlain(data);
+  }
+
+  /**
+   * Reconstruit un GameState depuis des donnees brutes — localStorage ou lien
+   * partage. Les noms et couleurs sont reassainis : le lien vient de l'exterieur.
+   */
+  static fromPlain(data) {
+    const compat = GameState.estCompatible(data);
+    if (!compat.ok) {
+      const e = new Error(compat.raison);
+      e.code = 'SAUVEGARDE_INCOMPATIBLE';
+      throw e;
+    }
     const state = new GameState();
     Object.assign(state, data);
+    /* Migration douce : le format 2.0 est un sous-ensemble du 3.0 — il lui manque
+       gs.manche, que TurnManager recree, et il a ete joue sous d'autres regles.
+       On l'accepte en le tamponnant, plutot que de jeter la partie de quelqu'un. */
+    state.version = GameState.VERSION;
+    (state.joueurs || []).forEach((j, i) => {
+      j.nom = nomPropre(j.nom, `Joueur ${i + 1}`);
+      j.couleur = couleurPropre(j.couleur, PLAYER_COLORS[i % PLAYER_COLORS.length]);
+    });
     return state;
   }
 
@@ -291,4 +366,4 @@ export class GameState {
   }
 }
 
-export { PLAYER_COLORS, ETHNIES };
+export { PLAYER_COLORS, ETHNIES, nomPropre, couleurPropre };

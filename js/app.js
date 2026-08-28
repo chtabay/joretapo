@@ -13,6 +13,18 @@ import { HeistEngine, HEIST_TYPES } from './heist-engine.js';
 import { getShareUrl, generateQRCode, getWhatsAppShareUrl, copyToClipboard, shareViaWebShare, canUseWebShare, parseRestoreFromHash, clearRestoreHash } from './save-export.js';
 import { showDictionaryEntry, showDictionaryIndex, initDictionaryOverlay } from './dictionary.js';
 
+/**
+ * Echappement HTML.
+ *
+ * Le depot n'en avait aucun, alors que les noms de joueurs sont saisis par
+ * l'utilisateur, stockes dans localStorage ET transmis dans l'URL de partage
+ * WhatsApp. Un lien fabrique pouvait donc executer du script sur l'origine du jeu.
+ */
+function esc(v) {
+  return String(v ?? '').replace(/[&<>"']/g, c =>
+    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
 let gameData = null;
 let cartesDef = null;
 let gameState = null;
@@ -87,7 +99,12 @@ function renderTitleScreen() {
     showScreen('screen-title');
   };
   btnCont.onclick = () => {
-    gameState = GameState.load();
+    try {
+      gameState = GameState.load();
+    } catch (e) {
+      alert(`Impossible de reprendre cette partie.\n\n${e.message}`);
+      return;
+    }
     if (gameState) { showScreen('screen-game'); renderGameScreen(); startTurnLoop(); }
   };
   document.getElementById('btn-map-only').onclick = () => {
@@ -185,6 +202,10 @@ function updateHUD() {
     return;
   }
   updateElectionTopbar();
+  const SECRETES = [PHASE.CURTAIN, PHASE.ORDERS_SUPPLY, PHASE.ORDERS_MOVE,
+                    PHASE.ELECTION_CURTAIN, PHASE.ELECTION_VOTE,
+                    PHASE.DRAFT_CURTAIN, PHASE.DRAFT_PICK];
+  const secretPhase = !!turnManager && SECRETES.includes(turnManager.phase);
   const phaseLabel = GAME_PHASE_LABELS[gameState.phase] || '';
   const activeContracts = ContractEngine.getActiveContracts(gameState);
   const nextElection = gameState.tour > 0 ? (7 - (gameState.tour % 7)) % 7 : 7;
@@ -193,6 +214,10 @@ function updateHUD() {
     <div class="hud-phase hud-clickable" data-dict="phase" title="Cliquer pour plus d'infos">${phaseLabel}</div>
     ${electionProgress}
     <div class="hud-players">${gameState.joueurs.map(j => {
+      /* Le rideau hotseat etait annule par le HUD, qui affichait a tout le monde
+         les points ET les lingots de chacun pendant qu'un joueur saisissait ses
+         ordres secrets. On ne devoile que la ligne du joueur en cours. */
+      const cache = secretPhase && j.id !== turnManager?.currentPlayerId;
       const pts = gameState.getPlayerPoints(j.id, gameData.gameplay);
       const maireTag = j.est_maire ? ' 🏛️' : '';
       const pContracts = activeContracts.filter(c => c.joueur_a === j.id || c.joueur_b === j.id).length;
@@ -200,8 +225,9 @@ function updateHUD() {
       const qOrig = gameData.gameplay.quartiers.find(q => q.id === j.quartier_origine)?.nom || j.quartier_origine;
       const ownedQ = gameData.gameplay.quartiers.filter(q => gameState.getQuartierOwner(q.id, gameData.gameplay) === j.id);
       const qBadge = ownedQ.length > 0 ? `<span class="hud-player-quartiers">★${ownedQ.length}</span>` : '';
-      return `<div class="hud-player"><span class="hud-player-dot" style="background:${j.couleur}"></span><span class="hud-clickable" data-dict="joueur" data-pid="${j.id}" title="Cliquer pour plus d'infos">${j.nom}${maireTag}${contractBadge}${qBadge}</span><span class="hud-player-pts hud-clickable" data-dict="pts" title="Cliquer pour plus d'infos">${pts} pts</span><span class="hud-player-gold hud-clickable" data-dict="lingots" title="Cliquer pour plus d'infos">${j.ressources.lingots}L</span></div>` +
-        `<div class="hud-player-res"><span class="hud-clickable" data-dict="ressources" title="Cliquer pour plus d'infos">🔫${j.ressources.armes} 💊${j.ressources.doses} 🃏${(j.cartes_magouille || []).length}</span></div>`;
+      const masque = '<span class="hud-masked" title="Caché pendant une phase secrète">•••</span>';
+      return `<div class="hud-player"><span class="hud-player-dot" style="background:${j.couleur}"></span><span class="hud-clickable" data-dict="joueur" data-pid="${j.id}" title="Cliquer pour plus d'infos">${esc(j.nom)}${maireTag}${contractBadge}${qBadge}</span><span class="hud-player-pts hud-clickable" data-dict="pts" title="Cliquer pour plus d'infos">${cache ? masque : pts + ' pts'}</span><span class="hud-player-gold hud-clickable" data-dict="lingots" title="Cliquer pour plus d'infos">${cache ? masque : j.ressources.lingots + 'L'}</span></div>` +
+        `<div class="hud-player-res"><span class="hud-clickable" data-dict="ressources" title="Cliquer pour plus d'infos">${cache ? masque : `🔫${j.ressources.armes} 💊${j.ressources.doses} 🃏${(j.cartes_magouille || []).length}`}</span></div>`;
     }).join('')}</div>
     <button class="hud-quartiers-btn" id="btn-hud-quartiers">🗺️ Territoires</button>
     <button class="hud-dict-btn" id="btn-hud-dict">📖 Dictionnaire</button>
@@ -485,8 +511,13 @@ let tutorialShown = {};
 
 function showTutorialTip(tipId) {
   if (!tutorialEnabled) return;
-  if (tutorialShown[tipId]) return;
-  tutorialShown[tipId] = true;
+  /* tutorialShown etait global : seul le premier joueur de l'ordre tire au sort
+     voyait les explications, les trois autres arrivaient nus sur le panneau
+     d'ordres a leur toute premiere partie. On indexe par joueur. */
+  const pid = turnManager?.currentPlayerId ?? 'x';
+  const cle = `${pid}:${tipId}`;
+  if (tutorialShown[cle]) return;
+  tutorialShown[cle] = true;
 
   const tip = TUTORIAL_TIPS[tipId];
   if (!tip) return;
@@ -537,7 +568,11 @@ function startTurnLoop() {
   };
   initTutorial();
   if (gameState.tour >= 1 && gameState.phase >= 1) {
-    turnManager.startTurn();
+    /* resumePhase existait depuis toujours et n'etait appele nulle part : charger
+       une sauvegarde relancait le tour depuis la phase 1, revenus deja encaisses.
+       On ne redemarre le tour que pour une partie qui n'en a jamais commence. */
+    if (gameState.manche?.phase) turnManager.resumePhase();
+    else turnManager.startTurn();
   }
 }
 
@@ -3164,9 +3199,24 @@ document.addEventListener('DOMContentLoaded', async () => {
   gameData = await loadGameData();
   const restored = parseRestoreFromHash();
   if (restored) {
-    const state = new GameState();
-    Object.assign(state, restored);
-    gameState = state;
+    /* Un lien partage ecrasait la partie locale sans rien demander. */
+    const partieEnCours = GameState.hasSave();
+    if (partieEnCours && !confirm(
+        'Ce lien va remplacer la partie enregistrée sur cet appareil.\n\nContinuer ?')) {
+      clearRestoreHash();
+      renderTitleScreen();
+      renderLegend();
+      return;
+    }
+    try {
+      gameState = GameState.fromPlain(restored);
+    } catch (e) {
+      alert(`Ce lien de partie n'est pas lisible.\n\n${e.message}`);
+      clearRestoreHash();
+      renderTitleScreen();
+      renderLegend();
+      return;
+    }
     gameState.save();
     clearRestoreHash();
     showScreen('screen-game');

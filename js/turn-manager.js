@@ -33,39 +33,87 @@ function shuffle(arr) {
   return a;
 }
 
+/**
+ * Etat volatil d'une manche.
+ *
+ * Il vivait sur l'instance TurnManager, donc hors du GameState, donc hors de la
+ * sauvegarde : recharger la page au milieu d'un tour perdait les ordres deja
+ * rendus, les bulletins de vote et les mains de draft. Comme `resumePhase()`
+ * n'etait de toute facon jamais appele, « Continuer » relancait le tour depuis
+ * la phase 1 avec les revenus deja encaisses.
+ *
+ * Tout est desormais range dans gs.manche. `GameState.serialize()` parcourt les
+ * cles propres de l'objet : la sauvegarde devient automatique, et une tablette
+ * qui se verrouille au tour 9 ne coute plus la soiree.
+ */
+function mancheVierge(nbJoueurs) {
+  const parJoueur = () => Object.fromEntries(Array.from({ length: nbJoueurs }, (_, i) => [i, []]));
+  return {
+    phase: null,
+    playerQueue: [],
+    currentPlayerIdx: 0,
+    supplyOrders: parJoueur(),
+    moveOrders: parJoueur(),
+    ordersUsedP1: Object.fromEntries(Array.from({ length: nbJoueurs }, (_, i) => [i, 0])),
+    votes: {},
+    draftHands: {}
+  };
+}
+
 export class TurnManager {
   constructor(gs, data) {
     this.gs = gs;
     this.data = data;
-    this.phase = null;
-    this.playerQueue = [];
-    this.currentPlayerIdx = 0;
-    this.supplyOrders = {};
-    this.moveOrders = {};
-    this.ordersUsedP1 = {};
     this.revealLog = [];
     this.onChange = null;
+    if (!gs.manche) gs.manche = mancheVierge(gs.joueurs.length);
   }
 
+  /* Accesseurs : les appelants continuent d'ecrire `tm.phase` ou `tm.supplyOrders`,
+     mais la donnee vit dans l'etat sauvegarde. */
+  get phase() { return this.gs.manche.phase; }
+  set phase(v) { this.gs.manche.phase = v; }
+  get playerQueue() { return this.gs.manche.playerQueue; }
+  set playerQueue(v) { this.gs.manche.playerQueue = v; }
+  get currentPlayerIdx() { return this.gs.manche.currentPlayerIdx; }
+  set currentPlayerIdx(v) { this.gs.manche.currentPlayerIdx = v; }
+  get supplyOrders() { return this.gs.manche.supplyOrders; }
+  set supplyOrders(v) { this.gs.manche.supplyOrders = v; }
+  get moveOrders() { return this.gs.manche.moveOrders; }
+  set moveOrders(v) { this.gs.manche.moveOrders = v; }
+  get ordersUsedP1() { return this.gs.manche.ordersUsedP1; }
+  set ordersUsedP1(v) { this.gs.manche.ordersUsedP1 = v; }
+  get votes() { return this.gs.manche.votes; }
+  set votes(v) { this.gs.manche.votes = v; }
+  get draftHands() { return this.gs.manche.draftHands; }
+  set draftHands(v) { this.gs.manche.draftHands = v; }
+
   startTurn() {
-    this.supplyOrders = {};
-    this.moveOrders = {};
-    this.ordersUsedP1 = {};
-    this.gs.joueurs.forEach((_, i) => {
-      this.supplyOrders[i] = [];
-      this.moveOrders[i] = [];
-      this.ordersUsedP1[i] = 0;
-    });
+    const garde = this.gs.manche.phase;
+    this.gs.manche = mancheVierge(this.gs.joueurs.length);
+    this.gs.manche.phase = garde;
     this.gs.phase = 1;
     this._beginHotseat();
   }
 
+  /**
+   * Reprend exactement la ou on s'etait arrete.
+   *
+   * On repart de la phase de l'automate, sauvegardee, et non plus de gs.phase :
+   * ce dernier ne distingue pas le rideau de la saisie, ni les phases d'election
+   * et de draft, qui n'ont pas de numero. Sans ca, une partie rechargee pendant
+   * une election repartait en phase 5.
+   */
   resumePhase() {
+    if (this.gs.manche?.phase) { this._emit(); return; }
+    /* Sauvegarde d'avant cette correction : on retombe sur l'ancien comportement,
+       au debut de la phase en cours. */
     const p = this.gs.phase;
     if (p === 1 || p === 4) this._beginHotseat();
     else if (p === 2) { this.phase = PHASE.REVEAL_HARVEST; this._emit(); }
     else if (p === 3) { this.phase = PHASE.NEGOTIATION; this._emit(); }
     else if (p === 5) { this.phase = PHASE.REVEAL_RESOLVE; this._emit(); }
+    else this.startTurn();
   }
 
   _beginHotseat() {
@@ -122,6 +170,7 @@ export class TurnManager {
   _beginElection() {
     if (this.onEndOfMandate) this.onEndOfMandate();
     this.votes = {};
+    this.draftHands = {};
     this.playerQueue = shuffle(this.gs.joueurs.map((_, i) => i));
     this.currentPlayerIdx = 0;
     this.phase = PHASE.PRE_ELECTION;

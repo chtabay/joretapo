@@ -488,8 +488,9 @@ test('un joueur ne peut pas voter pour lui-même',
    rendus et rend son budget à un joueur qui l'avait dépensé. resumePhase()
    existe pour ce cas et n'est appelé de nulle part dans app.js. */
 
+/* Anciennement en echec (B2) : l'etat de la manche vivait hors du GameState.
+   Il est desormais range dans gs.manche et serialise automatiquement. */
 test('les ordres déjà rendus survivent à une sauvegarde et un rechargement',
-  { todo: 'B2 — supplyOrders/ordersUsedP1 vivent sur le TurnManager, hors du GameState sérialisé' },
   async () => {
     const { gs, city, tm } = await newManager(3);
     tm.startTurn();
@@ -508,7 +509,6 @@ test('les ordres déjà rendus survivent à une sauvegarde et un rechargement',
   });
 
 test('les bulletins et les mains de draft survivent à une sauvegarde et un rechargement',
-  { todo: 'B2 — votes et draftHands ne sont pas dans le GameState sérialisé' },
   async () => {
     const { gs, city, tm } = await newManager(2);
     place(gs, 'A1', 'dealer', 0);

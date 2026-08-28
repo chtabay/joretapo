@@ -49,6 +49,13 @@ function _expandObj(obj, map) {
 
 export function exportToUrl(gameState) {
   const raw = gameState.serialize();
+  /* _cartes_index est un cache de 65 definitions de cartes, texte original
+     compris : 70 Ko attaches a l'etat des le premier draft. Il faisait passer le
+     lien de partage de 1 410 a 18 083 caracteres, six fois la capacite d'un QR
+     code — le partage cessait donc de fonctionner au tour 7, exactement quand une
+     partie devient interessante a partager. Le cache est reconstructible depuis
+     cartes-magouille.json par MagouilleEngine._ensureIndex. */
+  delete raw._cartes_index;
   const compact = _compactObj(raw, KEY_MAP);
   const json = JSON.stringify(compact);
   let encoded;
@@ -112,33 +119,57 @@ export function clearRestoreHash() {
   }
 }
 
+/** Capacite maximale d'un QR code : version 40, correction L, mode octet. */
+export const QR_CAPACITE_OCTETS = 2953;
+
+/**
+ * Genere le QR localement, ou explique pourquoi il ne peut pas l'etre.
+ *
+ * Le repli precedent envoyait l'URL a api.qrserver.com — c'est-a-dire l'ETAT
+ * COMPLET DE LA PARTIE, compresse mais en clair, a un service tiers, sans que
+ * personne en soit informe. Une fonctionnalite de partage entre amis autour
+ * d'une table n'a pas a faire ca. On prefere dire que le QR est indisponible.
+ */
 export function generateQRCode(containerEl, url, size = 200) {
   containerEl.innerHTML = '';
-  try {
-    if (typeof QRCode !== 'undefined') {
-      const qr = new QRCode(containerEl, {
-        text: url,
-        width: size,
-        height: size,
-        colorDark: '#1a1a2e',
-        colorLight: '#ffffff',
-        correctLevel: QRCode.CorrectLevel.L
-      });
-      return qr;
-    }
-  } catch (_) {}
-  const apiUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=' + size + 'x' + size + '&data=' + encodeURIComponent(url);
-  const img = document.createElement('img');
-  img.src = apiUrl;
-  img.alt = 'QR code';
-  img.width = size;
-  img.height = size;
-  img.style.borderRadius = '4px';
-  img.onerror = () => {
-    containerEl.innerHTML = '<p style="color:#f39c12;font-size:13px">QR indisponible — utilisez « Copier le lien » ou WhatsApp.</p>';
+
+  const message = (texte, couleur = '#f39c12') => {
+    const p = document.createElement('p');
+    p.style.cssText = `color:${couleur};font-size:13px;margin:0;line-height:1.5`;
+    p.textContent = texte;
+    containerEl.appendChild(p);
+    return null;
   };
-  containerEl.appendChild(img);
-  return null;
+
+  if (typeof QRCode === 'undefined') {
+    return message('QR indisponible hors ligne (bibliothèque non chargée) — utilisez « Copier le lien » ou WhatsApp.');
+  }
+  if (url.length > QR_CAPACITE_OCTETS) {
+    return message(
+      `Lien trop long pour un QR code (${url.length} caractères pour ${QR_CAPACITE_OCTETS} possibles). ` +
+      'Utilisez « Copier le lien » ou WhatsApp.');
+  }
+
+  try {
+    return new QRCode(containerEl, {
+      text: url,
+      width: size,
+      height: size,
+      colorDark: '#1a1a2e',
+      colorLight: '#ffffff',
+      correctLevel: QRCode.CorrectLevel.L
+    });
+  } catch (e) {
+    return message('QR indisponible — utilisez « Copier le lien » ou WhatsApp.');
+  }
+}
+
+/** Bibliotheques externes reellement chargees. Sert a prevenir plutot qu'a subir. */
+export function bibliothequesManquantes() {
+  const manque = [];
+  if (typeof pako === 'undefined' && typeof LZString === 'undefined') manque.push('compression');
+  if (typeof QRCode === 'undefined') manque.push('QR code');
+  return manque;
 }
 
 export function getWhatsAppShareUrl(fullUrl, message = 'Partage de partie JORETAPO') {
