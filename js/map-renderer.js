@@ -102,6 +102,7 @@ export class MapRenderer {
     this.zoneWidths = {};
     this.glyphGroups = {};
     this.glyphScale = 1;
+    this.quartierBadges = [];
 
     features.forEach(f => { this.featureMap[f.properties.id] = f; });
 
@@ -244,6 +245,10 @@ export class MapRenderer {
         g.setAttribute('transform', `translate(${cx.toFixed(2)} ${cy.toFixed(2)}) scale(${k.toFixed(5)})`);
       });
     }
+
+    (this.quartierBadges || []).forEach(({ el, cx, cy }) => {
+      el.setAttribute('transform', `translate(${cx.toFixed(2)} ${cy.toFixed(2)}) scale(${k.toFixed(5)})`);
+    });
   }
 
   /** Recadre sur le plateau entier. */
@@ -281,6 +286,10 @@ export class MapRenderer {
 
     this.gZones = document.createElementNS(NS, 'g');
     this.gQuartierBorders = document.createElementNS(NS, 'g');
+    /* Les etiquettes de quartier vivent dans leur propre groupe, peint APRES les
+       noms de zone : le nom du proprietaire d'un quartier — qui pese l'essentiel
+       des points — passait sous « Little Ferry / Meadowlands ». */
+    this.gQuartierBadges = document.createElementNS(NS, 'g');
     this.gLabels = document.createElementNS(NS, 'g');
     this.pionsGroup = document.createElementNS(NS, 'g');
 
@@ -394,6 +403,7 @@ export class MapRenderer {
     this.svg.appendChild(this.gZones);
     this.svg.appendChild(this.gQuartierBorders);
     this.svg.appendChild(this.gLabels);
+    this.svg.appendChild(this.gQuartierBadges);
     this.svg.appendChild(this.pionsGroup);
 
     this.container.innerHTML = '';
@@ -689,6 +699,8 @@ export class MapRenderer {
 
   _updateQuartierDomination(gameState) {
     while (this.gQuartierBorders.firstChild) this.gQuartierBorders.removeChild(this.gQuartierBorders.firstChild);
+    while (this.gQuartierBadges.firstChild) this.gQuartierBadges.removeChild(this.gQuartierBadges.firstChild);
+    this.quartierBadges = [];
 
     this.gameplay.quartiers.forEach(q => {
       const owner = gameState.getQuartierOwner(q.id, this.gameplay);
@@ -725,35 +737,19 @@ export class MapRenderer {
 
         const avgCentroid = this._quartierCentroid(q);
         if (avgCentroid) {
-          const [cx, cy] = avgCentroid;
-
-          const bgRect = document.createElementNS(NS, 'rect');
-          bgRect.setAttribute('x', (cx - 18).toFixed(1));
-          bgRect.setAttribute('y', (cy - 12).toFixed(1));
-          bgRect.setAttribute('width', '36');
-          bgRect.setAttribute('height', '8');
-          bgRect.setAttribute('rx', '3');
-          bgRect.setAttribute('fill', joueur.couleur);
-          bgRect.setAttribute('opacity', '0.85');
-          bgRect.setAttribute('pointer-events', 'none');
-          this.gQuartierBorders.appendChild(bgRect);
-
-          const badge = document.createElementNS(NS, 'text');
-          badge.setAttribute('x', cx.toFixed(1));
-          badge.setAttribute('y', (cy - 7.5).toFixed(1));
-          badge.setAttribute('text-anchor', 'middle');
-          badge.setAttribute('dominant-baseline', 'central');
-          badge.setAttribute('font-size', '4.5');
-          badge.setAttribute('fill', '#fff');
-          badge.setAttribute('font-family', 'system-ui, sans-serif');
-          badge.setAttribute('font-weight', '800');
-          badge.setAttribute('pointer-events', 'none');
-          badge.textContent = `★ ${joueur.nom}`;
-          this.gQuartierBorders.appendChild(badge);
+          this._badgeQuartier(avgCentroid, joueur.couleur,
+            `★ ${joueur.nom}`, `${q.nom} — ${q.points} pts, tenu par ${joueur.nom}`);
         }
-      } else if (pct >= 0.5 && topPlayer !== null) {
+      } else if (topPlayer !== null && topCount === Math.floor(q.zones.length / 2)) {
+        /* « A une zone de basculer », au sens de la regle : le controle se fait a
+           la majorite STRICTE. Le seuil etait a la moitie, ce qui signalait un
+           quartier de 4 zones tenu a 2 — encore deux prises a faire — et taisait
+           celui de 5 zones tenu a 2, ou il n'en manquait qu'une. */
         const joueur = gameState.joueurs[topPlayer];
         if (!joueur) return;
+
+        this._badgeQuartier(this._quartierCentroid(q), joueur.couleur,
+          `⚠ −1 zone`, `${q.nom} — il manque une zone à ${joueur.nom} pour les ${q.points} pts`, true);
 
         q.zones.forEach(zid => {
           const z = gameState.plateau[zid];
@@ -773,6 +769,55 @@ export class MapRenderer {
         });
       }
     });
+  }
+
+  /**
+   * Etiquette d'un quartier, a taille d'ecran constante.
+   *
+   * Elle etait dessinee en unites SVG dans gQuartierBorders, seul groupe absent
+   * de _updateGlyphScale : le nom du proprietaire d'un quartier rendait 4 px de
+   * haut au cadrage par defaut, alors que les quartiers pesent l'essentiel des
+   * points marques. C'est exactement le defaut deja corrige pour les pions.
+   */
+  _badgeQuartier(centroid, couleur, texte, titre, pointille = false) {
+    if (!centroid) return;
+    const [cx, cy] = centroid;
+    const g = document.createElementNS(NS, 'g');
+    g.setAttribute('pointer-events', 'none');
+
+    const largeur = Math.max(44, texte.length * 6.2);
+    const fond = document.createElementNS(NS, 'rect');
+    fond.setAttribute('x', (-largeur / 2).toFixed(1));
+    fond.setAttribute('y', '-9');
+    fond.setAttribute('width', largeur.toFixed(1));
+    fond.setAttribute('height', '15');
+    fond.setAttribute('rx', '7');
+    fond.setAttribute('fill', couleur);
+    fond.setAttribute('opacity', pointille ? '0.55' : '0.92');
+    fond.setAttribute('stroke', 'rgba(0,0,0,0.6)');
+    fond.setAttribute('stroke-width', '1');
+    if (pointille) fond.setAttribute('stroke-dasharray', '3 2');
+    g.appendChild(fond);
+
+    const t = document.createElementNS(NS, 'text');
+    t.setAttribute('x', '0');
+    t.setAttribute('y', '-1.5');
+    t.setAttribute('text-anchor', 'middle');
+    t.setAttribute('dominant-baseline', 'central');
+    t.setAttribute('font-size', '10');
+    t.setAttribute('fill', readableOn(couleur));
+    t.setAttribute('font-family', 'system-ui, sans-serif');
+    t.setAttribute('font-weight', '800');
+    t.textContent = texte;
+    g.appendChild(t);
+
+    const info = document.createElementNS(NS, 'title');
+    info.textContent = titre;
+    g.appendChild(info);
+
+    this.quartierBadges.push({ el: g, cx, cy });
+    this.gQuartierBadges.appendChild(g);
+    g.setAttribute('transform', `translate(${cx.toFixed(2)} ${cy.toFixed(2)}) scale(${(this.glyphScale || 1).toFixed(5)})`);
   }
 
   _quartierCentroid(quartier) {

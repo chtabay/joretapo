@@ -16,7 +16,7 @@
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { newTestGame, place, ROOT } from './helpers.mjs';
+import { newTestGame, place, readJson, ROOT } from './helpers.mjs';
 
 const { TurnManager, PHASE } = await import(`${ROOT}/js/turn-manager.js`);
 const { GameState } = await import(`${ROOT}/js/game-state.js`);
@@ -530,3 +530,29 @@ test('les bulletins et les mains de draft survivent à une sauvegarde et un rech
     assert.deepEqual(tm2.draftHands?.[0], ['carte-1'],
       'ni la main de cartes proposée au joueur');
   });
+
+/* ── Draft de cartes ────────────────────────────────────────────────────── */
+
+test('le nombre de cartes à garder se mesure avant le tirage, pas sur ce qu\'il en reste', async () => {
+  /* draftPhase vide la pioche. En relisant la taille du draft APRES le tirage,
+     l'interface annoncait « gardez 4 sur 8 » et n'en distribuait qu'une a six
+     joueurs, deux a cinq. La regle : ce qu'on promet au joueur est ce qu'on lui
+     donne, quel que soit le nombre de joueurs. */
+  const { MagouilleEngine } = await import(`${ROOT}/js/magouille-engine.js`);
+  const { RULES } = await import(`${ROOT}/js/rules.js`);
+  const cartes = readJson('data/cartes-magouille.json');
+
+  for (const n of [3, 4, 5, 6]) {
+    const { gs, city } = await newTestGame(n);
+    MagouilleEngine.initDeck(gs, cartes);
+
+    const annonce = MagouilleEngine.tailleDraft(gs, n);
+    const mains = MagouilleEngine.draftPhase(gs, cartes);
+
+    assert.equal(annonce.garde, RULES.draftGarde, `${n} joueurs : on garde bien ${RULES.draftGarde} cartes`);
+    Object.values(mains).forEach(main => {
+      assert.ok(main.length >= annonce.garde,
+        `${n} joueurs : une main de ${main.length} cartes ne permet pas d'en garder ${annonce.garde}`);
+    });
+  }
+});

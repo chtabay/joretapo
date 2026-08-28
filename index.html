@@ -103,6 +103,7 @@
   .modal-point-info.pt-libre { border-left-color: #5a8ab4; }
   .modal-point-info.pt-noir  { border-left-color: #795548; }
   .cout-peage { color: #e67e22; font-size: 12px; }
+  .op-budget-note { font-size: 11px; color: #98a2b0; font-weight: 400; margin-top: 4px; line-height: 1.4; }
   .modal-hors-portee { font-size: 11.5px; color: #8a94a3; margin: 2px 0 0; }
   .qty-row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
   .qty-row input { flex: 0 0 72px; text-align: center; }
@@ -120,6 +121,10 @@
   svg { display: block; }
 
   /* ── Overlays ── */
+  /* Les bandeaux d'evenement etaient en z-index 10000 contre 100 pour .overlay :
+     « Pion de X elimine en BK12 » restait lisible pendant 4 s PAR-DESSUS le
+     rideau du joueur suivant. Ils passent dessous : sur la carte on les voit,
+     sous un rideau ils sont couverts. */
   .overlay { position: fixed; inset: 0; z-index: 100; display: flex; align-items: center; justify-content: center; }
   .overlay.hidden { display: none; }
   @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
@@ -287,12 +292,12 @@
   .op-btn-magouille:hover { background: rgba(155,89,182,0.2) !important; }
   .magouille-card-btn { background: #1a1a2e !important; border: 1px solid #445 !important; padding: 12px 14px !important; text-align: left !important; }
   .magouille-card-btn:hover:not([disabled]) { background: #252540 !important; border-color: #9b59b6 !important; }
-  .magouille-toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: #1a1a2e; color: #c39bd3; padding: 12px 24px; border-radius: 8px; border: 1px solid #9b59b6; font-weight: 600; z-index: 10000; animation: slideUp 0.4s ease, fadeIn 0.4s ease; pointer-events: none; }
+  .magouille-toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: #1a1a2e; color: #c39bd3; padding: 12px 24px; border-radius: 8px; border: 1px solid #9b59b6; font-weight: 600; z-index: 90; animation: slideUp 0.4s ease, fadeIn 0.4s ease; pointer-events: none; }
 
   /* ── Mayor ── */
   .op-btn-mayor { background: rgba(248,196,138,0.12) !important; border-color: #f8c48a !important; color: #f8c48a !important; }
   .op-btn-mayor:hover { background: rgba(248,196,138,0.2) !important; }
-  .mayor-toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: #2a1a3e; color: #f8c48a; padding: 12px 24px; border-radius: 8px; border: 1px solid #f8c48a; font-weight: 600; z-index: 10000; animation: slideUp 0.4s ease, fadeIn 0.4s ease; pointer-events: none; }
+  .mayor-toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: #2a1a3e; color: #f8c48a; padding: 12px 24px; border-radius: 8px; border: 1px solid #f8c48a; font-weight: 600; z-index: 90; animation: slideUp 0.4s ease, fadeIn 0.4s ease; pointer-events: none; }
 
   /* ── Negotiation ── */
   .nego-container { align-items: center; gap: 20px; width: 90%; max-width: 560px; }
@@ -327,11 +332,11 @@
   .coupole-result.guilty { color: #e74c3c; background: rgba(231,76,60,0.08); }
   .coupole-result.acquitted { color: #2ecc71; background: rgba(46,204,113,0.08); }
   .coupole-body .btn-primary { position: sticky; bottom: 0; background: rgba(5,5,20,0.98); padding-top: 12px; margin-top: 16px; }
-  .contract-toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: #1a2a1e; color: #2ecc71; padding: 12px 24px; border-radius: 8px; border: 1px solid #2ecc71; font-weight: 600; z-index: 10000; animation: slideUp 0.4s ease, fadeIn 0.4s ease; pointer-events: none; }
-  .coupole-toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: #2a1a1a; color: #e74c3c; padding: 12px 24px; border-radius: 8px; border: 1px solid #e74c3c; font-weight: 600; z-index: 10000; animation: slideUp 0.4s ease, fadeIn 0.4s ease; pointer-events: none; }
+  .contract-toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: #1a2a1e; color: #2ecc71; padding: 12px 24px; border-radius: 8px; border: 1px solid #2ecc71; font-weight: 600; z-index: 90; animation: slideUp 0.4s ease, fadeIn 0.4s ease; pointer-events: none; }
+  .coupole-toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: #2a1a1a; color: #e74c3c; padding: 12px 24px; border-radius: 8px; border: 1px solid #e74c3c; font-weight: 600; z-index: 90; animation: slideUp 0.4s ease, fadeIn 0.4s ease; pointer-events: none; }
 
   /* ── Heist ── */
-  .heist-toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: #2a2a10; color: #f1c40f; padding: 12px 24px; border-radius: 8px; border: 1px solid #f1c40f; font-weight: 600; z-index: 10000; animation: slideUp 0.4s ease, fadeIn 0.4s ease; pointer-events: none; }
+  .heist-toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: #2a2a10; color: #f1c40f; padding: 12px 24px; border-radius: 8px; border: 1px solid #f1c40f; font-weight: 600; z-index: 90; animation: slideUp 0.4s ease, fadeIn 0.4s ease; pointer-events: none; }
 
   .heist-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
   .heist-card { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; padding: 12px; cursor: pointer; transition: all 0.2s ease; position: relative; }
@@ -580,17 +585,18 @@
   #election-topbar { position: fixed; top: 0; left: 0; right: 0; height: 36px; background: rgba(10,10,30,0.92); border-bottom: 2px solid #334; z-index: 40; display: none; align-items: center; justify-content: space-between; gap: 8px; backdrop-filter: blur(8px); transition: background 0.4s ease, border-color 0.4s ease; padding: 0 10px; }
   #election-topbar.active { display: flex; }
   .etb-left { display: flex; align-items: center; gap: 6px; flex: 0 0 auto; }
-  .etb-dots { display: flex; align-items: center; justify-content: center; gap: 6px; flex: 1 1 auto; min-width: 0; overflow: hidden; }
+  .etb-horloge { display: flex; align-items: center; justify-content: center; gap: 8px; flex: 1 1 auto; min-width: 0; overflow: hidden; font-size: 12px; color: #cdd6e2; white-space: nowrap; }
+  .etb-score-qui { color: #98a2b0; font-size: 11px; }
+  .etb-score strong { font-size: 14px; color: #fff; }
+  .etb-marque { font-size: 10.5px; padding: 2px 7px; border-radius: 10px; border: 1px solid; }
+  .etb-scrutin { color: #c39bd3; border-color: #9b59b6; }
+  .etb-fin { color: #f1c40f; border-color: #f1c40f; }
+  #election-topbar.etb-dernier { border-bottom-color: #f1c40f; }
+  .etb-tour small { color: rgba(255,255,255,0.55); font-weight: 400; }
   .etb-right { display: flex; align-items: center; gap: 6px; flex: 0 0 auto; }
   .etb-share { background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.3); color: #fff; height: 26px; padding: 0 10px; border-radius: 6px; cursor: pointer; font-size: 12px; display: flex; align-items: center; justify-content: center; gap: 4px; transition: background 0.15s; white-space: nowrap; }
   .etb-share:hover { background: rgba(0,0,0,0.35); }
   .etb-tour { font-size: 11px; font-weight: 700; color: #fff; white-space: nowrap; }
-  .etb-dot { width: 28px; height: 28px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.3); background: rgba(0,0,0,0.2); display: flex; align-items: center; justify-content: center; font-size: 11px; color: rgba(255,255,255,0.5); transition: all 0.3s; position: relative; }
-  .etb-dot.done { background: rgba(255,255,255,0.25); border-color: rgba(255,255,255,0.5); color: #fff; }
-  .etb-dot.current { background: #fff; border-color: #fff; color: #000; font-weight: 700; box-shadow: 0 0 10px rgba(255,255,255,0.4); }
-  .etb-dot.election-next { border-color: rgba(255,255,255,0.6); border-style: dashed; }
-  .etb-connector { width: 12px; height: 2px; background: rgba(255,255,255,0.2); border-radius: 1px; }
-  .etb-connector.done { background: rgba(255,255,255,0.5); }
   .hud-phase { font-size: 11px; color: #888; margin-bottom: 6px; }
   .hud-players { display: flex; flex-direction: column; gap: 3px; }
   .hud-player { display: flex; align-items: center; gap: 6px; font-size: 12px; }
@@ -693,11 +699,9 @@
 
     .modal-content, .reveal-container, .nego-container, .turnend-container, .election-container, .reminder-container, .coupole-container, .pre-election-container { width: 95%; max-width: none; max-height: 85vh; }
 
-    .etb-dot { width: 24px; height: 24px; font-size: 10px; }
-    .etb-connector { width: 6px; }
-    .etb-label { font-size: 9px; }
     #election-topbar { height: 32px; gap: 4px; padding: 0 6px; }
-    .etb-dots { gap: 3px; }
+    .etb-horloge { gap: 5px; font-size: 11.5px; }
+    .etb-marque { font-size: 10px; padding: 2px 6px; }
     /* Le libelle du bouton disparait avant les pastilles : l'icone suffit a le
        reconnaitre, la progression du mandat ne se devine pas. */
     .etb-share-label { display: none; }

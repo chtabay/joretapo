@@ -6,6 +6,7 @@ import { TurnManager, PHASE, GAME_PHASE_LABELS } from './turn-manager.js';
 import { RevenueEngine, BUY_PRICE, CONSTRUCTION_DEFS } from './revenue-engine.js';
 import { ConflictResolver } from './conflict-resolver.js';
 import { MayorEngine, MAYOR_POWERS } from './mayor-engine.js';
+import { vueJoueurs, quartiersDisputes } from './vues.js';
 import { MagouilleEngine } from './magouille-engine.js';
 import { SpecialEntities } from './special-entities.js';
 import { ContractEngine, CONTRACT_TYPES } from './contract-engine.js';
@@ -195,24 +196,88 @@ const CONDITION_LABELS = {
   cible_ancien_maire: 'Cible ancien maire'
 };
 
-function updateElectionTopbar() {
+/**
+ * La seule chrome permanente de la partie : ou on en est, et ce qu'il faut.
+ *
+ * Elle rejouait un cycle de sept pastilles de mandat, sans rapport avec la fin
+ * de la partie : au tour 12 elle affichait « 5 » et au tour 14 elle annoncait
+ * « Election ce tour ! » pour un scrutin qui n'aurait pas lieu, la partie
+ * s'arretant avant. Pendant ce temps le seuil de victoire et la duree totale
+ * n'apparaissaient nulle part en cours de partie — ni ici, ni dans le HUD, qui
+ * est en display:none sous 768 px.
+ *
+ * Un joueur doit pouvoir repondre a « combien il me manque, et en combien de
+ * tours » sans ouvrir quoi que ce soit. C'est la seule question a laquelle une
+ * barre permanente doit repondre.
+ *
+ * Elle respecte le secret : pendant une saisie, elle montre les points de celui
+ * qui tient la tablette, jamais ceux du meneur.
+ */
+/**
+ * Le prochain scrutin, s'il en reste un.
+ *
+ * Le compte a rebours etait un modulo sur sept, sans rapport avec la fin de la
+ * partie : au tour 14 il annoncait « Election ce tour ! » alors que la partie
+ * s'acheve avant que le mandat ne se boucle. On n'annonce que ce qui aura lieu.
+ */
+function prochainScrutin() {
+  const restant = (RULES.toursParMandat - (gameState.tour % RULES.toursParMandat)) % RULES.toursParMandat;
+  const tourDuScrutin = gameState.tour + restant;
+  if (tourDuScrutin < 1 || tourDuScrutin >= RULES.finDePartie) {
+    return '🏁 Plus d\'élection : la partie s\'achève au tour ' + RULES.finDePartie;
+  }
+  return restant === 0
+    ? '🗳️ Élection à la fin de ce tour'
+    : `🗳️ Prochaine élection dans ${restant} tour${restant > 1 ? 's' : ''}`;
+}
+
+function updateBarreDePartie() {
   const bar = document.getElementById('election-topbar');
   if (!bar || !gameState) { if (bar) bar.classList.remove('active'); return; }
-  const CYCLE = 7;
-  const posInCycle = ((gameState.tour - 1) % CYCLE) + 1;
-  let dots = '';
-  for (let i = 1; i <= CYCLE; i++) {
-    const isElection = i === CYCLE;
-    let cls = 'etb-dot';
-    if (i < posInCycle) cls += ' done';
-    else if (i === posInCycle) cls += ' current';
-    if (isElection) cls += ' election-next';
-    dots += `<div class="${cls}">${i}</div>`;
-    if (i < CYCLE) dots += `<div class="etb-connector${i < posInCycle ? ' done' : ''}"></div>`;
-  }
-  bar.innerHTML = `<div class="etb-left"><button class="etb-share" id="etb-share-btn" title="Sauvegarder & partager" aria-label="Sauvegarder et partager">💾<span class="etb-share-label"> Sauver / Partager</span></button></div><div class="etb-dots">${dots}</div><div class="etb-right"><span class="etb-tour">T${gameState.tour}</span></div>`;
+
+  const destinataire = qui();
+  const vues = vueJoueurs(gameState, gameData.gameplay, { revele: destinataire });
+  const visibles = vues.filter(v => !v.cache);
+  const mien = destinataire !== 'tous';
+  const ref = mien ? vues[destinataire] : visibles.reduce((a, b) => (b.points > a.points ? b : a), visibles[0]);
+
+  const score = ref
+    ? `<span class="etb-score"><span class="etb-score-qui">${mien ? 'vous' : 'tête'}</span> <strong>${ref.points}</strong>/${RULES.victoire}</span>`
+    : '';
+
+  /* Le rappel de scrutin n'est emis que si un scrutin a reellement lieu : le
+     mandat se boucle a la fin d'un tour multiple de toursParMandat, et encore
+     faut-il que la partie continue apres. */
+  const scrutinCeTour = gameState.tour > 0
+    && gameState.tour % RULES.toursParMandat === 0
+    && gameState.tour < RULES.finDePartie;
+  const dernier = estDernierTour();
+  const marque = dernier ? '<span class="etb-marque etb-fin">🏁 dernier tour</span>'
+    : scrutinCeTour ? '<span class="etb-marque etb-scrutin">🗳️ élection en fin de tour</span>' : '';
+
+  bar.innerHTML =
+    `<div class="etb-left"><button class="etb-share" id="etb-share-btn" title="Sauvegarder & partager" aria-label="Sauvegarder et partager">💾<span class="etb-share-label"> Sauver / Partager</span></button></div>` +
+    `<div class="etb-horloge">${score}${marque}</div>` +
+    `<div class="etb-right"><span class="etb-tour">T${gameState.tour}<small>/${RULES.finDePartie}</small></span></div>`;
   bar.classList.add('active');
+  bar.classList.toggle('etb-dernier', dernier);
   bar.querySelector('#etb-share-btn')?.addEventListener('click', showShareModal);
+}
+
+/**
+ * Qui a le droit de tout voir en ce moment.
+ *
+ * Pendant une phase secrete, seul le joueur qui tient la tablette ; sinon tout
+ * le monde. C'etait recalcule a cinq endroits differents, dont trois l'oubliaient.
+ */
+const PHASES_SECRETES = [PHASE.CURTAIN, PHASE.ORDERS_SUPPLY, PHASE.ORDERS_MOVE,
+                         PHASE.ELECTION_CURTAIN, PHASE.ELECTION_VOTE,
+                         PHASE.DRAFT_CURTAIN, PHASE.DRAFT_PICK];
+function qui() {
+  if (turnManager && PHASES_SECRETES.includes(turnManager.phase)) {
+    return turnManager.currentPlayerId;
+  }
+  return 'tous';
 }
 
 function updateHUD() {
@@ -224,33 +289,22 @@ function updateHUD() {
     document.getElementById('election-topbar')?.classList.remove('active');
     return;
   }
-  updateElectionTopbar();
-  const SECRETES = [PHASE.CURTAIN, PHASE.ORDERS_SUPPLY, PHASE.ORDERS_MOVE,
-                    PHASE.ELECTION_CURTAIN, PHASE.ELECTION_VOTE,
-                    PHASE.DRAFT_CURTAIN, PHASE.DRAFT_PICK];
-  const secretPhase = !!turnManager && SECRETES.includes(turnManager.phase);
+  updateBarreDePartie();
+  const vues = vueJoueurs(gameState, gameData.gameplay, { revele: qui() });
   const phaseLabel = GAME_PHASE_LABELS[gameState.phase] || '';
   const activeContracts = ContractEngine.getActiveContracts(gameState);
-  const nextElection = gameState.tour > 0 ? (7 - (gameState.tour % 7)) % 7 : 7;
-  const electionProgress = nextElection === 0 ? '<div class="hud-election-progress hud-clickable" data-dict="election">🗳️ Élection ce tour !</div>' : `<div class="hud-election-progress hud-clickable" data-dict="election">🗳️ Prochaine élection dans ${nextElection} tour${nextElection > 1 ? 's' : ''}</div>`;
+  const electionProgress = `<div class="hud-election-progress hud-clickable" data-dict="election">${prochainScrutin()}</div>`;
   hud.innerHTML = `<h3 class="hud-clickable" data-dict="tour" title="Cliquer pour plus d'infos">Tour ${gameState.tour}</h3><div id="stats-content">
     <div class="hud-phase hud-clickable" data-dict="phase" title="Cliquer pour plus d'infos">${phaseLabel}</div>
     ${electionProgress}
     <div class="hud-players">${gameState.joueurs.map(j => {
-      /* Le rideau hotseat etait annule par le HUD, qui affichait a tout le monde
-         les points ET les lingots de chacun pendant qu'un joueur saisissait ses
-         ordres secrets. On ne devoile que la ligne du joueur en cours. */
-      const cache = secretPhase && j.id !== turnManager?.currentPlayerId;
-      const pts = gameState.getPlayerPoints(j.id, gameData.gameplay);
-      const maireTag = j.est_maire ? ' 🏛️' : '';
+      const v = vues[j.id];
       const pContracts = activeContracts.filter(c => c.joueur_a === j.id || c.joueur_b === j.id).length;
       const contractBadge = pContracts > 0 ? `<span class="hud-contracts-badge">📜${pContracts}</span>` : '';
-      const qOrig = gameData.gameplay.quartiers.find(q => q.id === j.quartier_origine)?.nom || j.quartier_origine;
-      const ownedQ = gameData.gameplay.quartiers.filter(q => gameState.getQuartierOwner(q.id, gameData.gameplay) === j.id);
-      const qBadge = ownedQ.length > 0 ? `<span class="hud-player-quartiers">★${ownedQ.length}</span>` : '';
+      const qBadge = v.quartiers.length > 0 ? `<span class="hud-player-quartiers">★${v.quartiers.length}</span>` : '';
       const masque = '<span class="hud-masked" title="Caché pendant une phase secrète">•••</span>';
-      return `<div class="hud-player"><span class="hud-player-dot" style="background:${j.couleur}"></span><span class="hud-clickable" data-dict="joueur" data-pid="${j.id}" title="Cliquer pour plus d'infos">${esc(j.nom)}${maireTag}${contractBadge}${qBadge}</span><span class="hud-player-pts hud-clickable" data-dict="pts" title="Cliquer pour plus d'infos">${cache ? masque : pts + ' pts'}</span><span class="hud-player-gold hud-clickable" data-dict="lingots" title="Cliquer pour plus d'infos">${cache ? masque : j.ressources.lingots + 'L'}</span></div>` +
-        `<div class="hud-player-res"><span class="hud-clickable" data-dict="ressources" title="Cliquer pour plus d'infos">${cache ? masque : `🔫${j.ressources.armes} 💊${j.ressources.doses} 🃏${(j.cartes_magouille || []).length}`}</span></div>`;
+      return `<div class="hud-player"><span class="hud-player-dot" style="background:${v.couleur}"></span><span class="hud-clickable" data-dict="joueur" data-pid="${j.id}" title="Cliquer pour plus d'infos">${esc(v.nom)}${v.estMaire ? ' 🏛️' : ''}${contractBadge}${qBadge}</span><span class="hud-player-pts hud-clickable" data-dict="pts" title="Cliquer pour plus d'infos">${v.cache ? masque : v.points + ' pts'}</span><span class="hud-player-gold hud-clickable" data-dict="lingots" title="Cliquer pour plus d'infos">${v.cache ? masque : v.lingots + 'L'}</span></div>` +
+        `<div class="hud-player-res"><span class="hud-clickable" data-dict="ressources" title="Cliquer pour plus d'infos">${v.cache ? masque : `🔫${v.armes} 💊${v.doses} 🃏${v.cartes}`}</span></div>`;
     }).join('')}</div>
     <button class="hud-quartiers-btn" id="btn-hud-quartiers">🗺️ Territoires</button>
     <button class="hud-dict-btn" id="btn-hud-dict">📖 Dictionnaire</button>
@@ -342,21 +396,21 @@ function renderMobileStats() {
   if (!body || !gameState) return;
 
   const phaseLabel = GAME_PHASE_LABELS[gameState.phase] || '';
-  const nextElection = gameState.tour > 0 ? (7 - (gameState.tour % 7)) % 7 : 7;
-  const electionHtml = nextElection === 0
-    ? '<div class="hud-election-progress">🗳️ Élection ce tour !</div>'
-    : `<div class="hud-election-progress">🗳️ Prochaine élection dans ${nextElection} tour${nextElection > 1 ? 's' : ''}</div>`;
+  const electionHtml = `<div class="hud-election-progress">${prochainScrutin()}</div>`;
 
   const activeContracts = ContractEngine.getActiveContracts(gameState);
-  const playersHtml = gameState.joueurs.map(j => {
-    const pts = gameState.getPlayerPoints(j.id, gameData.gameplay);
-    const maireTag = j.est_maire ? ' 🏛️' : '';
-    const pContracts = activeContracts.filter(c => c.joueur_a === j.id || c.joueur_b === j.id).length;
+  /* Cet onglet est le SEUL bandeau atteignable sous 768 px, et il devoilait tout
+     de tout le monde pendant une saisie secrete : le rideau ne tenait qu'a ce
+     que personne ne tape ici. Il passe desormais par la meme vue masquee que le
+     HUD de bureau. */
+  const playersHtml = vueJoueurs(gameState, gameData.gameplay, { revele: qui() }).map(v => {
+    const maireTag = v.estMaire ? ' 🏛️' : '';
+    const pContracts = activeContracts.filter(c => c.joueur_a === v.id || c.joueur_b === v.id).length;
     const contractBadge = pContracts > 0 ? `<span class="hud-contracts-badge">📜${pContracts}</span>` : '';
-    const ownedQ = gameData.gameplay.quartiers.filter(q => gameState.getQuartierOwner(q.id, gameData.gameplay) === j.id);
-    const qBadge = ownedQ.length > 0 ? `<span class="hud-player-quartiers">★${ownedQ.length}</span>` : '';
-    return `<div class="hud-player"><span class="hud-player-dot" style="background:${j.couleur}"></span><span>${j.nom}${maireTag}${contractBadge}${qBadge}</span><span class="hud-player-pts">${pts} pts</span><span class="hud-player-gold">${j.ressources.lingots}L</span></div>` +
-      `<div class="hud-player-res">🔫${j.ressources.armes} 💊${j.ressources.doses} 🃏${(j.cartes_magouille || []).length}</div>`;
+    const qBadge = v.quartiers.length > 0 ? `<span class="hud-player-quartiers">★${v.quartiers.length}</span>` : '';
+    const masque = '<span class="hud-masked" title="Caché pendant une phase secrète">•••</span>';
+    return `<div class="hud-player"><span class="hud-player-dot" style="background:${v.couleur}"></span><span>${esc(v.nom)}${maireTag}${contractBadge}${qBadge}</span><span class="hud-player-pts">${v.cache ? masque : v.points + ' pts'}</span><span class="hud-player-gold">${v.cache ? masque : v.lingots + 'L'}</span></div>` +
+      `<div class="hud-player-res">${v.cache ? masque : `🔫${v.armes} 💊${v.doses} 🃏${v.cartes}`}</div>`;
   }).join('');
 
   const legendItems = gameData.gameplay.quartiers.map(q => {
@@ -658,6 +712,11 @@ function renderOrderPanel(gamePhase) {
   const pid = turnManager.currentPlayerId;
   const j = gameState.joueurs[pid];
   const maxOrders = turnManager.maxOrdersForPhase(pid);
+  /* Le budget d'ordres est celui du TOUR, partage entre la phase d'achat et la
+     phase de manoeuvre. Le panneau annoncait « 5 ordres disponibles (sur 5) » a
+     l'achat : un joueur qui les depensait tous arrivait en phase 4 sans un seul
+     ordre, sans avoir jamais ete prevenu qu'il jouait son tour militaire. */
+  const ordresDejaUtilises = turnManager.ordersUsedP1?.[pid] || 0;
   pendingOrders = [];
 
   /* Les equipements a portee sont cercles sur la carte pendant la phase d'achat :
@@ -684,7 +743,11 @@ function renderOrderPanel(gamePhase) {
         <span class="op-res">🔫 ${j.ressources.armes}</span>
         <span class="op-res">💊 ${j.ressources.doses}</span>
       </div>
-      <div class="op-budget">${remaining} ordre${remaining > 1 ? 's' : ''} disponible${remaining > 1 ? 's' : ''} (sur ${maxOrders})</div>
+      <div class="op-budget">${remaining} ordre${remaining > 1 ? 's' : ''} disponible${remaining > 1 ? 's' : ''} (sur ${maxOrders})${
+        gamePhase === 1
+          ? `<div class="op-budget-note">Ces ${maxOrders} ordres couvrent <strong>tout le tour</strong> : ce que vous dépensez ici en achats, vous ne l'aurez plus en phase 4 pour vos manœuvres.</div>`
+          : `<div class="op-budget-note">${ordresDejaUtilises} déjà dépensé${ordresDejaUtilises > 1 ? 's' : ''} en approvisionnement ce tour.</div>`
+      }</div>
       <div class="op-actions">
         ${gamePhase === 1 ? `
           <button class="op-btn" id="btn-add-supply" ${remaining <= 0 ? 'disabled' : ''}>+ Acheter denrées</button>
@@ -912,6 +975,30 @@ function besoinsDuJoueur(pid) {
   };
 }
 
+/**
+ * Ce que les ordres deja poses ce tour-ci vont couter.
+ *
+ * Les ordres ne sont debites qu'a la resolution : tant qu'on ne les compte pas
+ * ici, chaque modale croit disposer de la caisse entiere. Mesure au tour 1 :
+ * cinq des huit ordres d'approvisionnement d'un joueur echouaient faute de
+ * lingots, et la premiere revelation publique de la soiree s'ouvrait sur sept
+ * lignes de refus.
+ */
+function coutDesOrdresPoses(pid) {
+  return pendingOrders.reduce((total, o) => {
+    if (o.type === 'approvisionner') {
+      return total + o.quantite * RevenueEngine.prixAppro(gameState, pid, o.point, o.denree, gameData.gameplay).total;
+    }
+    if (o.type === 'recruter') {
+      return total + RevenueEngine.prixAppro(gameState, pid, o.point, o.pion_type, gameData.gameplay).total;
+    }
+    if (o.type === 'construire') {
+      return total + (CONSTRUCTION_DEFS[o.batiment]?.total || 0);
+    }
+    return total;
+  }, 0);
+}
+
 function showSupplyModal(pid, refresh) {
   /**
    * On ne propose que les equipements a portee.
@@ -1075,11 +1162,16 @@ function showSupplyModal(pid, refresh) {
     if (!d) { el.innerHTML = ''; return; }
     const prix = RevenueEngine.prixAppro(gameState, pid, pointId, denreeId, gameData.gameplay);
     const total = prix.total * qty;
-    const warn = total > j.ressources.lingots ? ' <span style="color:#e74c3c">⚠ Fonds insuffisants</span>' : '';
+    const engage = coutDesOrdresPoses(pid);
+    const dispo = Math.max(0, j.ressources.lingots - engage);
+    const warn = total > dispo ? ' <span style="color:#e74c3c">⚠ Fonds insuffisants</span>' : '';
     const peage = prix.soumisAuPeage
       ? ` <span class="cout-peage">dont ${qty * prix.peage}L de péage à ${esc(gameState.joueurs[prix.proprietaire].nom)}</span>`
       : '';
-    el.innerHTML = `💰 <strong>${qty} × ${prix.total}L = ${total}L</strong>${peage} <span style="color:#888">(solde : ${j.ressources.lingots}L)</span>${warn}`;
+    const detailSolde = engage > 0
+      ? `(disponible : ${dispo}L — ${engage}L déjà engagés)`
+      : `(solde : ${j.ressources.lingots}L)`;
+    el.innerHTML = `💰 <strong>${qty} × ${prix.total}L = ${total}L</strong>${peage} <span style="color:#888">${detailSolde}</span>${warn}`;
   }
 
   document.getElementById('f-point').addEventListener('change', updateDenreeOptions);
@@ -1120,10 +1212,17 @@ function showSupplyModal(pid, refresh) {
     const stockDe = d => (d && d.stock !== '∞' ? Number(d.stock) : Infinity);
     const prixReel = () => RevenueEngine
       .prixAppro(gameState, pid, selPoint.value, selDenree.value, gameData.gameplay).total || 1;
+    /* Le solde disponible est celui qui reste APRES les ordres deja poses ce
+       tour-ci : « max » se calculait sur la caisse pleine, si bien qu'un joueur
+       qui enchainait deux achats voyait la moitie de ses ordres refuses a la
+       revelation — et la premiere scene publique de la soiree s'ouvrait sur une
+       liste d'echecs. Les ordres ne sont debites qu'a la resolution ; c'est ici
+       qu'il faut les anticiper. */
+    const soldeDisponible = () => Math.max(0, j.ressources.lingots - coutDesOrdresPoses(pid));
     const quantiteBesoin = () => Math.min(besoins[selDenree.value] || 1, stockDe(detail()),
-      Math.floor(j.ressources.lingots / prixReel()));
+      Math.floor(soldeDisponible() / prixReel()));
     const quantiteMax = () => Math.min(stockDe(detail()),
-      Math.floor(j.ressources.lingots / prixReel()));
+      Math.floor(soldeDisponible() / prixReel()));
 
     fixerQuantite(quantiteBesoin() || 1);
 
@@ -2109,28 +2208,63 @@ function showHeistResult(result, def) {
  * desormais cale au banc d'essai (voir js/rules.js) et une fin dure garantit
  * qu'une soiree se conclut, meme si personne ne prend l'avantage.
  */
+function classement() {
+  return gameState.joueurs
+    .map(j => ({ joueur: j, points: gameState.getPlayerPoints(j.id, gameData.gameplay) }))
+    .sort((a, b) => b.points - a.points);
+}
+
+/**
+ * Une partie se termine a la fin d'un tour, jamais au milieu.
+ *
+ * La victoire etait prononcee des la phase 2, a la revelation des revenus : sur
+ * 30 parties simulees, les 30 s'arretaient la. La negociation, les deplacements
+ * et la resolution du dernier tour n'etaient donc JAMAIS joues — la derniere
+ * chose que faisait la table etait d'encaisser, pas de se battre.
+ *
+ * Le banc d'essai, lui, testait deja la fin en TURN_END : ses mesures decrivaient
+ * une partie que personne ne jouait.
+ *
+ * Desormais la phase 2 se contente de lever le drapeau du dernier tour ; la
+ * victoire est prononcee apres la resolution.
+ */
 function checkVictory() {
   if (!gameState) return null;
-  const results = gameState.joueurs.map(j => ({
-    joueur: j,
-    points: gameState.getPlayerPoints(j.id, gameData.gameplay)
-  }));
-  results.sort((a, b) => b.points - a.points);
-
+  const results = classement();
   if (results[0].points >= RULES.victoire) return { ...results[0], motif: 'seuil' };
   if (gameState.tour >= RULES.finDePartie) return { ...results[0], motif: 'fin_de_partie' };
   return null;
 }
 
+/** Ce tour est-il le dernier ? Sert a le dire au joueur avant qu'il ne joue. */
+function estDernierTour() {
+  if (!gameState) return false;
+  if (gameState.tour >= RULES.finDePartie) return true;
+  return classement()[0].points >= RULES.victoire;
+}
+
 function showVictoryScreen(winner) {
   const ov = document.getElementById('turnend-ov');
   const body = ov.querySelector('.turnend-body');
+  /* Le dernier ecran de la soiree listait les joueurs dans l'ordre de creation,
+     sans classement ni territoire : on ne savait pas de combien on avait perdu.
+     Il reprend la mise en page du bilan de tour, qui sait deja le faire. */
   body.innerHTML = `<h2>Partie terminée !</h2>` +
-    gameState.joueurs.map(j => {
-      const pts = gameState.getPlayerPoints(j.id, gameData.gameplay);
-      return `<div class="reveal-player"><span class="hud-player-dot" style="background:${j.couleur}"></span>
-        <strong>${j.nom}</strong> — <span class="hud-player-pts">${pts} pts</span> · ${j.ressources.lingots}L · ${j.ressources.armes}A · ${j.ressources.doses}D</div>`;
-    }).join('') +
+    `<div class="turnend-rankings">` + classement().map((r, i) => {
+      const j = r.joueur;
+      const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}.`;
+      const zones = Object.values(gameState.plateau).filter(z => z.proprietaire === j.id).length;
+      const quartiers = gameData.gameplay.quartiers.filter(q => gameState.getQuartierOwner(q.id, gameData.gameplay) === j.id);
+      return `<div class="turnend-rank" style="border-color:${j.couleur}">
+        <div class="turnend-rank-medal">${medal}</div>
+        <div class="turnend-rank-info">
+          <div class="turnend-rank-name" style="color:${j.couleur}">${esc(j.nom)}${j.est_maire ? ' 🏛️' : ''}</div>
+          <div class="turnend-rank-detail">${zones} zones · ${quartiers.length} quartier${quartiers.length > 1 ? 's' : ''}</div>
+          ${quartiers.length ? `<div class="turnend-rank-quartiers">★ ${quartiers.map(q => esc(q.nom)).join(', ')}</div>` : ''}
+        </div>
+        <div class="turnend-rank-pts">${r.points} <small>/ ${RULES.victoire}</small></div>
+      </div>`;
+    }).join('') + `</div>` +
     `<div class="victory-banner" style="color:${winner.joueur.couleur}">🏆 ${winner.joueur.nom} remporte la partie avec ${winner.points} points !</div>` +
     (winner.motif === 'fin_de_partie'
       ? `<div class="victory-reason">Fin du ${RULES.finDePartie}<sup>e</sup> tour : personne n'a atteint ${RULES.victoire} points, le joueur en tête l'emporte.</div>`
@@ -2162,9 +2296,9 @@ function processAndShowReveal() {
   }));
 
   showRevealOverlay('Révélation & récolte', [...cLog, ...eLog, ...supplyLog, ...revenueLog], () => {
-    const w = checkVictory();
-    if (w) { hideAllOverlays(); showVictoryScreen(w); }
-    else turnManager.continueFromReveal();
+    /* Le tour va jusqu'au bout, meme si le seuil est franchi ici : c'est en
+       phase 5 que la partie se conclut. */
+    turnManager.continueFromReveal();
   });
 }
 
@@ -2564,9 +2698,12 @@ function renderDraftPick() {
     if (!gameState.deck_magouille.pile || gameState.deck_magouille.pile.length === 0) {
       MagouilleEngine.initDeck(gameState, cartesDef);
     }
-    const hands = MagouilleEngine.draftPhase(gameState, cartesDef);
-    turnManager.setDraftHands(hands);
+    /* La taille du draft se mesure AVANT le tirage : draftPhase vide la pioche,
+       et la relire ensuite donnait un nombre de cartes a garder calcule sur ce
+       qu'il en restait. Mesure a 6 joueurs : le jeu annoncait « gardez 4 sur 8 »
+       et n'en distribuait qu'une ; a 5 joueurs, deux. */
     turnManager.draftGarde = MagouilleEngine.tailleDraft(gameState, gameState.joueurs.length).garde;
+    turnManager.setDraftHands(MagouilleEngine.draftPhase(gameState, cartesDef));
   }
 
   const hand = turnManager.draftHands[pid] || [];
@@ -3019,23 +3156,14 @@ function renderTurnEnd() {
       </div>`;
     }).join('') + `</div>`;
 
-  const nearConquest = [];
-  gameData.gameplay.quartiers.forEach(q => {
-    const presence = {};
-    q.zones.forEach(zid => {
-      const z = gameState.plateau[zid];
-      if (z && z.proprietaire != null) {
-        if (!presence[z.proprietaire]) presence[z.proprietaire] = 0;
-        presence[z.proprietaire]++;
-      }
-    });
-    Object.entries(presence).forEach(([pid, count]) => {
-      const pct = count / q.zones.length;
-      if (pct >= 0.5 && pct < 1) {
-        nearConquest.push({ quartier: q, pid: Number(pid), count, total: q.zones.length, pct });
-      }
-    });
-  });
+  /* « A une zone de basculer » se calcule sur la majorite stricte, une seule
+     fois, dans js/vues.js : les trois endroits qui le calculaient chacun de leur
+     cote annonçaient un quartier a moitie tenu — donc parfois deja perdu, donc
+     parfois encore loin. */
+  const nearConquest = quartiersDisputes(gameState, gameData.gameplay).map(d => ({
+    quartier: gameData.gameplay.quartiers.find(q => q.id === d.quartier),
+    pid: d.joueur, count: d.tenues, total: d.total, pct: d.tenues / d.total
+  }));
 
   if (nearConquest.length > 0) {
     nearConquest.sort((a, b) => b.pct - a.pct);

@@ -7,7 +7,7 @@ dépôt, on ne sait plus où on en était, et on referme.
 ## En trente secondes
 
 ```bash
-npm test                    # 179 tests, aucune dépendance, aucune configuration
+npm test                    # 189 tests, aucune dépendance, aucune configuration
 node tools/sim.mjs          # 40 parties simulées : le jeu est-il encore jouable ?
 npm run serve               # http://localhost:8000
 ```
@@ -67,6 +67,38 @@ conséquences mesurées et assumées : la partie s'allonge (médiane 11 → 13) 
 Harlem n'a que le marché noir à portée au tour 1. Lui donner un péage a été
 essayé — le premier combat recule au tour 8, le taux de combat retombe à 3 %,
 et Harlem gagne *moins* souvent (8 % contre 17 %). La rareté était la tension.
+
+## Attention : les réglages de `js/rules.js` sont à recaler
+
+Le banc d'essai avait un défaut qui invalidait les chiffres avec lesquels
+`victoire: 35` et `finDePartie: 14` ont été calés. Le bot visait un trafiquant
+dès 200 lingots, puis renonçait à créer quoi que ce soit s'il n'avait pas les
+trois armes qu'il coûte — sans jamais essayer le dealer, à deux armes, qu'il
+pouvait payer. **Il cessait donc de grandir en pleine richesse.**
+
+Le seul repli sur le dealer, à graines et à règles identiques :
+
+| 40 parties, 4 joueurs | Bot défaillant | Bot corrigé |
+|---|---|---|
+| Victoire (médiane) | tour 13 | **tour 8** |
+| Gagnées au seuil | 63 % | **80 %** |
+| Tour de verrouillage | — | 7 (0,88 de la partie) |
+
+`victoire: 35` produit désormais une partie qui s'achève au tour 8, c'est-à-dire
+juste après la première élection. **Aucun chiffre de `js/rules.js` ne doit être
+recalé avant que le banc ne joue aussi les cartes, les gangs, les casses et les
+pouvoirs de maire** — il les saute tous, et le draft avec.
+
+Deux indicateurs ont été ajoutés pour cela :
+
+- **tour de verrouillage** — le premier tour à partir duquel celui qui mène est
+  déjà le vainqueur dans 90 % des parties, rapporté à la durée médiane. À 1,0, le
+  sort ne se scelle qu'au dernier tour ; à 0,5, la seconde moitié de la soirée ne
+  décide plus rien.
+- **passages de tablette** — le nombre d'écrans par tour qui demandent qu'on
+  prenne l'appareil. C'est la ressource la plus contrainte d'une soirée : 21,9 par
+  tour à 4 joueurs, 30,6 à 6. Un système nouveau qui en réclame d'autres doit se
+  replier dans un passage existant.
 
 ## Ce qui reste ouvert
 

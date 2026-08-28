@@ -240,9 +240,21 @@ class Bot {
 
     /* 3. Creer un pion sur une zone a soi qui n'en a pas. */
     while (ordres.length < budget) {
-      const type = j.ressources.lingots >= 200 ? 'trafiquant' : 'dealer';
+      /* Le trafiquant coute 3 armes, le dealer 2. Le bot choisissait le
+         trafiquant des 200 lingots puis abandonnait la creation s'il n'avait pas
+         les armes — sans jamais essayer le dealer qu'il pouvait payer. Il cessait
+         donc de grandir en pleine richesse.
+
+         Ce n'etait pas un detail de bot : c'est sur ce bot que les reglages de
+         js/rules.js ont ete cales. Le seul repli sur le dealer fait passer la
+         victoire mediane du tour 13 au tour 8 et le taux de victoire au seuil de
+         63 % a 80 %, a graines et regles identiques. */
+      const payable = t => j.ressources.lingots >= COUT_PION[t].lingots
+                        && j.ressources.armes >= COUT_PION[t].armes;
+      const type = (j.ressources.lingots >= 200 && payable('trafiquant')) ? 'trafiquant'
+                 : payable('dealer') ? 'dealer' : null;
+      if (!type) break;
       const c = COUT_PION[type];
-      if (j.ressources.lingots < c.lingots || j.ressources.armes < c.armes) break;
       const libre = this.mesZones().find(([zid, z]) =>
         !z.pions.some(p => IS_ARMED(p.type)) && !pris.has(zid));
       if (!libre) break;
@@ -299,6 +311,7 @@ function jouerPartie({ seed, nbJoueurs, city, adj, maxTours, detail }) {
       equipementsRepris: 0,      /* un port/peage/aeroport change de main */
       equipementsTenusFin: null, /* repartition en fin de partie */
       pointsFinaux: null,
+      passages: 0,          /* ecrans qui demandent qu'on prenne la tablette */
       arret: 'max_tours'
     };
     let proprietairesPrec = null;
@@ -346,6 +359,12 @@ function jouerPartie({ seed, nbJoueurs, city, adj, maxTours, detail }) {
 
     while (boucle++ < LIMITE) {
       if (gs.tour > maxTours) { m.arret = 'max_tours'; break; }
+
+      /* Le budget de passages est la ressource la plus contrainte d'une soiree :
+         chaque ecran compte ici est un moment ou la tablette change de mains ou
+         ou la table s'arrete pour regarder. On le mesure pour qu'un systeme
+         nouveau ne puisse pas s'ajouter sans qu'on voie ce qu'il coute. */
+      m.passages++;
 
       switch (tm.phase) {
         case PHASE.CURTAIN:
@@ -487,9 +506,33 @@ function agreger(parties, maxTours) {
     return min > 0 ? max / min : (max > 0 ? Infinity : 1);
   }).filter(x => x !== null && Number.isFinite(x));
 
+  /* Tour de verrouillage : le premier tour a partir duquel celui qui mene est
+     deja le vainqueur dans 90 % des parties. C'est la mesure de ce qui reste a
+     jouer — un verrouillage a mi-parcours veut dire que la seconde moitie de la
+     soiree ne decide plus rien. On le rapporte a la duree mediane : 1,0 signifie
+     que le sort ne se scelle qu'au dernier tour. */
+  const verrou = (() => {
+    const utiles = parties.filter(p => p.vainqueur !== null && p.pointsParTour.length);
+    if (!utiles.length) return null;
+    const dernier = Math.max(...utiles.map(p => p.pointsParTour[p.pointsParTour.length - 1].tour));
+    for (let t = 1; t <= dernier; t++) {
+      const observables = utiles.filter(p => p.pointsParTour.some(x => x.tour === t));
+      if (observables.length < utiles.length / 2) continue;
+      const justes = observables.filter(p => {
+        const pts = p.pointsParTour.find(x => x.tour === t).points;
+        return pts.indexOf(Math.max(...pts)) === p.vainqueur;
+      });
+      if (justes.length / observables.length >= 0.9) return t;
+    }
+    return null;
+  })();
+
   return {
     parties: parties.length,
     seuilVictoire: SEUIL_VICTOIRE,
+    tourDeVerrouillage: verrou,
+    passagesParPartie: parties.reduce((s, p) => s + p.passages, 0) / parties.length,
+    passagesParTour: parties.reduce((s, p) => s + p.passages / Math.max(1, p.tourVictoire || maxTours), 0) / parties.length,
     maxTours,
     tauxParties: finies.length / parties.length,
     tauxAuSeuil: auSeuil.length / parties.length,
@@ -558,6 +601,10 @@ if (json) {
   console.log(`  tour de victoire (median)  ${r.tourVictoireMedian ?? '—'}` +
     (r.tourVictoireMin ? `   (de ${r.tourVictoireMin} a ${r.tourVictoireMax})` : ''));
   console.log(`  points du premier (median) ${r.pointsMaxMedian}`);
+  const part = r.tourDeVerrouillage && r.tourVictoireMedian
+    ? `   (${(r.tourDeVerrouillage / r.tourVictoireMedian).toFixed(2)} de la partie)` : '';
+  console.log(`  tour de verrouillage       ${r.tourDeVerrouillage ?? '—'}${part}`);
+  console.log(`  passages de tablette       ${r.passagesParTour.toFixed(1)} par tour · ${Math.round(r.passagesParPartie)} par partie`);
   console.log('');
   console.log(`  parties avec un combat     ${pct(r.tauxCombat)}   (attaque d'une case tenue)`);
   console.log(`  premier combat (median)    tour ${r.premierCombatMedian ?? '—'}`);
