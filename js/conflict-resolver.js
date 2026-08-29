@@ -23,15 +23,32 @@ const ELIM_COST = {
  * Un pion armé ennemi n'est PAS un obstacle : c'est une attaque, et elle part
  * en résolution de conflit.
  */
-export function obstacleEntree(destZone, pionType, pid) {
+export function obstacleEntree(destZone, pionType, pid, partants = []) {
   if (!destZone) return null;
-  if (IS_ARMED(pionType) && destZone.pions.some(p => IS_ARMED(p.type) && p.joueur === pid)) {
+  const restants = pionsRestants(destZone.pions, partants);
+  if (IS_ARMED(pionType) && restants.some(p => IS_ARMED(p.type) && p.joueur === pid)) {
     return 'a déjà un pion armé à vous';
   }
-  if (IS_PROST(pionType) && destZone.pions.some(p => IS_PROST(p.type))) {
+  if (IS_PROST(pionType) && restants.some(p => IS_PROST(p.type))) {
     return 'a déjà une prostituée';
   }
   return null;
+}
+
+/**
+ * Ce qui reste sur une case une fois les partants retirés.
+ *
+ * Un départ se décrit par { type, joueur } et retire UN pion correspondant :
+ * deux pions identiques ne s'annulent pas avec un seul ordre.
+ */
+function pionsRestants(pions, partants) {
+  if (!partants || !partants.length) return pions;
+  const reste = [...pions];
+  partants.forEach(d => {
+    const i = reste.findIndex(p => p.type === d.type && p.joueur === d.joueur);
+    if (i !== -1) reste.splice(i, 1);
+  });
+  return reste;
 }
 
 export class ConflictResolver {
@@ -108,23 +125,13 @@ export class ConflictResolver {
       );
 
       if (movers.length === 1 && !enemyArmed) {
-        const m = movers[0];
-        /* La regle de cohabitation depend du pion QUI ARRIVE, pas seulement de
-           celui qui est deja la : un pion arme par case, une prostituee par
-           case, et les deux se supportent. On ne regardait que les pions armes,
-           quel que soit l'entrant. Deux consequences mesurees : une prostituee
-           ne pouvait JAMAIS rejoindre son propre protecteur — alors que la
-           fuite d'un pion arme (_executeFlight) suppose justement qu'ils
-           cohabitent — et deux prostituees pouvaient s'empiler par
-           deplacement, ce que l'appro (revenue-engine) interdit. Le message
-           accusait le pion arme meme quand l'obstacle etait la prostituee. */
-        const nomZone = gameplayData?.zones?.[dest]?.nom || dest;
-        const obstacle = obstacleEntree(destZone, m.pion_type, m.pid);
-        if (obstacle) {
-          log.push({ pid: m.pid, msg: `${gs.joueurs[m.pid].nom}: ${nomZone} ${obstacle}`, type: 'warn' });
-        } else {
-          simpleMoves.push(m);
-        }
+        /* La cohabitation ne se juge plus ici : voir l'etape 4bis. Trancher a ce
+           stade, c'est juger chaque entree contre le plateau d'AVANT tout
+           mouvement — donc refuser tout echange et toute rotation, alors que le
+           pion qui bloque s'en va au meme instant. Mesure : la regle « un pion
+           arme par case » retire 18,8 % des entrees possibles a quatre joueurs,
+           et dans 99,8 % de ces cas le bloqueur avait lui-meme une sortie. */
+        simpleMoves.push(movers[0]);
       } else {
         const attackerPids = [...new Set(movers.map(m => m.pid))];
         const defenderPid = enemyArmed ? enemyArmed.joueur : null;
@@ -151,15 +158,68 @@ export class ConflictResolver {
       });
     });
 
-    // 5 — Exécuter les mouvements simples
-    simpleMoves.forEach(m => {
-      if (cancelledMoves.has(m)) return;
-      ConflictResolver._executeMove(gs, m, log);
+    /* 4bis — Qui peut vraiment entrer, une fois qu'on sait qui part.
+     *
+     * On part de l'hypothese optimiste que tout ordre encore debout apres les
+     * conflits aboutit, puis on retire un a un ceux qu'un pion reste sur place
+     * empeche. Retirer un depart ne peut que rendre d'autres entrees illegales,
+     * jamais legales : la suite est decroissante et converge. Le plus grand
+     * point fixe garde les cycles — chacun est libere par le suivant — et fait
+     * s'effondrer les chaines dont la tete est bloquee.
+     *
+     * Le placer ICI, apres les conflits et apres les fuites, est ce qui evite le
+     * piege paye une fois : `movedKeys` est peuple au parsing et compte comme
+     * partis des pions dont l'ordre sera annule en conflit, ce qui laissait deux
+     * pions armes du meme joueur sur une case. Un ordre annule n'entre jamais
+     * dans `enAttente` : il n'a donc jamais valeur de depart. */
+    const enAttente = [...simpleMoves, ...resolvedMoves].filter(m => !cancelledMoves.has(m));
+    const confirmes = new Set(enAttente);
+    const refuses = new Map();
+    for (let passe = 0; passe <= enAttente.length; passe++) {
+      let change = false;
+      for (const m of enAttente) {
+        if (!confirmes.has(m)) continue;
+        const partants = [];      /* mes departs : clause « un pion arme a moi » */
+        const tousPartants = [];  /* tous : clause « un pion arme adverse » */
+        confirmes.forEach(x => {
+          if (x.from !== m.to) return;
+          tousPartants.push({ type: x.pion_type, joueur: x.pid });
+          if (x.pid === m.pid) partants.push({ type: x.pion_type, joueur: x.pid });
+        });
+        let obstacle = obstacleEntree(gs.plateau[m.to], m.pion_type, m.pid, partants);
+        /* Dernier verrou, apres les fuites : le garde de _resolveConflict lit le
+           plateau d'AVANT les fuites, un fugitif qui atterrit ici lui echappe. */
+        if (!obstacle && IS_ARMED(m.pion_type)) {
+          const restants = pionsRestants(gs.plateau[m.to].pions, tousPartants);
+          if (restants.some(p => IS_ARMED(p.type) && p.joueur !== m.pid)) {
+            obstacle = 'reste tenue par un pion armé adverse';
+          }
+        }
+        if (obstacle) { confirmes.delete(m); refuses.set(m, obstacle); change = true; }
+      }
+      if (!change) break;
+    }
+
+    /* Un refus muet est ce qui s'est raconte a la table comme « ca a plante ».
+       Quand le refus vient d'une sortie qui n'a pas abouti, on le dit : sinon le
+       joueur lit « case occupee » sur une case qu'il croyait vider. */
+    refuses.forEach((obstacle, m) => {
+      const nomZone = gameplayData?.zones?.[m.to]?.nom || m.to;
+      const sortieRatee = enAttente.some(x => x.from === m.to && x.pid === m.pid && !confirmes.has(x))
+        || moves.some(x => x.from === m.to && x.pid === m.pid && cancelledMoves.has(x));
+      log.push({
+        pid: m.pid,
+        msg: `${gs.joueurs[m.pid].nom}: ${nomZone} ${obstacle}`
+           + (sortieRatee ? ' — son ordre de sortie n\'a pas abouti' : ''),
+        type: 'warn'
+      });
     });
 
-    // 6 — Exécuter les mouvements gagnants
-    resolvedMoves.forEach(m => {
-      ConflictResolver._executeMove(gs, m, log);
+    /* 5 — Executer. L'ordre est indifferent : un pion n'est qu'un
+       { type, joueur }, deux pions identiques sont interchangeables, donc un
+       empilement transitoire pendant l'execution d'un cycle ne s'observe pas. */
+    enAttente.forEach(m => {
+      if (confirmes.has(m)) ConflictResolver._executeMove(gs, m, log);
     });
 
     // 7 — Mettre à jour la propriété des zones
@@ -424,11 +484,14 @@ export class ConflictResolver {
       }
     }
 
-    // Trouver une case adjacente libre (pas de pion armé ennemi)
+    /* Une case libre, c'est une case SANS pion armé — pas seulement sans pion
+       armé ennemi. Le `p.joueur !== pid` faisait fuir le pion délogé sur une
+       case où il en avait déjà un : deux pions armés du même joueur sur la même
+       case, ce que trois modules interdisent. */
     const freeZones = adj.filter(a => {
       const z = gs.plateau[a];
       if (!z) return false;
-      return !z.pions.some(p => IS_ARMED(p.type) && p.joueur !== pid);
+      return !z.pions.some(p => IS_ARMED(p.type));
     });
 
     if (freeZones.length === 0) {

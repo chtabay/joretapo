@@ -1532,7 +1532,20 @@ function showMoveModal(pid, refresh) {
      croiser une prostituée et un trafiquant : les deux entrées étaient
      illégales, rien n'a bougé, et le bilan repliait le refus dans un volet
      fermé. On le dit maintenant avant de payer, avec la règle du moteur. */
-  const obstacleVers = destId => obstacleEntree(gameState.plateau[destId], selectedPion?.type, pid);
+  /* Ce qui quitte une case selon MES propres ordres déjà posés. Seuls les miens :
+     les ordres des autres sont secrets, la feuille ne peut donc annoncer qu'une
+     chaîne à soi — et encore, sous réserve de conflit. */
+  const partantsDe = zoneId => pendingOrders
+    .filter(o => o.type === 'deplacer' && o.from === zoneId)
+    .map(o => ({ type: o.pion_type, joueur: pid }));
+  const obstacleVers = destId =>
+    obstacleEntree(gameState.plateau[destId], selectedPion?.type, pid, partantsDe(destId));
+  /* Une case libérée par un ordre à soi se lit autrement qu'une case vide : la
+     promesse est conditionnelle, un conflit peut retenir le pion qui devait
+     partir. On le dit dans le libellé plutôt que de laisser croire. */
+  const libereeParMoi = destId =>
+    partantsDe(destId).length > 0
+    && obstacleEntree(gameState.plateau[destId], selectedPion?.type, pid) !== null;
 
   function getAdjOptions() {
     if (!selectedPion) return '';
@@ -1540,7 +1553,9 @@ function showMoveModal(pid, refresh) {
       const zn = gameData.gameplay.zones[a]?.nom || a;
       const info = getDestInfo(a);
       const bloque = obstacleVers(a);
-      const tag = bloque ? ' — impossible' : (info.enemies > 0 ? ' ⚔️' : '');
+      const tag = bloque ? ' — impossible'
+                : libereeParMoi(a) ? ' — si votre pion en sort'
+                : (info.enemies > 0 ? ' ⚔️' : '');
       return `<option value="${a}"${bloque ? ' disabled' : ''}>${zn}${tag}</option>`;
     }).join('');
   }
@@ -1594,6 +1609,8 @@ function showMoveModal(pid, refresh) {
       html += `<div class="move-illegal-warn">🚫 Aucune case voisine n'accueille ce pion. Il ne peut pas bouger ce tour-ci.</div>`;
     } else if (bloque) {
       html += `<div class="move-illegal-warn">🚫 Impossible : cette case ${bloque}.</div>`;
+    } else if (libereeParMoi(destId)) {
+      html += `<div class="move-chain-warn">↻ Possible parce qu'un de vos pions quitte cette case ce tour-ci. Si son départ échoue, celui-ci n'aboutira pas non plus.</div>`;
     }
     const ok = document.getElementById('modal-ok');
     if (ok) {
@@ -1643,7 +1660,10 @@ function showMoveModal(pid, refresh) {
     /* Dernier verrou : la modale peut avoir ete validee au clavier alors que la
        destination est interdite. On ne pose pas un ordre que le moteur refusera. */
     const to = document.getElementById('f-dest').value;
-    if (!to || obstacleEntree(gameState.plateau[to], p.type, pid)) return;
+    const sortants = pendingOrders
+      .filter(o => o.type === 'deplacer' && o.from === to)
+      .map(o => ({ type: o.pion_type, joueur: pid }));
+    if (!to || obstacleEntree(gameState.plateau[to], p.type, pid, sortants)) return;
     const order = { type: 'deplacer', pion_type: p.type, from: p.zid, to };
     if (document.getElementById('f-elim')?.checked) order.eliminer = true;
     pendingOrders.push(order);

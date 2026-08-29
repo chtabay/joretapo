@@ -20,6 +20,77 @@ const move = (from, to, pion_type = 'dealer', extra = {}) => ({ type: 'deplacer'
    avait aucune exception — les deux ordres étaient refusés en silence, et le
    message accusait le mauvais pion. */
 
+/* Les déplacements coordonnés. Remarque du concepteur après une partie : la
+   règle « un pion armé par case » bloquait l'échange et la rotation. Elle ne les
+   bloquait pas — c'est la résolution qui jugeait chaque entrée contre le plateau
+   d'AVANT tout mouvement. Mesuré : la règle retire 18,8 % des entrées possibles
+   à quatre joueurs, et dans 99,8 % de ces cas le bloqueur avait lui-même une
+   sortie. */
+
+test('deux pions d\'un même joueur peuvent échanger leurs cases', async () => {
+  const { gs, city, adj } = await newTestGame(2);
+  place(gs, 'A1', 'trafiquant', 0);
+  place(gs, 'A2', 'dealer', 0);
+
+  ConflictResolver.resolve(gs, {
+    0: [move('A1', 'A2', 'trafiquant'), move('A2', 'A1', 'dealer')]
+  }, adj, city);
+
+  assert.deepEqual(gs.plateau['A1'].pions.map(p => p.type), ['dealer']);
+  assert.deepEqual(gs.plateau['A2'].pions.map(p => p.type), ['trafiquant']);
+});
+
+test('une chaîne de déplacements avance si sa tête se libère', async () => {
+  const { gs, city, adj } = await newTestGame(2);
+  place(gs, 'A1', 'trafiquant', 0);
+  place(gs, 'A2', 'dealer', 0);   /* B1 est libre : la tête de chaîne */
+
+  ConflictResolver.resolve(gs, {
+    0: [move('A1', 'A2', 'trafiquant'), move('A2', 'B1', 'dealer')]
+  }, adj, city);
+
+  assert.equal(gs.plateau['A1'].pions.length, 0, 'la queue part');
+  assert.deepEqual(gs.plateau['A2'].pions.map(p => p.type), ['trafiquant']);
+  assert.deepEqual(gs.plateau['B1'].pions.map(p => p.type), ['dealer']);
+});
+
+test('une chaîne dont la tête est bloquée ne bouge pas du tout', async () => {
+  /* Sinon le joueur croit avoir avancé sa queue alors que sa tête est restée :
+     deux pions armés sur une case, ce que trois modules interdisent. */
+  const { gs, city, adj } = await newTestGame(2);
+  place(gs, 'A1', 'trafiquant', 0);
+  place(gs, 'A2', 'dealer', 0);
+  place(gs, 'B1', 'trafiquant', 0);   /* la tête n'a nulle part où aller */
+
+  const log = ConflictResolver.resolve(gs, {
+    0: [move('A1', 'A2', 'trafiquant'), move('A2', 'B1', 'dealer')]
+  }, adj, city);
+
+  assert.deepEqual(gs.plateau['A1'].pions.map(p => p.type), ['trafiquant']);
+  assert.deepEqual(gs.plateau['A2'].pions.map(p => p.type), ['dealer']);
+  assert.deepEqual(gs.plateau['B1'].pions.map(p => p.type), ['trafiquant']);
+  assert.ok(log.some(l => l.type === 'warn' && /sortie n'a pas abouti/.test(l.msg)),
+    'et le refus dit que c\'est la sortie qui a échoué, pas la case qui est pleine');
+});
+
+test('un ordre de sortie annulé en conflit ne libère pas sa case', async () => {
+  /* Le piège payé une fois : `movedKeys` est peuplé au parsing, donc il compte
+     comme parti un pion dont l'ordre sera annulé en conflit. L'entrant était
+     admis quand même — deux pions armés du même joueur sur une case. */
+  const { gs, city, adj } = await newTestGame(2);
+  place(gs, 'B1', 'trafiquant', 0);
+  place(gs, 'A2', 'dealer', 0);
+  place(gs, 'B2', 'trafiquant', 1);   /* égalité 1 contre 1 : le défenseur tient */
+
+  ConflictResolver.resolve(gs, {
+    0: [move('B1', 'B2', 'trafiquant'), move('A2', 'B1', 'dealer')]
+  }, adj, city);
+
+  const armesDeJ0 = gs.plateau['B1'].pions.filter(p => p.joueur === 0 && /dealer|trafiquant/.test(p.type));
+  assert.equal(armesDeJ0.length, 1, 'un seul pion armé de J0 sur B1');
+  assert.deepEqual(gs.plateau['B2'].pions.map(p => p.type), ['trafiquant'], 'B2 reste au défenseur');
+});
+
 test('une prostituée peut rejoindre son propre protecteur', async () => {
   const { gs, city, adj } = await newTestGame(2);
   place(gs, 'A1', 'prostituee_base', 0);
