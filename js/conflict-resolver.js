@@ -11,6 +11,29 @@ const ELIM_COST = {
   trafiquant: { lingots: 160, armes: 6 }
 };
 
+/**
+ * Ce qui empêche un pion d'entrer sur une case, ou null.
+ *
+ * Exportée parce que la feuille d'ordres doit pouvoir dire NON *avant* que le
+ * joueur paie son ordre. La règle vivait ici seule : la modale proposait donc
+ * des destinations que le moteur refusait ensuite en silence, et le joueur
+ * voyait un tour dépensé pour rien — ce qui se raconte à la table comme « ça a
+ * planté ». Une seule source, deux lecteurs.
+ *
+ * Un pion armé ennemi n'est PAS un obstacle : c'est une attaque, et elle part
+ * en résolution de conflit.
+ */
+export function obstacleEntree(destZone, pionType, pid) {
+  if (!destZone) return null;
+  if (IS_ARMED(pionType) && destZone.pions.some(p => IS_ARMED(p.type) && p.joueur === pid)) {
+    return 'a déjà un pion armé à vous';
+  }
+  if (IS_PROST(pionType) && destZone.pions.some(p => IS_PROST(p.type))) {
+    return 'a déjà une prostituée';
+  }
+  return null;
+}
+
 export class ConflictResolver {
 
   /**
@@ -86,9 +109,19 @@ export class ConflictResolver {
 
       if (movers.length === 1 && !enemyArmed) {
         const m = movers[0];
-        const friendArmed = destZone.pions.find(p => IS_ARMED(p.type) && p.joueur === m.pid);
-        if (friendArmed) {
-          log.push({ pid: m.pid, msg: `${gs.joueurs[m.pid].nom}: zone ${dest} a déjà un pion armé allié`, type: 'warn' });
+        /* La regle de cohabitation depend du pion QUI ARRIVE, pas seulement de
+           celui qui est deja la : un pion arme par case, une prostituee par
+           case, et les deux se supportent. On ne regardait que les pions armes,
+           quel que soit l'entrant. Deux consequences mesurees : une prostituee
+           ne pouvait JAMAIS rejoindre son propre protecteur — alors que la
+           fuite d'un pion arme (_executeFlight) suppose justement qu'ils
+           cohabitent — et deux prostituees pouvaient s'empiler par
+           deplacement, ce que l'appro (revenue-engine) interdit. Le message
+           accusait le pion arme meme quand l'obstacle etait la prostituee. */
+        const nomZone = gameplayData?.zones?.[dest]?.nom || dest;
+        const obstacle = obstacleEntree(destZone, m.pion_type, m.pid);
+        if (obstacle) {
+          log.push({ pid: m.pid, msg: `${gs.joueurs[m.pid].nom}: ${nomZone} ${obstacle}`, type: 'warn' });
         } else {
           simpleMoves.push(m);
         }

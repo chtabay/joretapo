@@ -15,6 +15,72 @@ const move = (from, to, pion_type = 'dealer', extra = {}) => ({ type: 'deplacer'
 
 /* ── Déplacement simple ─────────────────────────────────────────────────── */
 
+/* Ces quatre tests viennent d'un rapport de table : « un joueur a tenté
+   d'échanger de cases une prostituée et un trafiquant, ça a planté ». Il n'y
+   avait aucune exception — les deux ordres étaient refusés en silence, et le
+   message accusait le mauvais pion. */
+
+test('une prostituée peut rejoindre son propre protecteur', async () => {
+  const { gs, city, adj } = await newTestGame(2);
+  place(gs, 'A1', 'prostituee_base', 0);
+  place(gs, 'A2', 'trafiquant', 0);
+
+  ConflictResolver.resolve(gs, { 0: [move('A1', 'A2', 'prostituee_base')] }, adj, city);
+
+  assert.equal(gs.plateau['A2'].pions.length, 2, 'les deux cohabitent sur la case');
+  assert.equal(gs.plateau['A1'].pions.length, 0, 'elle a bien quitté la sienne');
+});
+
+test('deux prostituées ne peuvent pas tenir la même case', async () => {
+  /* L'appro l'interdit déjà ; le déplacement, lui, laissait passer. */
+  const { gs, city, adj } = await newTestGame(2);
+  place(gs, 'A1', 'prostituee_base', 0);
+  place(gs, 'A2', 'prostituee_luxe', 0);
+
+  const log = ConflictResolver.resolve(gs, { 0: [move('A1', 'A2', 'prostituee_base')] }, adj, city);
+
+  assert.equal(gs.plateau['A1'].pions.length, 1, 'elle reste où elle est');
+  assert.ok(log.some(l => l.type === 'warn' && /prostituée/.test(l.msg)),
+    'et le refus nomme la prostituée, pas un pion armé');
+});
+
+test('un refus d\'entrée nomme le pion qui bloque vraiment', async () => {
+  const { gs, city, adj } = await newTestGame(2);
+  place(gs, 'A1', 'dealer', 0);
+  place(gs, 'A2', 'trafiquant', 0);
+
+  const log = ConflictResolver.resolve(gs, { 0: [move('A1', 'A2', 'dealer')] }, adj, city);
+
+  const refus = log.find(l => l.type === 'warn');
+  assert.ok(refus, 'un ordre refusé doit le dire');
+  assert.ok(/pion armé/.test(refus.msg), 'ici c\'est bien le pion armé qui bloque');
+});
+
+test('échanger deux pions de sa propre couleur reste refusé, et le dit', async () => {
+  /* La position rapportée à la table : chaque case porte déjà un pion armé et
+     une prostituée, donc chaque entrée est illégale de son côté. Le refus est
+     juste ; ce qui manquait, c'est de le dire. Autoriser l'échange demanderait
+     de tenir un départ pour acquis avant la résolution des conflits — ce qui
+     laisse passer deux pions armés sur une même case, mesuré. */
+  const { gs, city, adj } = await newTestGame(2);
+  place(gs, 'A1', 'trafiquant', 0);
+  place(gs, 'A1', 'prostituee_base', 0);
+  place(gs, 'A2', 'trafiquant', 0);
+  place(gs, 'A2', 'prostituee_base', 0);
+
+  const log = ConflictResolver.resolve(gs, {
+    0: [move('A1', 'A2', 'prostituee_base'), move('A2', 'A1', 'trafiquant')]
+  }, adj, city);
+
+  assert.equal(gs.plateau['A1'].pions.length, 2, 'rien ne bouge');
+  assert.equal(gs.plateau['A2'].pions.length, 2);
+  const refus = log.filter(l => l.type === 'warn');
+  assert.equal(refus.length, 2, 'les deux ordres sont refusés');
+  assert.ok(refus.some(l => /prostituée/.test(l.msg)), 'l\'un pour la prostituée');
+  assert.ok(refus.some(l => /pion armé/.test(l.msg)), 'l\'autre pour le pion armé');
+});
+
+
 test('un pion avance sur une zone libre adjacente', async () => {
   const { gs, city, adj } = await newTestGame(2);
   place(gs, 'A1', 'dealer', 0);

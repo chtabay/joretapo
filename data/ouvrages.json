@@ -1,0 +1,8 @@
+{
+  "_pourquoi": "Le calcul geometrique de tools/build-map.mjs relie deux zones dont les polygones passent a moins de 50 m l'un de l'autre. Aucun fleuve ne fait moins de 50 m : sur les 14 adjacences inter-borough obtenues, 13 sont a moins de 50 m — ce sont des polygones qui se touchent dans l'eau, pas des ouvrages. Toutes les traversees reelles manquaient donc. Bergen n'avait qu'une zone de sortie, tenue des le tour 1 par un pion arme adverse : un pion pose la enfermait le joueur dans 3 zones sur 74. Les ouvrages ci-dessous sont fusionnes APRES le calcul geometrique, et survivent donc a une regeneration de la carte.",
+  "_choix": "Les treize traversees reelles ont ete essayees : le plateau devient si ouvert que le taux de combat mesure tombe a 0 % sur 40 parties. Deux suffisent a lever tout scellement — MN12 (Washington Heights / Inwood) est la charniere entre le New Jersey et le Bronx. Le pire enfermement passe de 3 zones sur 74 a 69, pour les onze quartiers de depart.",
+  "ouvrages": [
+    { "de": "BG02", "vers": "MN12", "nom": "George Washington Bridge" },
+    { "de": "MN12", "vers": "BX8",  "nom": "Henry Hudson Bridge" }
+  ]
+}

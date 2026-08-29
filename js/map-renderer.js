@@ -257,6 +257,32 @@ export class MapRenderer {
     this._applyViewBox();
   }
 
+  /**
+   * Recadre sur un territoire donné.
+   *
+   * Le rideau passe la tablette d'un joueur à l'autre sans toucher au cadre :
+   * le suivant recevait donc la carte là où le précédent l'avait laissée,
+   * centrée sur le territoire de quelqu'un d'autre. Sur un plateau de 74 zones
+   * dont la vue d'ouverture n'en montre qu'une fraction, ça revient à ne pas
+   * savoir où l'on est.
+   */
+  centrerSur(zoneIds, marge = 1.8) {
+    const pts = (zoneIds || [])
+      .map(z => this.centroids[z] || (this.featureMap[z] ? this._centroid(this.featureMap[z]) : null))
+      .filter(Boolean);
+    if (!pts.length) return;
+    const xs = pts.map(p => p[0]), ys = pts.map(p => p[1]);
+    /* Un joueur qui ne tient qu'une zone aurait un cadre de largeur nulle : on
+       garde un plancher, sinon on zoome jusqu'à l'atome sur son premier pion. */
+    const w = Math.max((Math.max(...xs) - Math.min(...xs)) * marge, this.svgW / 5);
+    const h = Math.max((Math.max(...ys) - Math.min(...ys)) * marge, this.svgH / 5);
+    const cx = (Math.min(...xs) + Math.max(...xs)) / 2;
+    const cy = (Math.min(...ys) + Math.max(...ys)) / 2;
+    this.viewBox = { x: cx - w / 2, y: cy - h / 2, w, h };
+    this._clampViewBox();
+    this._applyViewBox();
+  }
+
   _applyViewBox() {
     this.svg.setAttribute('viewBox',
       `${this.viewBox.x} ${this.viewBox.y} ${this.viewBox.w} ${this.viewBox.h}`);

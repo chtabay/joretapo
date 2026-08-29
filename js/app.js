@@ -4,7 +4,7 @@ import { MapRenderer, QUARTIER_COLORS, setQuartierColors, FACILITE_LABELS, EQUIP
 import { renderSetupScreen } from './setup.js';
 import { TurnManager, PHASE, GAME_PHASE_LABELS } from './turn-manager.js';
 import { RevenueEngine, BUY_PRICE, CONSTRUCTION_DEFS } from './revenue-engine.js';
-import { ConflictResolver, PORTEE_SOUTIEN } from './conflict-resolver.js';
+import { ConflictResolver, PORTEE_SOUTIEN, obstacleEntree } from './conflict-resolver.js';
 import { MayorEngine, MAYOR_POWERS } from './mayor-engine.js';
 import { vueJoueurs, classementDe, quartiersDisputes } from './vues.js';
 import { MagouilleEngine } from './magouille-engine.js';
@@ -185,6 +185,13 @@ function renderGameScreen() {
   };
   const recenter = document.getElementById('btn-recenter');
   if (recenter) recenter.onclick = () => mapRenderer?.recenter();
+  /* Deux gestes, pas un : ⤢ montre le plateau, ⌖ me ramène chez moi. Le second
+     manquait, et c'est celui dont on a besoin dix fois par tour. */
+  const chezMoi = document.getElementById('btn-chez-moi');
+  if (chezMoi) chezMoi.onclick = () => {
+    const pid = turnManager?.currentPlayerId;
+    if (pid != null) mapRenderer?.centrerSur(mesZones(pid));
+  };
 
   renderLegend();
   updateHUD();
@@ -818,7 +825,13 @@ function renderCurtain() {
 
   const btn = ov.querySelector('#btn-curtain-go');
   btn.textContent = `Je suis ${j.nom}`;
-  btn.onclick = () => { ov.classList.add('hidden'); turnManager.confirmCurtain(); };
+  btn.onclick = () => {
+    ov.classList.add('hidden');
+    /* On rend la carte au joueur qui prend la tablette : sans ça il hérite du
+       cadre de son voisin, sur un territoire qui n'est pas le sien. */
+    mapRenderer?.centrerSur(mesZones(j.id));
+    turnManager.confirmCurtain();
+  };
   ov.classList.remove('hidden');
 }
 
@@ -1485,6 +1498,14 @@ function showBuildModal(pid, refresh) {
   bindHelpLinks();
 }
 
+/* Où le joueur est : ce qu'il possède, plus toute case où il a un pion. C'est
+   ce qu'on recadre quand la tablette change de main. */
+function mesZones(pid) {
+  return Object.entries(gameState.plateau)
+    .filter(([, z]) => z.proprietaire === pid || z.pions.some(p => p.joueur === pid))
+    .map(([zid]) => zid);
+}
+
 function showMoveModal(pid, refresh) {
   const myPions = [];
   Object.entries(gameState.plateau).forEach(([zid, zone]) => {
@@ -1506,13 +1527,21 @@ function showMoveModal(pid, refresh) {
     return { enemies: enemies.length, allySupports, warning: enemies.length > 0 ? `⚔️ ${enemies.length} ennemi(s)` : '' };
   }
 
+  /* La modale proposait toutes les zones voisines, y compris celles que le
+     moteur refuse. Un joueur a ainsi dépensé deux de ses trois ordres pour
+     croiser une prostituée et un trafiquant : les deux entrées étaient
+     illégales, rien n'a bougé, et le bilan repliait le refus dans un volet
+     fermé. On le dit maintenant avant de payer, avec la règle du moteur. */
+  const obstacleVers = destId => obstacleEntree(gameState.plateau[destId], selectedPion?.type, pid);
+
   function getAdjOptions() {
     if (!selectedPion) return '';
     return (gameData.adjacencies[selectedPion.zid] || []).map(a => {
       const zn = gameData.gameplay.zones[a]?.nom || a;
       const info = getDestInfo(a);
-      const tag = info.enemies > 0 ? ' ⚔️' : '';
-      return `<option value="${a}">${zn}${tag}</option>`;
+      const bloque = obstacleVers(a);
+      const tag = bloque ? ' — impossible' : (info.enemies > 0 ? ' ⚔️' : '');
+      return `<option value="${a}"${bloque ? ' disabled' : ''}>${zn}${tag}</option>`;
     }).join('');
   }
 
@@ -1555,6 +1584,22 @@ function showMoveModal(pid, refresh) {
     if (info.enemies > 0) {
       html += `<div class="move-conflict-warn">⚔️ Conflit probable ! Vous avez ${info.allySupports} support(s) adjacent(s)</div>`;
     }
+    /* Quand TOUTES les voisines sont interdites, le <select> n'a plus aucune
+       option selectionnable et rend une valeur vide : le bouton restait actif
+       et l'ordre partait sans destination. Une impasse doit se dire, pas se
+       laisser valider. */
+    const impasse = !destId || !gameState.plateau[destId];
+    const bloque = impasse ? null : obstacleVers(destId);
+    if (impasse) {
+      html += `<div class="move-illegal-warn">🚫 Aucune case voisine n'accueille ce pion. Il ne peut pas bouger ce tour-ci.</div>`;
+    } else if (bloque) {
+      html += `<div class="move-illegal-warn">🚫 Impossible : cette case ${bloque}.</div>`;
+    }
+    const ok = document.getElementById('modal-ok');
+    if (ok) {
+      ok.disabled = impasse || !!bloque;
+      ok.textContent = ok.disabled ? 'Impossible' : 'Déplacer';
+    }
     detailEl.innerHTML = html;
 
     if (selectedPion) {
@@ -1595,12 +1640,11 @@ function showMoveModal(pid, refresh) {
     const pIdx = parseInt(document.getElementById('f-pion').value);
     const p = myPions[pIdx];
     if (!p) return;
-    const order = {
-      type: 'deplacer',
-      pion_type: p.type,
-      from: p.zid,
-      to: document.getElementById('f-dest').value
-    };
+    /* Dernier verrou : la modale peut avoir ete validee au clavier alors que la
+       destination est interdite. On ne pose pas un ordre que le moteur refusera. */
+    const to = document.getElementById('f-dest').value;
+    if (!to || obstacleEntree(gameState.plateau[to], p.type, pid)) return;
+    const order = { type: 'deplacer', pion_type: p.type, from: p.zid, to };
     if (document.getElementById('f-elim')?.checked) order.eliminer = true;
     pendingOrders.push(order);
     mapRenderer?.clearHighlights();
@@ -2772,11 +2816,20 @@ function showRevealOverlay(title, log, onContinue, avant) {
       d.points ? `<span class="rb-points">${signe(d.points)} pt${Math.abs(d.points) > 1 ? 's' : ''}</span>` : '',
       d.zones ? `<span class="rb-zones${d.zones < 0 ? ' rb-moins' : ''}">${signe(d.zones)} zone${Math.abs(d.zones) > 1 ? 's' : ''}</span>` : ''
     ].filter(Boolean).join('');
-    return `<details class="reveal-groupe"${g.lignes.length ? '' : ' data-vide'}>
+    /* Un ordre refusé était replié dans un volet fermé dont le résumé ne disait
+       que « 2 lignes » : le joueur payait deux ordres, le plateau ne bougeait
+       pas, et rien à l'écran ne lui disait pourquoi. C'est exactement ce qui se
+       raconte à la table comme « ça a planté ». Un refus ouvre son volet et se
+       nomme dans le résumé. */
+    const refus = g.lignes.filter(l => l.type === 'warn').length;
+    const resume = refus
+      ? `<span class="rb-refus">${refus} ordre${refus > 1 ? 's' : ''} refusé${refus > 1 ? 's' : ''}</span>`
+      : (g.lignes.length ? `${g.lignes.length} ligne${g.lignes.length > 1 ? 's' : ''}` : '');
+    return `<details class="reveal-groupe"${g.lignes.length ? '' : ' data-vide'}${refus ? ' open' : ''}>
       <summary style="border-left:3px solid ${g.j.couleur}">
         <span class="rb-nom">${esc(g.j.nom)}</span>
         <span class="rb-bilan">${bilan}</span>
-        <span class="rb-detail">${g.lignes.length ? `${g.lignes.length} ligne${g.lignes.length > 1 ? 's' : ''}` : ''}</span>
+        <span class="rb-detail">${resume}</span>
       </summary>
       ${g.lignes.map(ligne).join('')}
     </details>`;

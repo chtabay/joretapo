@@ -23,13 +23,41 @@ import { chromium, servir, nouvellePartie, nettoyer, visible } from './pilote.mj
 const AUDIT = () => {
   const W = window.innerWidth, H = window.innerHeight;
 
-  const vu = e => {
+  /* Un ecran couvert par le rideau ou une revelation n'est pas un defaut : la
+     moitie des boutons de la page sont derriere, c'est le principe. */
+  const estVoile = t => { for (let p = t; p; p = p.parentElement)
+    if (p.id === 'curtain' || /-ov$/.test(p.id || '') || /-modal$/.test(p.id || '')) return true;
+    return false; };
+
+  /* Deux questions distinctes, et la seconde etait posee a la place de la
+     premiere : « la mise en page le montre-t-elle » et « le doigt l'atteint-il ».
+     Un bouton pose puis recouvert repondait non a la seconde et disparaissait
+     de l'audit — exactement le cas le plus grave, celui d'un bouton qui existe
+     et sur lequel on ne peut pas appuyer. */
+  const pose = e => {
     if (!e.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true })) return false;
     const r = e.getBoundingClientRect();
     if (r.width <= 0 || r.height <= 0) return false;
     for (let p = e; p; p = p.parentElement) if (getComputedStyle(p).pointerEvents === 'none') return false;
+    return true;
+  };
+  const auDoigt = e => {
+    const r = e.getBoundingClientRect();
     const t = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
     return !!t && (t === e || e.contains(t) || e.contains(t.parentElement));
+  };
+  const couverts = [];
+  const vu = e => {
+    if (!pose(e)) return false;
+    if (auDoigt(e)) return true;
+    const r = e.getBoundingClientRect();
+    const t = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+    /* Le meme bouton passe sous plusieurs sondes : on ne le signale qu'une fois. */
+    const cle = e.id || e.className.toString().slice(0, 36);
+    if (t && !estVoile(t) && !couverts.some(c => c.el === cle)) {
+      couverts.push({ el: cle, par: (t.id || t.className || t.tagName).toString().slice(0, 28) });
+    }
+    return false;
   };
   const dedans = e => {
     const r = e.getBoundingClientRect();
@@ -60,7 +88,9 @@ const AUDIT = () => {
   const tronques = [];
   document.querySelectorAll('button, .op-pastille, .cur-nom, .rb-nom, .etb-horloge, .curtain-phase, .op-hint, .nego-sub')
     .forEach(e => {
-      if (!vu(e)) return;
+      /* Pas `vu` ici : un libelle recouvert n'est pas une cible tactile ratee,
+         et le signaler comme telle noierait les vrais boutons injoignables. */
+      if (!pose(e) || !auDoigt(e)) return;
       let large = 0;
       for (const n of e.childNodes) {
         if (n.nodeType !== 3 || !n.textContent.trim()) continue;
@@ -85,7 +115,7 @@ const AUDIT = () => {
     }
   });
 
-  return { horsCadre, petites, tronques, bloque, debordeH: document.documentElement.scrollWidth > W + 1 };
+  return { horsCadre, petites, tronques, bloque, couverts, debordeH: document.documentElement.scrollWidth > W + 1 };
 };
 
 const FORMATS = [
@@ -145,6 +175,7 @@ for (const f of FORMATS) {
   for (const [ecran, a] of Object.entries(rapport)) {
     if (a.debordeH) pbs.push(`${ecran} : la page deborde horizontalement`);
     a.horsCadre.forEach(x => pbs.push(`${ecran} : HORS CADRE ${x.el} (haut ${x.t} bas ${x.b} gauche ${x.l} droite ${x.r})`));
+    (a.couverts || []).forEach(x => pbs.push(`${ecran} : COUVERT ${x.el} — le doigt tombe sur ${x.par}`));
     a.petites.forEach(x => pbs.push(`${ecran} : CIBLE ${x.w}x${x.h} au doigt (boite ${x.boite}) ${x.el}`));
     a.tronques.forEach(x => pbs.push(`${ecran} : TRONQUE ${x.el} ${x.boite}<${x.peint} « ${x.txt} »`));
     a.bloque.forEach(x => pbs.push(`${ecran} : DEBORDE SANS DEFILEMENT ${x.el} ${x.ch}<${x.sh}`));

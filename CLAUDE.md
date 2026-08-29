@@ -54,6 +54,7 @@ de 30 tours, et 0 % avec le moindre combat.
 | Vote | pour soi possible | interdit | L'auto-vote rendait le maire mécanique : le joueur déjà en tête |
 | Offre d'armes | 46/tour | 140/tour | Un joueur dépensait 3 de ses 5 ordres en courses et ne s'étendait plus |
 | Égalité de conflit | statu quo gratuit | départagée au tour même : celui qui tient la zone la garde ; sinon celui qui engage le plus de pions | 353 égalités sur 40 parties, dont 66 % rejouées à l'identique le tour suivant, pendant que 0,7 zone changeait de mains. Se bloquer était la position la moins chère du jeu |
+| Traversées d'eau | aucune | deux ouvrages nommés | Le générateur de carte relie deux zones dont les polygones passent à moins de 50 m : aucun fleuve ne fait moins de 50 m, donc **aucun pont n'existait**. Bergen n'avait qu'une sortie, tenue dès le tour 1 par un pion armé adverse : un pion posé là enfermait le joueur dans 3 zones sur 74, toute la partie |
 | Portée du soutien | zone adjacente | deux zones | Sur 483 zones disputées, un joueur non impliqué avait un pion armé juste à côté dans **un** cas. L'ordre de soutien — seul objet de la négociation — était injouable |
 | Points d'appro | accessibles à tous, depuis n'importe où | il faut un pion sur place ou à côté ; priorité au propriétaire + péage de 50 % | La logistique n'avait aucune géographie : la liste des 13 points était la même pour tous depuis n'importe quelle case, et prendre un port ne servait à rien. Ce sont des équipements publics qu'on domine |
 
@@ -206,12 +207,101 @@ doigt. La barre du haut fait 32 px et le bouton est à 2 px du bord de l'écran 
 aller chercher les 9 px manquants coûterait une bande morte de 45 × 15 sur le
 coin du plateau. Le plateau vaut plus qu'un bouton de sauvegarde.
 
-Un avertissement pour la suite, payé deux fois : **la boîte d'un bouton n'est
+Un avertissement pour la suite, payé trois fois : **la boîte d'un bouton n'est
 pas sa cible.** Un `::after` étendu agrandit la zone sensible sans changer
 `getBoundingClientRect`, et un panneau fermé garde sa boîte alors qu'il n'est
 plus à l'écran. La première version de l'audit mesurait des boîtes : elle
 réclamait des réparations sur des boutons qui n'existaient pas, et ne voyait pas
 ceux qui étaient couverts. On mesure au doigt, avec `elementFromPoint`.
+
+La deuxième version avait le défaut symétrique, et plus grave : elle **écartait
+en silence** tout bouton que le doigt n'atteignait pas, c'est-à-dire exactement
+le pire cas — un bouton qui existe et sur lequel on ne peut pas appuyer. « Posé
+par la mise en page » et « atteint par le doigt » sont deux questions
+distinctes, et l'audit ne posait que la seconde. Une fois séparées, il a trouvé
+du premier coup qu'en paysage la légende des quartiers, haute de 343 px sur un
+écran de 390, recouvrait **« 🗺️ Territoires » et « 📖 Dictionnaire »** — dont le
+premier ouvre justement la vue complète des quartiers. Elle est masquée en
+paysage, comme elle l'est déjà sur téléphone.
+
+## Le premier rapport d'une vraie table
+
+Trois défauts remontés d'une partie jouée sur tablette. Le plus instructif est
+qu'ils ont été trouvés sur **la version en ligne, vieille de cinq mois** : Pages
+servait `main`, et `main` n'avait jamais reçu le travail. Deux des trois étaient
+déjà morts dans le dépôt.
+
+**« Je ne vois pas le joueur 2. »** Vrai en ligne, faux dans le dépôt. Sur
+`main`, le placement initial n'avançait le curseur de zone que pour les pions
+armés : toutes les prostituées s'empilaient sur une case, et le contrôle d'un
+quartier exigeait l'unanimité. Résultat mesuré sur cette version : **six des
+onze quartiers de départ rapportaient 0 point au tour 1** — exactement les six
+gros, ceux annoncés à 9 et 15 points. Sans contrôle, pas de contour épais ni
+d'étoile : il ne restait du joueur qu'un aplat à 33 % d'alpha et des pions de
+3,2 px. Sur la branche, 7007 mises en place vérifiées, aucune muette.
+
+Il en restait pourtant une part vraie ici : **rien ne disait au joueur où il
+est.** Le rideau passait la tablette en laissant le cadre là où le précédent
+l'avait posé. Le rideau recadre maintenant sur le territoire de celui qui prend
+la tablette, et un second bouton ⌖ y ramène à tout moment.
+
+**« L'échange d'une prostituée et d'un trafiquant a planté. »** Il n'y avait
+aucune exception — 20 000 résolutions aléatoires n'en lèvent pas une. « Ça a
+planté » voulait dire « rien ne s'est passé » : deux ordres sur trois dépensés,
+le plateau inchangé, et le refus replié dans un volet fermé dont le résumé
+disait « 2 lignes ». Trois choses étaient cassées, aucune n'était le moteur de
+conflit :
+
+- la règle d'entrée ne regardait que le pion **déjà là**, jamais celui qui
+  arrive. Une prostituée ne pouvait donc **jamais** rejoindre son propre
+  protecteur — alors que la fuite d'un pion armé suppose justement qu'ils
+  cohabitent — et deux prostituées pouvaient s'empiler, ce que l'appro interdit ;
+- le message accusait le pion armé même quand l'obstacle était la prostituée ;
+- la feuille d'ordres proposait des destinations que le moteur refuse, et
+  peignait même le pion allié de destination en pastille verte.
+
+La règle vit désormais dans une seule fonction, `obstacleEntree`, exportée du
+résolveur et lue par la feuille d'ordres : elle dit non **avant** que l'ordre
+soit payé. Un refus ouvre son volet au bilan et se nomme.
+
+Ce qui n'a **pas** été fait, et pourquoi : autoriser la rotation de ses propres
+pions. Il faudrait tenir un départ pour acquis avant la résolution des conflits,
+or un ordre de sortie annulé en conflit laisse le pion sur place — mesuré : deux
+pions armés du même joueur sur une case, ce que trois modules interdisent. Dans
+la position rapportée, les deux refus étaient d'ailleurs **justes** : la case
+d'arrivée gardait sa prostituée, l'autre son trafiquant.
+
+**« Les rivières coupent les connexions. »** Vrai, et pire que le rapport. Le
+plateau était connexe, mais **Bergen n'avait qu'une zone de sortie**, HC08,
+tenue par un pion armé de North Hudson au tour 1 dans 200 mises en place sur
+200. Un pion posé là réduisait le joueur à 3 zones sur 74 pour toute la partie.
+Quatre autres quartiers de départ étaient scellables à 11, 12, 13 et 18 zones.
+
+Les treize traversées réelles de New York ont été essayées. **Elles font tomber
+le taux de combat à 0 %** : un plateau ouvert offre des cases libres au lieu
+d'obliger à se croiser — le mécanisme exact décrit plus haut pour la portée des
+points d'appro, à l'envers. **Deux suffisent** : George Washington (BG02–MN12) et
+Henry Hudson (MN12–BX8), MN12 étant la charnière entre le New Jersey et le
+Bronx.
+
+| 40 parties, mêmes graines | Sans pont | 13 ponts | **2 ponts** |
+|---|---|---|---|
+| Pire enfermement par un pion | **3 / 74** | 71 / 74 | **69 / 74** |
+| Parties avec un combat | 13 % | **0 %** | 8 % |
+| Premier combat (médiane) | tour 4 | — | tour 13 |
+| Zones reprises par partie | 1,4 | 1,7 | 1,8 |
+| Victoire (médiane) | 13 | 13 | 13 |
+| Titre repris | 48 % | 45 % | 48 % |
+
+Le prix est réel et assumé : le premier combat recule du tour 4 au tour 13. Un
+joueur enfermé dans 3 zones par un seul pion adverse est un jeu cassé ; une
+statistique de banc mesurée avec des bots gloutons et prudents ne l'est pas.
+À revérifier à la table — c'est elle qui tranche.
+
+Deux garde-fous dans `test/city-data.test.mjs` échouent sans les ponts et
+passent avec, et les ouvrages vivent dans `data/ouvrages.json`, fusionnés
+**après** le calcul géométrique : une régénération de la carte ne les efface
+plus.
 
 ## Ce qui reste ouvert
 
@@ -224,11 +314,12 @@ ceux qui étaient couverts. On mesure au doigt, avec `elementFromPoint`.
   gloutons et prudents ; un joueur réel attaquera plus. À revérifier à la table.
 - 4 tests `todo` documentent des défauts connus non corrigés (`npm test` les
   liste). Ils ne font pas échouer la CI.
-- **Les quartiers de départ ne se valent pas**, et l'écart est large : sur 120
-  parties simulées, South Brooklyn l'emporte 6 fois sur 10, West Queens et
-  Jersey City jamais. Ce déséquilibre est antérieur à tout ce qui précède — il
-  était identique avant les changements de règles — et il n'a pas encore été
-  travaillé. C'est le prochain chantier d'équilibrage.
+- **Les quartiers de départ ne se valent pas**, et le chiffre de référence est
+  désormais périmé : « South Brooklyn 6 fois sur 10, West Queens et Jersey City
+  jamais » a été mesuré sur le plateau **sans ponts**, avec le banc d'avant sa
+  réparation. Les deux traversées changent la topologie de cinq quartiers sur
+  onze. À remesurer avant d'y toucher — et une partie de l'écart n'était pas
+  géographique : Jersey City a sept sorties et perd quand même.
 - Les trois bibliothèques CDN (pako, lz-string, qrcodejs) n'ont ni SRI ni copie
   locale. Hors ligne, le partage et le QR se dégradent proprement mais se
   dégradent.

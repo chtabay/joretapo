@@ -126,9 +126,22 @@
     .cur-section, .cur-file { display: none; }
     #btn-curtain-go { position: sticky; bottom: 0; margin-top: 4px; }
     #negotiation-ov .nego-container { max-height: 64vh; }
+    /* La légende fait 343 px de haut sur un écran qui en compte 390, et elle est
+       ancrée en bas : elle recouvre « 🗺️ Territoires » et « 📖 Dictionnaire »,
+       mesuré au doigt (elementFromPoint tombe sur legend-items). Le premier de
+       ces deux boutons ouvre justement la vue complète des quartiers. On la
+       masque donc en paysage, comme elle l'est déjà sur téléphone : rien n'est
+       perdu, et le plateau récupère 21 % de la surface. */
+    #legend { display: none !important; }
   }
   .hud-masked { color: #667; letter-spacing: 1px; }
   .victory-reason { margin-top: 10px; font-size: 13px; color: #98a2b0; text-align: center; }
+  /* Meme gabarit que ⤢, pose juste au-dessus : deux gestes voisins, l'un pour
+     le plateau, l'autre pour chez soi. */
+  #btn-chez-moi { position: absolute; left: 50%; transform: translateX(-50%); bottom: 68px; z-index: 12; width: 44px; height: 44px; display: none; align-items: center; justify-content: center; background: rgba(10,10,30,0.85); border: 1px solid #445; border-radius: 8px; color: #8ab4f8; font-size: 20px; cursor: pointer; }
+  #screen-game.active #btn-chez-moi { display: flex; }
+  #btn-chez-moi:hover { color: #fff; border-color: #5a8ab4; }
+  #btn-chez-moi:focus-visible { outline: 2px solid #8ab4f8; outline-offset: 2px; }
   #btn-recenter:hover { color: #fff; border-color: #5a8ab4; }
   #btn-recenter:focus-visible { outline: 2px solid #8ab4f8; outline-offset: 2px; }
   #screen-game.active #btn-recenter { display: flex; }
@@ -517,6 +530,9 @@
   .move-enemy { border-color: #e74c3c !important; }
   .move-ally { border-color: #2ecc71 !important; }
   .move-conflict-warn { font-size: 12px; color: #e74c3c; padding: 6px 10px; background: rgba(231,76,60,0.1); border-radius: 6px; border: 1px solid rgba(231,76,60,0.2); }
+  /* Un refus se lit avant de payer l'ordre, pas dans le bilan du tour. */
+  .move-illegal-warn { font-size: 12px; color: #f39c12; padding: 6px 10px; background: rgba(243,156,18,0.12); border-radius: 6px; border: 1px solid rgba(243,156,18,0.3); margin-top: 6px; }
+  .rb-refus { color: #f39c12; font-weight: 600; }
 
   /* Map zone highlights */
   .zone.heist-target { opacity: 1 !important; stroke: #f1c40f !important; stroke-width: 2.5 !important; fill: rgba(241,196,15,0.2) !important; animation: zonePulse 1.5s ease infinite; }
@@ -555,7 +571,12 @@
 
   /* HUD quartier badges */
   .hud-player-quartiers { font-size: 10px; color: #f1c40f; margin-left: 3px; font-weight: 700; }
-  .hud-quartiers-btn, .hud-dict-btn { width: 100%; margin-top: 8px; padding: 8px; border-radius: 6px; font-size: 12px; cursor: pointer; transition: all 0.2s; }
+  .hud-quartiers-btn, .hud-dict-btn { width: 100%; margin-top: 8px; padding: 8px; min-height: 36px; border-radius: 6px; font-size: 12px; cursor: pointer; transition: all 0.2s; }
+  /* 32 px de haut mesures. Les deux boutons ne sont separes que de 8 px : deux
+     ::after de 6 px se rencontrent au milieu et se partagent l'ecart, d'ou un
+     plancher a 36 px sur le bouton lui-meme — 36 + 8 = 44 au doigt. */
+  .hud-quartiers-btn, .hud-dict-btn { position: relative; }
+  .hud-quartiers-btn::after, .hud-dict-btn::after { content: ''; position: absolute; top: -6px; bottom: -6px; left: 0; right: 0; }
   .hud-quartiers-btn { background: rgba(241,196,15,0.08); border: 1px solid rgba(241,196,15,0.3); color: #f1c40f; }
   .hud-quartiers-btn:hover { background: rgba(241,196,15,0.15); border-color: #f1c40f; }
   .hud-dict-btn { background: rgba(138,180,248,0.08); border: 1px solid rgba(138,180,248,0.3); color: #8ab4f8; }
@@ -848,6 +869,7 @@
     /* Ajuster carte pour laisser place à la nav en bas */
     #map-container { bottom: 52px; }
     #btn-recenter { left: auto; right: 10px; bottom: auto; top: 46px; transform: none; }
+    #btn-chez-moi { left: auto; right: 10px; bottom: auto; top: 96px; transform: none; }
 
     .modal-content, .reveal-container, .nego-container, .turnend-container, .election-container, .reminder-container, .coupole-container, .pre-election-container { width: 95%; max-width: none; max-height: 85vh; }
 
@@ -953,6 +975,7 @@
   <div id="election-topbar"></div>
   <div id="map-container"></div>
   <button id="btn-recenter" title="Recadrer le plateau" aria-label="Recadrer le plateau">⤢</button>
+  <button id="btn-chez-moi" title="Recadrer sur mes zones" aria-label="Recadrer sur mes zones">⌖</button>
 
   <div id="stats"><h3>JORETAPO</h3><div id="stats-content">Chargement...</div></div>
 

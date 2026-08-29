@@ -63,6 +63,51 @@ T('aucune zone n\'est isolée', () => {
     'une zone sans voisine ne peut jamais être atteinte, donc son quartier ne peut jamais être contrôlé');
 });
 
+T('aucun quartier de départ ne peut être scellé par un seul pion adverse', () => {
+  /* Rapport de table : « un joueur de Bergen est bloqué par un joueur de North
+     Hudson ». C'était vrai et pire que ça — Bergen n'avait qu'une zone de
+     sortie, HC08, tenue par un pion armé adverse dès le tour 1 dans 200 mises
+     en place sur 200. Un pion posé là enfermait le joueur dans 3 zones sur 74
+     pour toute la partie. Les traversées d'eau manquaient : le générateur de
+     carte relie deux zones dont les polygones passent à moins de 50 m, ce qui
+     ne franchit aucun fleuve. */
+  const departs = Object.entries(gameplay.quartiers)
+    .filter(([, q]) => q.disponible_au_lancement)
+    .map(([id, q]) => ({ id, nom: q.nom, zones: q.zones || [] }));
+  const atteignables = (depuis, banni) => {
+    const vus = new Set(depuis.filter(z => z !== banni));
+    const file = [...vus];
+    while (file.length) {
+      for (const v of adjacences[file.pop()] || []) {
+        if (v !== banni && !vus.has(v)) { vus.add(v); file.push(v); }
+      }
+    }
+    return vus.size;
+  };
+  const SEUIL = Math.round(zoneIds.length * 0.5);
+  const scelles = departs.map(q => {
+    const pire = Math.min(...zoneIds.filter(z => !q.zones.includes(z))
+      .map(z => atteignables(q.zones, z)));
+    return { nom: q.nom, pire };
+  }).filter(x => x.pire < SEUIL);
+  assert.deepEqual(scelles, [],
+    `retirer une seule zone ne doit pas couper un quartier de départ de la moitié du plateau (seuil ${SEUIL}/${zoneIds.length})`);
+});
+
+T('chaque quartier de départ a au moins deux zones de sortie', () => {
+  const zoneDe = {};
+  Object.entries(gameplay.quartiers).forEach(([qid, q]) => (q.zones || []).forEach(z => { zoneDe[z] = qid; }));
+  const enclaves = Object.entries(gameplay.quartiers)
+    .filter(([, q]) => q.disponible_au_lancement)
+    .map(([qid, q]) => {
+      const sorties = new Set((q.zones || []).flatMap(z => (adjacences[z] || []).filter(v => zoneDe[v] !== qid)));
+      return { nom: q.nom, sorties: sorties.size };
+    })
+    .filter(x => x.sorties < 2);
+  assert.deepEqual(enclaves, [],
+    'une seule porte de sortie, c\'est une porte qu\'un adversaire peut fermer');
+});
+
 T('le plateau est d\'un seul tenant', () => {
   const vus = new Set();
   const file = [zoneIds[0]];

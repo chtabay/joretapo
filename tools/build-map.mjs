@@ -185,7 +185,11 @@ console.log('\nComputing adjacencies (buffer method)...');
 const adjacencies = {};
 allFeatures.forEach(f => { adjacencies[f.properties.id] = []; });
 
-const BUFFER_KM = 0.05; // 50m buffer to catch near-touching borders
+/* 50 m : de quoi rattraper deux frontieres qui se frolent sans se toucher. Mais
+   aucun fleuve ne fait moins de 50 m, donc ce tampon ne franchit AUCUNE eau :
+   les ponts et tunnels doivent etre declares a la main, dans data/ouvrages.json,
+   et fusionnes apres ce calcul. Sans eux, Bergen n'a qu'une zone de sortie. */
+const BUFFER_KM = 0.05;
 
 const total = allFeatures.length;
 let checked = 0;
@@ -226,6 +230,29 @@ for (let i = 0; i < total; i++) {
 }
 
 console.log(`  ${totalPairs} pairs checked.`);
+
+/* Les traversees d'eau, declarees a la main parce que la geometrie ne peut pas
+   les deviner. Fusionnees ici pour qu'une regeneration de la carte ne les efface
+   pas — c'est exactement ce qui s'etait produit. */
+const ouvrages = (() => {
+  try {
+    return JSON.parse(fs.readFileSync(path.join(OUT, 'ouvrages.json'), 'utf8')).ouvrages || [];
+  } catch {
+    console.warn('  data/ouvrages.json introuvable : aucune traversee d\'eau ne sera posee.');
+    return [];
+  }
+})();
+let poses = 0;
+ouvrages.forEach(o => {
+  if (!adjacencies[o.de] || !adjacencies[o.vers]) {
+    console.warn(`  ouvrage ignore, zone inconnue : ${o.de}-${o.vers} (${o.nom})`);
+    return;
+  }
+  adjacencies[o.de].push(o.vers);
+  adjacencies[o.vers].push(o.de);
+  poses++;
+});
+console.log(`  ${poses} traversee(s) d'eau posee(s) depuis data/ouvrages.json.`);
 
 Object.keys(adjacencies).forEach(id => {
   adjacencies[id] = [...new Set(adjacencies[id])].sort();
