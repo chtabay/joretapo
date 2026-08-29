@@ -320,25 +320,26 @@ test('les points de victoire restent calculables et finis', async () => {
 });
 
 /* ═══════════════════════════════════════════════════════════
- *  6 — Bugs connus (jaune, n'échouent jamais la suite)
+ *  6 — Non-régression : bugs corrigés, verrouillés ici
  * ═══════════════════════════════════════════════════════════ */
 
-test.connu('SOFTLOCK : la pioche de draft s\'épuise à 6 joueurs vers le tour 14', async () => {
+// Historique : le draft sortait 4 cartes par joueur du circuit à chaque élection
+// sans jamais les y remettre. La partie se figeait à la 2e élection (tour 14) à
+// 6 joueurs, l'écran exigeant 4 cartes sur une main devenue incomplète.
+test('le draft ne s\'épuise plus à 6 joueurs, même sur 6 élections', async () => {
   const data = await loadData();
-  const r = await simulateGame(6, 20, { data, graine: 6006, stopOnSoftlock: true });
-  assert(r.softlock !== null,
-    'le softlock du draft devrait encore se produire (s\'il ne se produit plus, reclasser ce test)');
-  assertEqual(r.softlock.tour, 14, 'le blocage tombe à la 2e élection, tour 14');
-  assert(r.softlock.cartesEnMain < 4,
-    `main incomplète attendue, obtenu ${r.softlock.cartesEnMain} carte(s)`);
+  const r = await simulateGame(6, 42, { data, graine: 6006, stopOnSoftlock: true });
+  assertEqual(r.softlock, null,
+    `softlock au tour ${r.softlock?.tour} : le recyclage du deck ne suffit plus`);
+  assertEqual(r.tours, 42, 'la partie doit aller au bout des 42 tours');
 });
 
-test.connu('SOFTLOCK : à 4 joueurs le draft tient plus longtemps mais casse aussi', async () => {
+test('le draft ne s\'épuise à aucun nombre de joueurs', async () => {
   const data = await loadData();
-  const r = await simulateGame(4, 35, { data, graine: 4004, stopOnSoftlock: true });
-  assert(r.softlock !== null, 'le deck finit aussi par s\'épuiser à 4 joueurs');
-  assert(r.softlock.tour >= 21,
-    `blocage attendu à partir du tour 21, obtenu tour ${r.softlock.tour}`);
+  for (const n of [2, 3, 4, 5]) {
+    const r = await simulateGame(n, 42, { data, graine: 4004, stopOnSoftlock: true });
+    assertEqual(r.softlock, null, `softlock à ${n} joueurs, tour ${r.softlock?.tour}`);
+  }
 });
 
 /**
@@ -391,7 +392,7 @@ const CONFIGS_SCAN = [
   { n: 6, tours: 12, graine: 3 }
 ];
 
-test.connu('RÈGLE VIOLÉE : deux pions armés se retrouvent sur la même case', async () => {
+test('une case ne porte jamais deux pions armés', async () => {
   // spec 01 : une case ne porte qu'un seul pion armé.
   // Observé en simulation : la fuite du défenseur (conflict-resolver.js:_executeFlight,
   // étape 4) est exécutée AVANT les mouvements simples et gagnants (étapes 5-6),
@@ -401,20 +402,17 @@ test.connu('RÈGLE VIOLÉE : deux pions armés se retrouvent sur la même case',
   // entre pions alliés.
   const data = await loadData();
   const { empilements } = await scannerEtatsIllegaux(data, CONFIGS_SCAN);
-  assert(empilements.length > 0,
-    'plus aucun empilement de pions armés : le bug est corrigé, reclasser ce test en test(...)');
-  assert(empilements.some(e => e.allies), 'empilement entre pions alliés attendu');
+  assertEqual(empilements.length, 0,
+    `spec 01:126 violée — ${empilements.length} empilement(s), 1er : ${JSON.stringify(empilements[0] || null)}`);
 });
 
-test.connu('PROPRIÉTAIRE FANTÔME : une case sans aucun pion du propriétaire lui reste acquise', async () => {
+test('une case sans pion ni construction du propriétaire lui est retirée', async () => {
   // conflict-resolver.js:_updateOwnership ne remet `proprietaire` à null que si
   // la case est totalement vide. Une case ne contenant plus qu'un flic ennemi
   // (les flics sont exclus du calcul des propriétaires) garde donc son ancien
   // propriétaire, qui continue d'encaisser ses points de quartier.
   const data = await loadData();
   const { fantomes } = await scannerEtatsIllegaux(data, CONFIGS_SCAN);
-  assert(fantomes.length > 0,
-    'plus aucun propriétaire fantôme : le bug est corrigé, reclasser ce test en test(...)');
-  assert(fantomes.some(f => f.pions.every(p => p.startsWith('flic@'))),
-    'cas attendu : case ne portant plus qu\'un flic');
+  assertEqual(fantomes.length, 0,
+    `${fantomes.length} propriétaire(s) fantôme(s), 1er : ${JSON.stringify(fantomes[0] || null)}`);
 });
