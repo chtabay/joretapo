@@ -10,6 +10,8 @@ dépôt, on ne sait plus où on en était, et on referme.
 npm test                    # 195 tests, aucune dépendance, aucune configuration
 node tools/sim.mjs          # 40 parties simulées : le jeu est-il encore jouable ?
 npm run serve               # http://localhost:8000
+npm run partie              # une soirée entière jouée à l'écran (Playwright)
+npm run ecrans              # mise en page et cibles tactiles, cinq formats
 ```
 
 Si les deux premières commandes passent, le dépôt tourne.
@@ -164,11 +166,60 @@ verrouillage relatif se dégrade parce que la durée augmente sans que le tour d
 verrouillage recule. **C'est un argument de plus pour recaler le seuil**, ce qui
 suppose d'abord de réparer le banc (voir plus haut).
 
+## La partie a enfin été jouée en entier — par un pilote, pas par une table
+
+Le banc mesure les règles sans jamais toucher un bouton ; les tests vérifient
+des moteurs sans DOM. Entre les deux, **personne ne regardait les écrans.** Deux
+instruments comblent ce trou :
+
+```bash
+npm run partie    # une soirée entière, du menu au vainqueur annoncé
+npm run ecrans    # cinq formats, cinq écrans, mise en page et cibles tactiles
+```
+
+Playwright n'est pas une dépendance et ne doit pas le devenir : `npm test` et
+`node tools/sim.mjs` restent sans rien à installer. Les deux outils s'arrêtent
+poliment s'ils ne le trouvent pas, et acceptent
+`JORETAPO_PLAYWRIGHT=/chemin/vers/playwright/index.mjs`.
+
+Relevé du premier, sur une partie à quatre menée jusqu'au bout :
+
+| Mesure | Relevé |
+|---|---|
+| Fin de partie | 14ᵉ tour, bandeau de victoire, classement trié |
+| Taps pour la soirée | 324, soit 23,1 par tour |
+| Draft | 4 cartes par joueur et par scrutin, comme l'écran l'annonce |
+| Rechargement au tour 3 | reprend par le rideau, phase intacte |
+| Erreurs JS | aucune, hors les trois CDN injoignables hors ligne |
+
+Ce que le second a trouvé, et qui ne pouvait pas se voir autrement qu'en
+ouvrant la page :
+
+| Défaut | Conséquence |
+|---|---|
+| `#election-ov` n'avait aucun fond | Le scrutin **à bulletin secret** se lisait par-dessus le plateau |
+| « Je suis X » hors cadre en paysage | Le seul verrou d'identité du hotseat, inatteignable |
+| Rangée d'actions coupée à 360 px | Sous la lisière : « Valider mes ordres ». Viser un peu bas finissait le tour |
+
+Un relevé demeure, assumé : la cible du bouton de sauvegarde fait 43 × 35 au
+doigt. La barre du haut fait 32 px et le bouton est à 2 px du bord de l'écran ;
+aller chercher les 9 px manquants coûterait une bande morte de 45 × 15 sur le
+coin du plateau. Le plateau vaut plus qu'un bouton de sauvegarde.
+
+Un avertissement pour la suite, payé deux fois : **la boîte d'un bouton n'est
+pas sa cible.** Un `::after` étendu agrandit la zone sensible sans changer
+`getBoundingClientRect`, et un panneau fermé garde sa boîte alors qu'il n'est
+plus à l'écran. La première version de l'audit mesurait des boîtes : elle
+réclamait des réparations sur des boutons qui n'existaient pas, et ne voyait pas
+ceux qui étaient couverts. On mesure au doigt, avec `elementFromPoint`.
+
 ## Ce qui reste ouvert
 
-- **Aucune partie n'a encore été jouée par des humains.** C'est la prochaine
-  étape et elle prime sur tout le reste : si les notes d'une vraie table
-  contredisent ce qui est écrit ici, ce sont elles qui gagnent.
+- **Aucune partie n'a encore été jouée par des humains.** Le pilote appuie sur
+  les boutons ; il ne s'ennuie pas, ne se trompe pas d'écran et ne triche pas en
+  regardant la tablette du voisin. C'est la prochaine étape et elle prime sur
+  tout le reste : si les notes d'une vraie table contredisent ce qui est écrit
+  ici, ce sont elles qui gagnent.
 - Le taux de combat mesuré reste faible (10 % des parties). Les bots du banc sont
   gloutons et prudents ; un joueur réel attaquera plus. À revérifier à la table.
 - 4 tests `todo` documentent des défauts connus non corrigés (`npm test` les

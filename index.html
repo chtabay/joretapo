@@ -112,6 +112,21 @@
   .qty-btn:hover { border-color: #5a8ab4; color: #fff; }
   .qty-btn:focus-visible { outline: 2px solid #8ab4f8; outline-offset: 2px; }
   .qty-max { font-size: 13px; }
+  /* En paysage, 390 px de haut ne suffisent pas au rideau : « Je suis X » — le
+     geste par lequel un joueur declare tenir la tablette — tombait a 398 px,
+     hors cadre. On compacte, et le bouton reste colle en bas. */
+  @media (orientation: landscape) and (max-height: 520px) {
+    #curtain { gap: 6px; padding: 10px 16px 12px; }
+    .curtain-turn { font-size: 18px; }
+    .curtain-label { font-size: 12px; margin-top: 0; }
+    .curtain-player { font-size: 22px; }
+    .curtain-phase { font-size: 10px; }
+    .curtain-etat { max-width: 620px; gap: 6px; overflow-y: auto; }
+    .cur-rang { padding: 3px 8px; font-size: 12px; }
+    .cur-section, .cur-file { display: none; }
+    #btn-curtain-go { position: sticky; bottom: 0; margin-top: 4px; }
+    #negotiation-ov .nego-container { max-height: 64vh; }
+  }
   .hud-masked { color: #667; letter-spacing: 1px; }
   .victory-reason { margin-top: 10px; font-size: 13px; color: #98a2b0; text-align: center; }
   #btn-recenter:hover { color: #fff; border-color: #5a8ab4; }
@@ -187,6 +202,9 @@
   #order-panel.collapsed .op-header { flex-direction: column; align-items: center; border-bottom: none; padding: 0; margin: 0; gap: 8px; }
   .op-collapse { background: rgba(255,255,255,0.06); border: 1px solid #445; color: #8ab4f8; width: 32px; height: 32px; border-radius: 6px; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: background 0.15s; }
   .op-collapse:hover { background: rgba(255,255,255,0.12); }
+  /* 32x32 mesures : il est au milieu de l'en-tete, il a la place de grandir. */
+  .op-collapse { position: relative; }
+  .op-collapse::after { content: ''; position: absolute; inset: -6px; }
   .op-collapsed-label { writing-mode: vertical-lr; text-orientation: mixed; font-size: 12px; font-weight: 700; letter-spacing: 1px; color: #8ab4f8; margin-top: 8px; display: none; }
   #order-panel.collapsed .op-collapsed-label { display: block; }
   .op-header { display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 8px; border-bottom: 2px solid; margin-bottom: 8px; flex-shrink: 0; }
@@ -289,7 +307,10 @@
   .modal-actions .btn-primary, .modal-actions .btn-secondary { padding: 8px 20px; font-size: 14px; }
 
   /* ── Reveal Overlay ── */
-  #reveal-ov, #turnend-ov { background: rgba(5,5,20,0.95); flex-direction: column; }
+  /* #election-ov porte le scrutin ET le draft — deux ecrans SECRETS — et n'avait
+     aucun fond : le titre, la consigne et la liste des candidats se lisaient
+     par-dessus le plateau, illisibles, pendant qu'on votait a bulletin secret. */
+  #reveal-ov, #turnend-ov, #election-ov { background: rgba(5,5,20,0.95); flex-direction: column; }
   /* La negociation affirmait « le plateau est visible derriere cet ecran » tout
      en peignant un voile opaque dessus et en interceptant les taps : la carte
      etait a 0 % du viewport pendant la seule phase ou l'on parle du plateau.
@@ -566,6 +587,10 @@
   .panel-header { display: flex; justify-content: space-between; align-items: center; }
   .panel-toggle { background: none; border: 1px solid #445; color: #888; width: 24px; height: 24px; border-radius: 4px; cursor: pointer; font-size: 14px; line-height: 1; display: flex; align-items: center; justify-content: center; transition: background 0.15s, color 0.15s; flex-shrink: 0; }
   .panel-toggle:hover { background: #334; color: #ccc; }
+  /* 24x24 : le replieur d'un panneau flottant est le plus petit bouton du jeu,
+     et il est entoure de vide — il peut grandir sans rien recouvrir. */
+  .panel-toggle { position: relative; }
+  .panel-toggle::after { content: ''; position: absolute; inset: -10px; }
   .panel-body { transition: max-height 0.25s ease, opacity 0.2s; overflow: hidden; }
   .panel-body.collapsed { max-height: 0 !important; opacity: 0; margin-top: 0 !important; }
 
@@ -702,6 +727,13 @@
   .etb-right { display: flex; align-items: center; gap: 6px; flex: 0 0 auto; }
   .etb-share { background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.3); color: #fff; height: 26px; padding: 0 10px; border-radius: 6px; cursor: pointer; font-size: 12px; display: flex; align-items: center; justify-content: center; gap: 4px; transition: background 0.15s; white-space: nowrap; }
   .etb-share:hover { background: rgba(0,0,0,0.35); }
+  /* Mesure au doigt (elementFromPoint) a 390 px : la boite fait 33x26, la zone
+     sensible 43x35. Elle ne montera pas a 44 : la barre du haut fait 32 px et le
+     bouton est a 2 px du bord de l'ecran. Aller chercher les 9 px manquants
+     voudrait dire poser une bande morte de 45x15 sur le coin du plateau — on
+     garde le plateau, c'est un bouton de sauvegarde. */
+  .etb-share { position: relative; }
+  .etb-share::after { content: ''; position: absolute; top: -9px; bottom: -9px; left: -6px; right: -6px; }
   .etb-tour { font-size: 11px; font-weight: 700; color: #fff; white-space: nowrap; }
   .hud-phase { font-size: 11px; color: #888; margin-bottom: 6px; }
   .hud-players { display: flex; flex-direction: column; gap: 3px; }
@@ -755,8 +787,16 @@
     .op-sheet-handle:active { cursor: grabbing; }
     .op-sheet-grip { width: 36px; height: 4px; border-radius: 2px; background: rgba(255,255,255,0.25); }
     #order-panel .op-header { padding: 8px 16px 8px; }
-    #order-panel .op-scroll { padding: 0 16px; }
-    #order-panel .op-footer { padding: 8px 16px; padding-bottom: max(8px, env(safe-area-inset-bottom)); }
+    /* La feuille d'ordres se coupe net a hauteur du pied, et sous cette lisiere
+       il y a « Valider mes ordres » : ce qui depasse en bas de liste est a un
+       doigt de finir le tour. On reserve la hauteur du pied en fin de zone
+       defilante, pour que la derniere rangee puisse toujours s'en degager. */
+    #order-panel .op-scroll { padding: 0 16px 52px; }
+    /* Un trait, et non plus une lisiere invisible : la liste d'actions se coupe
+       net au-dessus du pied, et sans marque on ne voit pas qu'elle continue. Le
+       couloir mort entre la derniere action et « Valider mes ordres » passe de
+       8 a 13 px mesures — un doigt qui deborde un peu ne finit plus le tour. */
+    #order-panel .op-footer { padding: 12px 16px; padding-bottom: max(8px, env(safe-area-inset-bottom)); border-top: 1px solid #2a2a45; }
     #order-panel.collapsed, #order-panel.sheet-mini .op-scroll { overflow: hidden; }
     #order-panel.sheet-mini .op-scroll { max-height: 0; padding: 0 16px; }
     #order-panel.sheet-mini .op-footer { display: none; }
@@ -841,6 +881,16 @@
     .confirm-buttons .btn-primary, .confirm-buttons .btn-secondary { min-height: 44px; }
     .reveal-btn { padding-bottom: max(16px, env(safe-area-inset-bottom)); }
     .modal-actions { padding-bottom: env(safe-area-inset-bottom, 0); }
+  }
+
+  /* 42 % d'un ecran de 844 px laissent passer les huit actions de la phase 4 ;
+     42 % d'un 740 n'en montrent que six et demie, et la septieme se coupe a
+     26 px sur 46 — juste au-dessus de « Valider mes ordres ». Sous 780 px de
+     haut, la feuille prend donc une hauteur en pixels plutot qu'une fraction :
+     25 px de carte en moins, une rangee d'actions entiere en plus. La fraction
+     de 42 % reste telle quelle sur les grands ecrans, ou elle a ete calee. */
+  @media (max-width: 820px) and (max-height: 780px) {
+    #order-panel, #order-panel.sheet-mid { height: min(336px, calc(100dvh - 36px - 52px)); }
   }
 </style>
 </head>

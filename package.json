@@ -7,7 +7,9 @@
   "scripts": {
     "test": "node --test \"test/**/*.test.mjs\"",
     "sim": "node tools/sim.mjs",
-    "serve": "npx --yes http-server -p 8000 -c-1"
+    "serve": "npx --yes http-server -p 8000 -c-1",
+    "ecrans": "node tools/ecrans.mjs",
+    "partie": "node tools/partie.mjs"
   },
   "engines": {
     "node": ">=20"
