@@ -2,7 +2,7 @@ import { GameState } from './game-state.js';
 import { MapRenderer, QUARTIER_COLORS, FACILITE_LABELS } from './map-renderer.js';
 import { renderSetupScreen } from './setup.js';
 import { TurnManager, PHASE, GAME_PHASE_LABELS } from './turn-manager.js';
-import { RevenueEngine, BUY_PRICE, CONSTRUCTION_DEFS } from './revenue-engine.js';
+import { RevenueEngine, BUY_PRICE, CONSTRUCTION_DEFS, CONSTRUCTION_REVENUE } from './revenue-engine.js';
 import { ConflictResolver } from './conflict-resolver.js';
 import { MayorEngine, MAYOR_POWERS } from './mayor-engine.js';
 import { MagouilleEngine } from './magouille-engine.js';
@@ -11,6 +11,20 @@ import { ContractEngine, CONTRACT_TYPES } from './contract-engine.js';
 import { HeistEngine, HEIST_TYPES } from './heist-engine.js';
 import { getShareUrl, generateQRCode, getWhatsAppShareUrl, copyToClipboard, shareViaWebShare, canUseWebShare, parseRestoreFromHash, clearRestoreHash } from './save-export.js';
 import { showDictionaryEntry, showDictionaryIndex, initDictionaryOverlay } from './dictionary.js';
+import {
+  escapeHtml, couleurSure, CONDITION_LABELS, TUTORIAL_TIPS, GANG_DESCRIPTIONS,
+  CONSTRUCTION_LABELS, SEUIL_VICTOIRE, libelleDepartage, libellePion,
+  trouverVainqueur, formatOrder, prixUnitaire
+} from './ui-content.js';
+
+/**
+ * Raccourcis d'échappement. TOUTE donnée venant d'un joueur (nom saisi au
+ * setup, nom restauré depuis un lien `#restore=`) doit passer par `e()` avant
+ * d'entrer dans du HTML, et toute couleur par `col()` avant d'entrer dans un
+ * attribut `style`.
+ */
+const e = escapeHtml;
+const col = couleurSure;
 
 let gameData = null;
 let cartesDef = null;
@@ -20,13 +34,40 @@ let turnManager = null;
 let pendingOrders = [];
 let turnLog = [];
 
+/* ── Chargement des données ── */
+
+const FICHIERS_DONNEES = [
+  { url: 'data/quartiers-osm.geojson', label: 'la carte des quartiers' },
+  { url: 'data/adjacences-osm.json', label: 'les adjacences du plateau' },
+  { url: 'data/quartiers-gameplay.json', label: 'les données de jeu' },
+  { url: 'data/cartes-magouille.json', label: 'les cartes Magouille' }
+];
+
+/**
+ * `fetch` + `json()` avec un message d'erreur français exploitable.
+ * Un 404 ne doit plus produire un écran noir muet.
+ */
+async function fetchJson(url, label) {
+  let reponse;
+  try {
+    reponse = await fetch(url);
+  } catch (err) {
+    throw new Error(`Impossible de télécharger ${label} : le réseau est indisponible (${url}).`);
+  }
+  if (!reponse.ok) {
+    throw new Error(`Impossible de charger ${label} : le serveur a répondu ${reponse.status} ${reponse.statusText || ''} (${url}).`);
+  }
+  try {
+    return await reponse.json();
+  } catch (err) {
+    throw new Error(`${label} est illisible : ${url} n'est pas un JSON valide.`);
+  }
+}
+
 async function loadGameData() {
-  const [geoRes, adjRes, gameRes, cartesRes] = await Promise.all([
-    fetch('data/quartiers-osm.geojson').then(r => r.json()),
-    fetch('data/adjacences-osm.json').then(r => r.json()),
-    fetch('data/quartiers-gameplay.json').then(r => r.json()),
-    fetch('data/cartes-magouille.json').then(r => r.json())
-  ]);
+  const [geoRes, adjRes, gameRes, cartesRes] = await Promise.all(
+    FICHIERS_DONNEES.map(f => fetchJson(f.url, f.label))
+  );
   cartesDef = cartesRes;
   const zoneToQuartier = {};
   gameRes.quartiers.forEach(q => { q.zones.forEach(z => { zoneToQuartier[z] = q; }); });
@@ -39,6 +80,53 @@ async function loadGameData() {
     });
   });
   return { features: geoRes.features, adjacencies: adjRes, gameplay: gameRes, zoneToQuartier };
+}
+
+/**
+ * Voile de chargement : 3 Mo de GeoJSON à télécharger puis à parser, il ne faut
+ * pas laisser la tablette sur un écran figé sans explication.
+ */
+function showLoadingScreen(message = 'Chargement du plateau…') {
+  let el = document.getElementById('app-loading');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'app-loading';
+    el.setAttribute('role', 'status');
+    el.style.cssText = 'position:fixed;inset:0;z-index:20000;display:flex;flex-direction:column;' +
+      'align-items:center;justify-content:center;gap:16px;background:#0a0a1a;color:#f8c48a;' +
+      'font-family:inherit;text-align:center;padding:24px';
+    document.body.appendChild(el);
+  }
+  el.innerHTML = `
+    <div style="font-size:44px">🗽</div>
+    <div style="font-size:18px;font-weight:600">JORETAPO</div>
+    <div id="app-loading-msg" style="font-size:14px;color:#aaa;max-width:320px">${e(message)}</div>
+    <div style="width:160px;height:4px;background:rgba(255,255,255,0.1);border-radius:2px;overflow:hidden">
+      <div style="width:40%;height:100%;background:#f8c48a;border-radius:2px;animation:slideUp 1.1s ease-in-out infinite alternate"></div>
+    </div>`;
+  el.style.display = '';
+  return el;
+}
+
+function setLoadingMessage(message) {
+  const el = document.getElementById('app-loading-msg');
+  if (el) el.textContent = message;
+}
+
+function hideLoadingScreen() {
+  document.getElementById('app-loading')?.remove();
+}
+
+/** Échec dont on ne se relève pas : on l'explique au lieu de figer l'écran. */
+function showFatalError(message, detail = '') {
+  const el = showLoadingScreen();
+  el.innerHTML = `
+    <div style="font-size:44px">⚠️</div>
+    <div style="font-size:18px;font-weight:600;color:#e74c3c">Le jeu n'a pas pu démarrer</div>
+    <div style="font-size:14px;color:#ddd;max-width:420px;line-height:1.5">${e(message)}</div>
+    ${detail ? `<div style="font-size:12px;color:#777;max-width:420px">${e(detail)}</div>` : ''}
+    <button id="app-fatal-retry" class="btn-primary" style="margin-top:8px">Réessayer</button>`;
+  el.querySelector('#app-fatal-retry')?.addEventListener('click', () => window.location.reload());
 }
 
 function showScreen(id) {
@@ -120,27 +208,6 @@ function renderGameScreen() {
   initMobileNav();
 }
 
-const CONDITION_LABELS = {
-  possede_homme_de_main: 'Posséder un homme de main',
-  carte_magouille_jouee: 'Une carte magouille adverse vient d\'être jouée',
-  pion_adjacent_prostituee: 'Un pion adjacent à une prostituée',
-  carte_triche_jouee: 'Une carte triche vient d\'être jouée',
-  gangs_voisins_actifs: 'Deux gangs ennemis voisins actifs',
-  est_maire: 'Être maire',
-  possede_cimetiere: 'Posséder le cimetière',
-  possede_bordel: 'Posséder un bordel',
-  possede_bordel_ou_maire: 'Posséder un bordel ou être maire',
-  flics_en_reserve: 'Flics en réserve',
-  conflit_en_cours: 'Conflit en cours',
-  possede_lobby_juif: 'Posséder le Lobby Juif',
-  majorite_quartier: 'Majorité dans un quartier',
-  '3_hommes_quartier': '3 hommes dans un quartier',
-  '4_hommes_pres_port': '4 hommes près du port',
-  a_perdu_electeurs_christophe: 'A perdu des électeurs (Chantage Christophe)',
-  adversaire_1_case_quartier_moitie: 'Adversaire à 1 case d\'un quartier à moitié contrôlé',
-  cible_ancien_maire: 'Cible ancien maire'
-};
-
 function updateElectionTopbar() {
   const bar = document.getElementById('election-topbar');
   if (!bar || !gameState) { if (bar) bar.classList.remove('active'); return; }
@@ -176,7 +243,7 @@ function updateHUD() {
   const nextElection = gameState.tour > 0 ? (7 - (gameState.tour % 7)) % 7 : 7;
   const electionProgress = nextElection === 0 ? '<div class="hud-election-progress hud-clickable" data-dict="election">🗳️ Élection ce tour !</div>' : `<div class="hud-election-progress hud-clickable" data-dict="election">🗳️ Prochaine élection dans ${nextElection} tour${nextElection > 1 ? 's' : ''}</div>`;
   hud.innerHTML = `<h3 class="hud-clickable" data-dict="tour" title="Cliquer pour plus d'infos">Tour ${gameState.tour}</h3><div id="stats-content">
-    <div class="hud-phase hud-clickable" data-dict="phase" title="Cliquer pour plus d'infos">${phaseLabel}</div>
+    <div class="hud-phase hud-clickable" data-dict="phase" title="Cliquer pour plus d'infos">${e(phaseLabel)}</div>
     ${electionProgress}
     <div class="hud-players">${gameState.joueurs.map(j => {
       const pts = gameState.getPlayerPoints(j.id, gameData.gameplay);
@@ -186,7 +253,7 @@ function updateHUD() {
       const qOrig = gameData.gameplay.quartiers.find(q => q.id === j.quartier_origine)?.nom || j.quartier_origine;
       const ownedQ = gameData.gameplay.quartiers.filter(q => gameState.getQuartierOwner(q.id, gameData.gameplay) === j.id);
       const qBadge = ownedQ.length > 0 ? `<span class="hud-player-quartiers">★${ownedQ.length}</span>` : '';
-      return `<div class="hud-player"><span class="hud-player-dot" style="background:${j.couleur}"></span><span class="hud-clickable" data-dict="joueur" data-pid="${j.id}" title="Cliquer pour plus d'infos">${j.nom}${maireTag}${contractBadge}${qBadge}</span><span class="hud-player-pts hud-clickable" data-dict="pts" title="Cliquer pour plus d'infos">${pts} pts</span><span class="hud-player-gold hud-clickable" data-dict="lingots" title="Cliquer pour plus d'infos">${j.ressources.lingots}L</span></div>` +
+      return `<div class="hud-player"><span class="hud-player-dot" style="background:${col(j.couleur)}"></span><span class="hud-clickable" data-dict="joueur" data-pid="${j.id}" title="Cliquer pour plus d'infos">${e(j.nom)}${maireTag}${contractBadge}${qBadge}</span><span class="hud-player-pts hud-clickable" data-dict="pts" title="Cliquer pour plus d'infos">${pts} pts</span><span class="hud-player-gold hud-clickable" data-dict="lingots" title="Cliquer pour plus d'infos">${j.ressources.lingots}L</span></div>` +
         `<div class="hud-player-res"><span class="hud-clickable" data-dict="ressources" title="Cliquer pour plus d'infos">🔫${j.ressources.armes} 💊${j.ressources.doses} 🃏${(j.cartes_magouille || []).length}</span></div>`;
     }).join('')}</div>
     <button class="hud-quartiers-btn" id="btn-hud-quartiers">🗺️ Territoires</button>
@@ -292,7 +359,7 @@ function renderMobileStats() {
     const contractBadge = pContracts > 0 ? `<span class="hud-contracts-badge">📜${pContracts}</span>` : '';
     const ownedQ = gameData.gameplay.quartiers.filter(q => gameState.getQuartierOwner(q.id, gameData.gameplay) === j.id);
     const qBadge = ownedQ.length > 0 ? `<span class="hud-player-quartiers">★${ownedQ.length}</span>` : '';
-    return `<div class="hud-player"><span class="hud-player-dot" style="background:${j.couleur}"></span><span>${j.nom}${maireTag}${contractBadge}${qBadge}</span><span class="hud-player-pts">${pts} pts</span><span class="hud-player-gold">${j.ressources.lingots}L</span></div>` +
+    return `<div class="hud-player"><span class="hud-player-dot" style="background:${col(j.couleur)}"></span><span>${e(j.nom)}${maireTag}${contractBadge}${qBadge}</span><span class="hud-player-pts">${pts} pts</span><span class="hud-player-gold">${j.ressources.lingots}L</span></div>` +
       `<div class="hud-player-res">🔫${j.ressources.armes} 💊${j.ressources.doses} 🃏${(j.cartes_magouille || []).length}</div>`;
   }).join('');
 
@@ -300,12 +367,12 @@ function renderMobileStats() {
     const c = QUARTIER_COLORS[q.id];
     const owner = gameState.getQuartierOwner(q.id, gameData.gameplay);
     const ownerName = owner !== null ? gameState.joueurs[owner].nom : '';
-    return `<div class="legend-item"><span class="legend-swatch" style="background:${c}"></span><span>${q.nom}</span><span class="legend-info">${ownerName ? '★ ' + ownerName : q.zones.length + ' zones'}</span></div>`;
+    return `<div class="legend-item"><span class="legend-swatch" style="background:${c}"></span><span>${e(q.nom)}</span><span class="legend-info">${e(ownerName ? '★ ' + ownerName : q.zones.length + ' zones')}</span></div>`;
   }).join('');
 
   body.innerHTML = `
     <div class="msheet-section">
-      <h3>Tour ${gameState.tour} — ${phaseLabel}</h3>
+      <h3>Tour ${gameState.tour} — ${e(phaseLabel)}</h3>
       ${electionHtml}
     </div>
     <div class="msheet-section">
@@ -386,9 +453,9 @@ function showZonePopup(zoneId, event) {
   const y = event?.clientY ?? window.innerHeight / 2;
 
   popup.innerHTML = `
-    <div class="zp-title">${zoneData.nom || zoneId}</div>
+    <div class="zp-title">${e(zoneData.nom || zoneId)}</div>
     <div class="zp-actions">
-      ${actions.map(a => `<button class="zp-btn" data-action="${a.action}">${a.icon} ${a.label}</button>`).join('')}
+      ${actions.map(a => `<button class="zp-btn" data-action="${a.action}">${a.icon} ${e(a.label)}</button>`).join('')}
     </div>
   `;
 
@@ -443,29 +510,6 @@ function showZonePopup(zoneId, event) {
 }
 
 /* ── Tutorial / guided mode (Piste 5) ── */
-const TUTORIAL_TIPS = {
-  orders_supply_1: {
-    title: '📦 Phase d\'approvisionnement',
-    text: 'Commencez par acheter des <strong>doses</strong> et des <strong>armes</strong> aux points d\'approvisionnement. Vous pouvez aussi recruter des prostituées ou construire des bâtiments.',
-    next: 'Utilisez les boutons ci-dessous pour passer vos ordres, puis « Valider ».'
-  },
-  orders_move_1: {
-    title: '🚶 Phase de déplacements',
-    text: 'Déplacez vos pions sur des cases adjacentes pour conquérir de nouveaux territoires. Créez des dealers ou trafiquants pour augmenter vos revenus.',
-    next: 'Les pions immobiles soutiennent automatiquement les alliés en conflit.'
-  },
-  negotiation_1: {
-    title: '🤝 Négociation',
-    text: 'Profitez de cette phase pour discuter avec les autres joueurs. Proposez des alliances, des contrats, ou menacez vos rivaux !',
-    next: 'Appuyez sur « Continuer » quand vous avez terminé.'
-  },
-  reveal_1: {
-    title: '👁️ Révélation',
-    text: 'Les ordres de tous les joueurs sont maintenant révélés. Observez les mouvements et les achats de vos adversaires.',
-    next: ''
-  }
-};
-
 let tutorialEnabled = false;
 let tutorialShown = {};
 
@@ -592,13 +636,13 @@ function renderOrderPanel(gamePhase) {
     const remaining = maxOrders - pendingOrders.length;
     panel.innerHTML = `
       <div class="op-sheet-handle" id="op-drag-handle"><div class="op-sheet-grip"></div></div>
-      <div class="op-header" style="border-color:${j.couleur}">
-        <div><strong style="color:${j.couleur}">${j.nom}</strong><span>${GAME_PHASE_LABELS[gamePhase]}</span></div>
+      <div class="op-header" style="border-color:${col(j.couleur)}">
+        <div><strong style="color:${col(j.couleur)}">${e(j.nom)}</strong><span>${e(GAME_PHASE_LABELS[gamePhase])}</span></div>
         <div style="display:flex;gap:4px;align-items:center">
           <button type="button" class="op-toggle-map" id="btn-op-toggle-map" title="Voir la carte">🗺️</button>
           <button type="button" class="op-collapse" id="btn-op-collapse" title="Réduire le panneau">▶</button>
         </div>
-        <span class="op-collapsed-label" style="color:${j.couleur}">${j.nom}</span>
+        <span class="op-collapsed-label" style="color:${col(j.couleur)}">${e(j.nom)}</span>
       </div>
       <div class="op-scroll">
       <div class="op-resources">
@@ -631,7 +675,7 @@ function renderOrderPanel(gamePhase) {
       </div>
       <div class="op-list">
         ${pendingOrders.length === 0 ? '<div class="op-empty">Aucun ordre</div>' : ''}
-        ${pendingOrders.map((o, i) => `<div class="op-order"><span>${formatOrder(o)}</span><button class="op-remove" data-idx="${i}">✕</button></div>`).join('')}
+        ${pendingOrders.map((o, i) => `<div class="op-order"><span>${e(formatOrder(o, { gs: gameState, pid: turnManager?.currentPlayerId ?? null }))}</span><button class="op-remove" data-idx="${i}">✕</button></div>`).join('')}
       </div>
       </div>
       <div class="op-footer"><button class="btn-primary op-submit" id="btn-submit-orders">Valider mes ordres</button></div>
@@ -758,21 +802,9 @@ function initSheetDrag(panel) {
   });
 }
 
-function formatOrder(o) {
-  switch (o.type) {
-    case 'approvisionner': return `${o.quantite} ${o.denree} via ${o.point} (${o.quantite * (BUY_PRICE[o.denree] || 0)}L)`;
-    case 'recruter': return `${o.pion_type.replace(/_/g, ' ')} → ${o.zone_dest} (${BUY_PRICE[o.pion_type]}L)`;
-    case 'construire': return `${o.batiment} sur ${o.zone}`;
-    case 'deplacer': return `${o.pion_type} ${o.from} → ${o.to}${o.eliminer ? ' 💀' : ''}`;
-    case 'creer_pion': return `Créer ${o.pion_type} sur ${o.zone}`;
-    case 'deployer_flic': return `🚔 Flic → ${o.zone} (180L)`;
-    case 'eliminer_flic': return `🚔 Éliminer flic sur ${o.zone} (${o.definitif ? '550L déf.' : '300L temp.'})`;
-    default: return JSON.stringify(o);
-  }
-}
 
 function helpLink(dictKey, label = 'ℹ️') {
-  return `<span class="modal-help" data-dict="${dictKey}" title="En savoir plus">${label}</span>`;
+  return `<span class="modal-help" data-dict="${dictKey}" title="En savoir plus">${e(label)}</span>`;
 }
 
 function bindHelpLinks() {
@@ -831,7 +863,7 @@ function showSupplyModal(pid, refresh) {
       const avail = [];
       if (sp.caps.armes > 0) avail.push('🔫');
       if (sp.caps.doses > 0) avail.push('💊');
-      return `<option value="${sp.zone}">${sp.nom} (${sp.type}) ${avail.join(' ')}</option>`;
+      return `<option value="${sp.zone}">${e(sp.nom)} (${sp.type}) ${avail.join(' ')}</option>`;
     }).join('')}</select>
     <label>Denrée :</label>
     <select id="f-denree"></select>
@@ -855,7 +887,7 @@ function showSupplyModal(pid, refresh) {
     const pointId = document.getElementById('f-point').value;
     const denrees = getDenreesForPoint(pointId);
     const sel = document.getElementById('f-denree');
-    sel.innerHTML = denrees.map(d => `<option value="${d.id}">${d.label} — ${d.prix}L/u (stock: ${d.stock})</option>`).join('');
+    sel.innerHTML = denrees.map(d => `<option value="${d.id}">${e(d.label)} — ${d.prix}L/u (stock: ${d.stock})</option>`).join('');
     const info = document.getElementById('f-stock-info');
     if (denrees.length === 0) {
       info.innerHTML = '<span style="color:#e74c3c">⚠ Aucune denrée disponible à ce point</span>';
@@ -897,14 +929,14 @@ function showRecruitModal(pid, refresh) {
   const html = `
     <h3>Recruter prostituée ${helpLink('recrutement')}</h3>
     <label>Point :</label>
-    <select id="f-point">${sps.map(sp => `<option value="${sp.zone}">${sp.nom} (${sp.type})</option>`).join('')}</select>
+    <select id="f-point">${sps.map(sp => `<option value="${sp.zone}">${e(sp.nom)} (${sp.type})</option>`).join('')}</select>
     <label>Type :</label>
     <select id="f-ptype">
       <option value="prostituee_base">Classique — 40L</option>
       <option value="prostituee_luxe">De luxe — 80L</option>
     </select>
     <label>Zone de placement :</label>
-    <select id="f-zone">${ownedZones.map(z => `<option value="${z}">${z} — ${gameData.gameplay.zones[z]?.nom || z}</option>`).join('')}</select>
+    <select id="f-zone">${ownedZones.map(z => `<option value="${z}">${z} — ${e(gameData.gameplay.zones[z]?.nom || z)}</option>`).join('')}</select>
     <div class="modal-actions"><button class="btn-secondary" id="modal-cancel">Annuler</button><button class="btn-primary" id="modal-ok">Recruter</button></div>
   `;
 
@@ -936,18 +968,18 @@ function showBuildModal(pid, refresh) {
   const types = allTypes.map(t => {
     const check = RevenueEngine.canBuild(gameState, pid, t.id, gameData.adjacencies);
     const d = CONSTRUCTION_DEFS[t.id];
-    return { ...t, cost: d.total, canBuild: check.ok, reason: check.reason || '' };
+    return { ...t, cost: d.total, canBuild: check.ok, reason: check.msg || check.reason || '' };
   });
 
   const html = `
     <h3>Construction ${helpLink('construction')}</h3>
     <label>Bâtiment :</label>
     <select id="f-bat">${types.map(t =>
-      `<option value="${t.id}" ${!t.canBuild ? 'disabled' : ''}>${t.label} — ${t.cost}L → ${t.rev}${!t.canBuild ? ' ⛔' : ''}</option>`
+      `<option value="${t.id}" ${!t.canBuild ? 'disabled' : ''}>${e(t.label)} — ${t.cost}L → ${t.rev}${!t.canBuild ? ' ⛔' : ''}</option>`
     ).join('')}</select>
     <div id="f-bat-info" class="modal-prereq"></div>
     <label>Zone :</label>
-    <select id="f-zone">${buildable.map(z => `<option value="${z}">${z} — ${gameData.gameplay.zones[z]?.nom || z}</option>`).join('')}</select>
+    <select id="f-zone">${buildable.map(z => `<option value="${z}">${z} — ${e(gameData.gameplay.zones[z]?.nom || z)}</option>`).join('')}</select>
     <div class="modal-actions"><button class="btn-secondary" id="modal-cancel">Annuler</button><button class="btn-primary" id="modal-ok">Construire</button></div>
   `;
 
@@ -1027,7 +1059,7 @@ function showMoveModal(pid, refresh) {
     if (selectedPion) {
       const breakQ = getQuartierBreakWarning(selectedPion.zid, selectedPion.type);
       if (breakQ) {
-        html += `<div class="move-quartier-warn">⚠️ Déplacer ce pion fera perdre le contrôle de <strong>${breakQ.nom}</strong> (${breakQ.points} pts, gang: ${breakQ.gang.nom})</div>`;
+        html += `<div class="move-quartier-warn">⚠️ Déplacer ce pion fera perdre le contrôle de <strong>${e(breakQ.nom)}</strong> (${breakQ.points} pts, gang: ${e(breakQ.gang.nom)})</div>`;
       }
     }
 
@@ -1036,7 +1068,7 @@ function showMoveModal(pid, refresh) {
       destZone.pions.forEach(p => {
         const j = gameState.joueurs[p.joueur];
         const isEnemy = p.joueur !== pid;
-        html += `<span class="move-dest-pion ${isEnemy ? 'move-enemy' : 'move-ally'}" style="border-color:${j?.couleur || '#888'}">${p.type.replace(/_/g, ' ')} <small style="color:${j?.couleur || '#888'}">${j?.nom || '?'}</small></span>`;
+        html += `<span class="move-dest-pion ${isEnemy ? 'move-enemy' : 'move-ally'}" style="border-color:${col(j?.couleur || '#888')}">${p.type.replace(/_/g, ' ')} <small style="color:${col(j?.couleur || '#888')}">${e(j?.nom || '?')}</small></span>`;
       });
       html += '</div>';
     }
@@ -1067,7 +1099,7 @@ function showMoveModal(pid, refresh) {
     <label>Pion :</label>
     <select id="f-pion">${myPions.map((p, i) => {
       const zoneName = gameData.gameplay.zones[p.zid]?.nom || p.zid;
-      return `<option value="${i}">${p.type.replace(/_/g, ' ')} — ${zoneName}</option>`;
+      return `<option value="${i}">${p.type.replace(/_/g, ' ')} — ${e(zoneName)}</option>`;
     }).join('')}</select>
     <label>Destination :</label>
     <select id="f-dest">${getAdjOptions()}</select>
@@ -1134,7 +1166,7 @@ function showCreateModal(pid, refresh) {
       <option value="trafiquant">Trafiquant — 80L + 3 armes</option>
     </select>
     <label>Zone :</label>
-    <select id="f-zone">${ownedZones.map(z => `<option value="${z}">${z} — ${gameData.gameplay.zones[z]?.nom || z}</option>`).join('')}</select>
+    <select id="f-zone">${ownedZones.map(z => `<option value="${z}">${z} — ${e(gameData.gameplay.zones[z]?.nom || z)}</option>`).join('')}</select>
     <div class="modal-actions"><button class="btn-secondary" id="modal-cancel">Annuler</button><button class="btn-primary" id="modal-ok">Créer</button></div>
   `;
 
@@ -1157,7 +1189,7 @@ function showDeployFlicModal(pid, refresh) {
     <h3>Déployer un flic ${helpLink('flic')}</h3>
     <p style="font-size:12px;color:#888;margin-bottom:8px">Coût : 160L (création) + 20L (déplacement direct) = 180L<br>Max 2 par joueur, 7 au total dans la partie.</p>
     <label>Zone cible :</label>
-    <select id="f-zone">${allZones.map(z => `<option value="${z}">${z} — ${gameData.gameplay.zones[z]?.nom || z}</option>`).join('')}</select>
+    <select id="f-zone">${allZones.map(z => `<option value="${z}">${z} — ${e(gameData.gameplay.zones[z]?.nom || z)}</option>`).join('')}</select>
     <div class="modal-actions"><button class="btn-secondary" id="modal-cancel">Annuler</button><button class="btn-primary" id="modal-ok">Déployer</button></div>
   `;
 
@@ -1188,7 +1220,7 @@ function showElimFlicModal(pid, refresh) {
   const html = `
     <h3>Éliminer un flic ennemi ${helpLink('flic')}</h3>
     <label>Zone :</label>
-    <select id="f-zone">${flicZones.map(z => `<option value="${z}">${z} — ${gameData.gameplay.zones[z]?.nom || z}</option>`).join('')}</select>
+    <select id="f-zone">${flicZones.map(z => `<option value="${z}">${z} — ${e(gameData.gameplay.zones[z]?.nom || z)}</option>`).join('')}</select>
     <label>Type :</label>
     <select id="f-elim-type">
       <option value="temp">Temporaire — 300L (retour hôtel de police)</option>
@@ -1218,7 +1250,7 @@ function showMayorPowerModal(pid, gamePhase, refresh) {
     <h3>🏛️ Pouvoir du Maire ${helpLink('maire')}</h3>
     <p style="font-size:12px;color:#888;margin-bottom:12px">${gameState.maire.privileges_restants} privilège(s) restant(s)</p>
     <div class="mayor-power-list">
-      ${powers.map(p => `<button class="op-btn mayor-power-choice" data-power="${p.id}" style="text-align:left;margin-bottom:6px"><strong>${p.label}</strong><br><span style="font-size:11px;color:#aaa">${p.desc}</span></button>`).join('')}
+      ${powers.map(p => `<button class="op-btn mayor-power-choice" data-power="${p.id}" style="text-align:left;margin-bottom:6px"><strong>${e(p.label)}</strong><br><span style="font-size:11px;color:#aaa">${e(p.desc)}</span></button>`).join('')}
     </div>
     <div class="modal-actions"><button class="btn-secondary" id="modal-cancel">Annuler</button><button class="btn-primary" id="modal-ok" style="display:none">OK</button></div>
   `;
@@ -1263,9 +1295,9 @@ function showMayorResultToast(msg) {
 function showTargetPlayerModal(pid, powerId, refresh) {
   const others = gameState.joueurs.filter((_, i) => i !== pid);
   const html = `
-    <h3>🏛️ ${MAYOR_POWERS[powerId].label}</h3>
+    <h3>🏛️ ${e(MAYOR_POWERS[powerId].label)}</h3>
     <label>Joueur ciblé :</label>
-    <select id="f-target">${others.map(j => `<option value="${j.id}">${j.nom}</option>`).join('')}</select>
+    <select id="f-target">${others.map(j => `<option value="${j.id}">${e(j.nom)}</option>`).join('')}</select>
     <div class="modal-actions"><button class="btn-secondary" id="modal-cancel">Annuler</button><button class="btn-primary" id="modal-ok">Confirmer</button></div>
   `;
   openModal(html, () => {
@@ -1281,7 +1313,7 @@ function showQuartierSelectModal(pid, refresh) {
   const html = `
     <h3>🏛️ Couper l'électricité</h3>
     <label>Quartier :</label>
-    <select id="f-quartier">${quartiers.map(q => `<option value="${q.id}">${q.nom}</option>`).join('')}</select>
+    <select id="f-quartier">${quartiers.map(q => `<option value="${q.id}">${e(q.nom)}</option>`).join('')}</select>
     <p style="font-size:11px;color:#e74c3c;margin-top:6px">⚡ L'électricité sera coupée pour tout le mandat.</p>
     <div class="modal-actions"><button class="btn-secondary" id="modal-cancel">Annuler</button><button class="btn-primary" id="modal-ok">Confirmer</button></div>
   `;
@@ -1328,9 +1360,9 @@ function showRepositionnerModal(pid, refresh) {
 function showZoneSelectModal(pid, powerId, refresh) {
   const allZones = Object.keys(gameState.plateau);
   const html = `
-    <h3>🏛️ ${MAYOR_POWERS[powerId].label}</h3>
+    <h3>🏛️ ${e(MAYOR_POWERS[powerId].label)}</h3>
     <label>Zone :</label>
-    <select id="f-zone">${allZones.map(z => `<option value="${z}">${z} — ${gameData.gameplay.zones[z]?.nom || z}</option>`).join('')}</select>
+    <select id="f-zone">${allZones.map(z => `<option value="${z}">${z} — ${e(gameData.gameplay.zones[z]?.nom || z)}</option>`).join('')}</select>
     <div class="modal-actions"><button class="btn-secondary" id="modal-cancel">Annuler</button><button class="btn-primary" id="modal-ok">Confirmer</button></div>
   `;
   openModal(html, () => {
@@ -1347,7 +1379,7 @@ function showExproprierModal(pid, refresh) {
   const html = `
     <h3>🏛️ Exproprier un joueur</h3>
     <label>Joueur ciblé :</label>
-    <select id="f-target">${others.map(j => `<option value="${j.id}">${j.nom}</option>`).join('')}</select>
+    <select id="f-target">${others.map(j => `<option value="${j.id}">${e(j.nom)}</option>`).join('')}</select>
     <label>Zones (4 max, séparées par virgule) :</label>
     <input type="text" id="f-expro-zones" placeholder="ex: BG01,BG02,JC01,JC02" style="width:100%;padding:6px;background:#1a1a2e;color:#eee;border:1px solid #334;border-radius:4px">
     <div class="modal-actions"><button class="btn-secondary" id="modal-cancel">Annuler</button><button class="btn-primary" id="modal-ok">Exproprier</button></div>
@@ -1394,9 +1426,9 @@ function showElimIncorruptibleModal(pid, refresh) {
   const check = SpecialEntities.canEliminateIncorruptible(gameState, pid);
   const html = `<h3>Éliminer un incorruptible ${helpLink('incorruptible')}</h3>
     <label>Zone :</label>
-    <select id="f-zone">${incZones.map(z => `<option value="${z}">${z} — ${gameData.gameplay.zones[z]?.nom || z}</option>`).join('')}</select>
+    <select id="f-zone">${incZones.map(z => `<option value="${z}">${z} — ${e(gameData.gameplay.zones[z]?.nom || z)}</option>`).join('')}</select>
     <p style="font-size:11px;color:#e74c3c;margin-top:6px">⚠ Coût : 700L. Retiré définitivement du jeu.</p>
-    ${!check.ok ? `<p style="color:#e74c3c">${check.reason}</p>` : ''}
+    ${!check.ok ? `<p style="color:#e74c3c">${e(check.msg || check.reason)}</p>` : ''}
     <div class="modal-actions"><button class="btn-secondary" id="modal-cancel">Annuler</button><button class="btn-primary" id="modal-ok" ${!check.ok ? 'disabled' : ''}>Éliminer</button></div>`;
 
   openModal(html, () => {
@@ -1412,7 +1444,7 @@ function showActivateGangModal(pid, refresh) {
   const quartiers = gameData.gameplay.quartiers.filter(q => q.gang);
   const available = quartiers.map(q => {
     const check = SpecialEntities.canActivateGang(gameState, pid, q.id, gameData.gameplay);
-    return { ...q, canActivate: check.ok, reason: check.reason };
+    return { ...q, canActivate: check.ok, reason: check.msg || check.reason };
   });
 
   const html = `<h3>Activer un gang ${helpLink('gang')}</h3>
@@ -1428,9 +1460,9 @@ function showActivateGangModal(pid, refresh) {
       const myCount = presence[pid] || 0;
       const pct = Math.round((myCount / q.zones.length) * 100);
       return `<button class="op-btn gang-choice" data-qid="${q.id}" ${!q.canActivate ? 'disabled' : ''} style="text-align:left;margin-bottom:6px">
-      <strong>${q.gang.nom}</strong> (${q.nom})${!q.canActivate ? ' ⛔' : ''}
+      <strong>${e(q.gang.nom)}</strong> (${e(q.nom)})${!q.canActivate ? ' ⛔' : ''}
       <br><span style="font-size:11px;color:#aaa">${q.gang.effet.replace(/_/g, ' ')}</span>
-      ${!q.canActivate ? `<br><span style="font-size:11px;color:#e74c3c">${q.reason}</span>` : ''}
+      ${!q.canActivate ? `<br><span style="font-size:11px;color:#e74c3c">${e(q.reason)}</span>` : ''}
       <div style="display:flex;align-items:center;gap:6px;margin-top:4px">
         <div style="flex:1;height:4px;background:rgba(255,255,255,0.1);border-radius:2px;overflow:hidden"><div style="width:${pct}%;height:100%;background:${q.canActivate ? '#2ecc71' : '#888'};border-radius:2px"></div></div>
         <span style="font-size:10px;color:#888;font-family:monospace">${myCount}/${q.zones.length}</span>
@@ -1490,8 +1522,8 @@ function executeGangEffect(pid, quartierId, gang, refresh) {
 
 function showGangTargetPlayerModal(pid, quartierId, gang, refresh) {
   const others = gameState.joueurs.filter((_, i) => i !== pid);
-  const html = `<h3>🔫 ${gang.nom}</h3><label>Joueur ciblé :</label>
-    <select id="f-gang-target">${others.map(j => `<option value="${j.id}">${j.nom}</option>`).join('')}</select>
+  const html = `<h3>🔫 ${e(gang.nom)}</h3><label>Joueur ciblé :</label>
+    <select id="f-gang-target">${others.map(j => `<option value="${j.id}">${e(j.nom)}</option>`).join('')}</select>
     <div class="modal-actions"><button class="btn-secondary" id="modal-cancel">Annuler</button><button class="btn-primary" id="modal-ok">Confirmer</button></div>`;
   openModal(html, () => {
     const cible = Number(document.getElementById('f-gang-target').value);
@@ -1503,8 +1535,8 @@ function showGangTargetPlayerModal(pid, quartierId, gang, refresh) {
 
 function showGangQuartierModal(pid, quartierId, gang, refresh) {
   const quartiers = gameData.gameplay.quartiers;
-  const html = `<h3>🔫 ${gang.nom}</h3><label>Quartier ciblé :</label>
-    <select id="f-gang-quartier">${quartiers.map(q => `<option value="${q.id}">${q.nom}</option>`).join('')}</select>
+  const html = `<h3>🔫 ${e(gang.nom)}</h3><label>Quartier ciblé :</label>
+    <select id="f-gang-quartier">${quartiers.map(q => `<option value="${q.id}">${e(q.nom)}</option>`).join('')}</select>
     <div class="modal-actions"><button class="btn-secondary" id="modal-cancel">Annuler</button><button class="btn-primary" id="modal-ok">Confirmer</button></div>`;
   openModal(html, () => {
     const targetQ = document.getElementById('f-gang-quartier').value;
@@ -1518,8 +1550,8 @@ function showGangZoneModal(pid, quartierId, gang, refresh) {
   const buildable = Object.entries(gameState.plateau)
     .filter(([_, z]) => (z.proprietaire === pid || z.pions.some(p => p.joueur === pid)) && !z.construction)
     .map(([zid]) => zid);
-  const html = `<h3>🔫 ${gang.nom}</h3><label>Zone :</label>
-    <select id="f-gang-zone">${buildable.map(z => `<option value="${z}">${z} — ${gameData.gameplay.zones[z]?.nom || z}</option>`).join('')}</select>
+  const html = `<h3>🔫 ${e(gang.nom)}</h3><label>Zone :</label>
+    <select id="f-gang-zone">${buildable.map(z => `<option value="${z}">${z} — ${e(gameData.gameplay.zones[z]?.nom || z)}</option>`).join('')}</select>
     <div class="modal-actions"><button class="btn-secondary" id="modal-cancel">Annuler</button><button class="btn-primary" id="modal-ok">Confirmer</button></div>`;
   openModal(html, () => {
     const zone = document.getElementById('f-gang-zone').value;
@@ -1548,14 +1580,14 @@ function showGangCiblesModal(pid, quartierId, gang, refresh) {
   function refreshCibles() {
     const modal = document.getElementById('order-modal');
     const body = modal.querySelector('.modal-body');
-    body.innerHTML = `<h3>🔫 ${gang.nom}</h3><p style="font-size:12px;color:#888">Sélectionnez jusqu'à 3 pions ennemis</p>
+    body.innerHTML = `<h3>🔫 ${e(gang.nom)}</h3><p style="font-size:12px;color:#888">Sélectionnez jusqu'à 3 pions ennemis</p>
       <div style="max-height:40vh;overflow-y:auto">${enemyPions.map((p, i) => {
         const j = gameState.joueurs[p.joueur];
         const sel = selected.has(i);
         return `<div class="gang-cible-row" data-idx="${i}" style="display:flex;align-items:center;gap:8px;padding:6px 8px;cursor:pointer;border:1px solid ${sel ? '#e74c3c' : '#334'};border-radius:4px;margin-bottom:4px;background:${sel ? 'rgba(231,76,60,0.08)' : 'transparent'}">
-          <span class="hud-player-dot" style="background:${j.couleur}"></span>
+          <span class="hud-player-dot" style="background:${col(j.couleur)}"></span>
           <span>${p.type.replace(/_/g, ' ')} sur ${p.zone}</span>
-          <span style="margin-left:auto;color:${j.couleur};font-size:12px">${j.nom}</span>
+          <span style="margin-left:auto;color:${col(j.couleur)};font-size:12px">${e(j.nom)}</span>
           ${sel ? '<span style="color:#e74c3c">✓</span>' : ''}
         </div>`;
       }).join('')}</div>
@@ -1593,30 +1625,30 @@ function showHeistModal(pid, refresh) {
     const progress = HeistEngine.getProgress(gameState, pid, id, gameData.gameplay);
     const metCount = progress.reqs.filter(r => r.current >= r.needed).length;
     const pct = Math.round((metCount / progress.reqs.length) * 100);
-    return { id, ...def, canDo: check.ok, reason: check.reason || '', check, progress, pct };
+    return { id, ...def, canDo: check.ok, reason: check.msg || check.reason || '', check, progress, pct };
   });
 
   const html = `<h3>💰 Cambriolage ${helpLink('cambriolage')}</h3>
     <div class="heist-grid">
     ${heists.map(h => `
-      <div class="heist-card ${h.canDo ? 'heist-ready' : ''}" data-hid="${h.id}" style="--heist-color:${h.color}">
+      <div class="heist-card ${h.canDo ? 'heist-ready' : ''}" data-hid="${h.id}" style="--heist-color:${col(h.color)}">
         <div class="heist-card-header">
           <span class="heist-card-icon">${h.icon}</span>
           <div>
-            <div class="heist-card-title">${h.label}</div>
+            <div class="heist-card-title">${e(h.label)}</div>
             <div class="heist-card-butin">${h.butin}</div>
           </div>
         </div>
-        <div class="heist-card-desc">${h.desc}</div>
+        <div class="heist-card-desc">${e(h.desc)}</div>
         <div class="heist-card-progress">
-          <div class="heist-progress-bar"><div class="heist-progress-fill" style="width:${h.pct}%;background:${h.color}"></div></div>
+          <div class="heist-progress-bar"><div class="heist-progress-fill" style="width:${h.pct}%;background:${col(h.color)}"></div></div>
           <span class="heist-progress-label">${h.pct}%</span>
         </div>
         <div class="heist-card-reqs">
           ${h.progress.reqs.map(r => {
             const ok = r.current >= r.needed;
             return `<div class="heist-req ${ok ? 'heist-req-ok' : ''}">
-              <span>${ok ? '✅' : '❌'} ${r.label}</span>
+              <span>${ok ? '✅' : '❌'} ${e(r.label)}</span>
               <span class="heist-req-val">${r.current}/${r.needed}</span>
             </div>`;
           }).join('')}
@@ -1672,7 +1704,7 @@ function showHeistTargetModal(pid, heistType, refresh) {
   if (!zones || zones.length === 0) return;
 
   const def = HEIST_TYPES[heistType];
-  const html = `<h3>${def.icon} ${def.label} — Choisir la cible</h3>
+  const html = `<h3>${def.icon} ${e(def.label)} — Choisir la cible</h3>
     <div class="heist-target-list">
     ${zones.map(z => {
       const owner = gameState.plateau[z]?.proprietaire;
@@ -1686,8 +1718,8 @@ function showHeistTargetModal(pid, heistType, refresh) {
           : '?';
       return `<button class="heist-target-btn" data-zone="${z}">
         <div class="heist-target-info">
-          <span class="heist-target-name">${zoneName}</span>
-          <span class="heist-target-owner" style="color:${ownerColor}">${ownerName}</span>
+          <span class="heist-target-name">${e(zoneName)}</span>
+          <span class="heist-target-owner" style="color:${col(ownerColor)}">${e(ownerName)}</span>
         </div>
         <span class="heist-target-loot">~${lootEstimate}</span>
       </button>`;
@@ -1720,22 +1752,22 @@ function showHeistConfirmModal(pid, heistType, targetZone, refresh) {
     const owner = gameState.plateau[targetZone]?.proprietaire;
     if (owner != null) {
       const victim = gameState.joueurs[owner];
-      if (heistType === 'casino') lootDesc = `${victim.ressources.lingots}L de ${victim.nom}`;
-      if (heistType === 'labo') lootDesc = `${victim.ressources.doses} doses de ${victim.nom}`;
+      if (heistType === 'casino') lootDesc = `${victim.ressources.lingots}L de ${e(victim.nom)}`;
+      if (heistType === 'labo') lootDesc = `${victim.ressources.doses} doses de ${e(victim.nom)}`;
     }
   }
 
   const html = `
     <div class="heist-confirm">
       <div class="heist-confirm-icon">${def.icon}</div>
-      <h3>${def.label}</h3>
+      <h3>${e(def.label)}</h3>
       <div class="heist-confirm-detail">
-        <div class="heist-confirm-row"><span class="heist-confirm-label">Butin estimé</span><span class="heist-confirm-value heist-confirm-loot">💰 ${lootDesc}</span></div>
+        <div class="heist-confirm-row"><span class="heist-confirm-label">Butin estimé</span><span class="heist-confirm-value heist-confirm-loot">💰 ${e(lootDesc)}</span></div>
         <div class="heist-confirm-row"><span class="heist-confirm-label">Sacrifice</span><span class="heist-confirm-value heist-confirm-cost">💀 ${progress.sacrifice}</span></div>
       </div>
       <p style="text-align:center;color:#e74c3c;font-size:13px;margin-top:12px">Cette action est irréversible.</p>
     </div>
-    <div class="modal-actions"><button class="btn-secondary" id="modal-cancel">Annuler</button><button class="btn-primary" id="modal-ok" style="background:${def.color};border-color:${def.color}">Confirmer le casse</button></div>`;
+    <div class="modal-actions"><button class="btn-secondary" id="modal-cancel">Annuler</button><button class="btn-primary" id="modal-ok" style="background:${col(def.color)};border-color:${col(def.color)}">Confirmer le casse</button></div>`;
 
   openModal(html, () => {
     const result = HeistEngine.executeHeist(gameState, pid, heistType, { targetZone }, gameData.gameplay);
@@ -1782,10 +1814,10 @@ function showVictoryScreen(winner) {
   body.innerHTML = `<h2>Partie terminée !</h2>` +
     gameState.joueurs.map(j => {
       const pts = gameState.getPlayerPoints(j.id, gameData.gameplay);
-      return `<div class="reveal-player"><span class="hud-player-dot" style="background:${j.couleur}"></span>
-        <strong>${j.nom}</strong> — <span class="hud-player-pts">${pts} pts</span> · ${j.ressources.lingots}L · ${j.ressources.armes}A · ${j.ressources.doses}D</div>`;
+      return `<div class="reveal-player"><span class="hud-player-dot" style="background:${col(j.couleur)}"></span>
+        <strong>${e(j.nom)}</strong> — <span class="hud-player-pts">${pts} pts</span> · ${j.ressources.lingots}L · ${j.ressources.armes}A · ${j.ressources.doses}D</div>`;
     }).join('') +
-    `<div class="victory-banner" style="color:${winner.joueur.couleur}">🏆 ${winner.joueur.nom} remporte la partie avec ${winner.points} points !</div>`;
+    `<div class="victory-banner" style="color:${col(winner.joueur.couleur)}">🏆 ${e(winner.joueur.nom)} remporte la partie avec ${winner.points} points !</div>`;
 
   ov.querySelector('#btn-next-turn').textContent = 'Retour au menu';
   ov.querySelector('#btn-next-turn').onclick = () => { ov.classList.add('hidden'); renderTitleScreen(); };
@@ -1809,7 +1841,7 @@ function processAndShowReveal() {
   const eLog = expired.map(c => ({
     pid: -1,
     type: 'warn',
-    msg: `📜 Contrat #${c.id} expiré (${CONTRACT_TYPES[c.type]?.label || c.type})`
+    msg: `📜 Contrat #${c.id} expiré (${e(CONTRACT_TYPES[c.type]?.label || c.type)})`
   }));
 
   showRevealOverlay('Révélation & récolte', [...cLog, ...eLog, ...supplyLog, ...revenueLog], () => {
@@ -1862,8 +1894,8 @@ function renderContractCard(c) {
   return `<div class="contract-card${breach}">
     <span class="contract-icon">${typeDef.icon}</span>
     <div class="contract-info">
-      <div class="contract-parties"><span style="color:${jA.couleur}">${jA.nom}</span> → <span style="color:${jB.couleur}">${jB.nom}</span></div>
-      <div class="contract-desc">${c.description || typeDef.label}${c.montant > 0 ? ` (${c.montant}/tour)` : ''}</div>
+      <div class="contract-parties"><span style="color:${col(jA.couleur)}">${e(jA.nom)}</span> → <span style="color:${col(jB.couleur)}">${e(jB.nom)}</span></div>
+      <div class="contract-desc">${e(c.description || typeDef.label)}${c.montant > 0 ? ` (${c.montant}/tour)` : ''}</div>
       <div class="contract-meta">Tour ${c.tour_creation} · ${c.tours_restants} tour${c.tours_restants > 1 ? 's' : ''} restant${c.tours_restants > 1 ? 's' : ''}${!c.honore ? ' · ⚠ Non honoré' : ''}</div>
     </div>
     <button class="contract-cancel" data-cid="${c.id}">Annuler</button>
@@ -1872,14 +1904,14 @@ function renderContractCard(c) {
 
 function showCreateContractModal(onDone) {
   const joueurs = gameState.joueurs;
-  const typeOptions = Object.entries(CONTRACT_TYPES).map(([id, t]) => `<option value="${id}">${t.icon} ${t.label}</option>`).join('');
+  const typeOptions = Object.entries(CONTRACT_TYPES).map(([id, t]) => `<option value="${id}">${t.icon} ${e(t.label)}</option>`).join('');
 
   const html = `
     <h3>📜 Nouveau contrat</h3>
     <label>Joueur A (qui donne / s'engage) :</label>
-    <select id="f-cjoueurA">${joueurs.map(j => `<option value="${j.id}">${j.nom}</option>`).join('')}</select>
+    <select id="f-cjoueurA">${joueurs.map(j => `<option value="${j.id}">${e(j.nom)}</option>`).join('')}</select>
     <label>Joueur B (qui reçoit / bénéficie) :</label>
-    <select id="f-cjoueurB">${joueurs.map((j, i) => `<option value="${j.id}" ${i === 1 ? 'selected' : ''}>${j.nom}</option>`).join('')}</select>
+    <select id="f-cjoueurB">${joueurs.map((j, i) => `<option value="${j.id}" ${i === 1 ? 'selected' : ''}>${e(j.nom)}</option>`).join('')}</select>
     <label>Type de contrat :</label>
     <select id="f-ctype">${typeOptions}</select>
     <label>Description (termes de l'accord) :</label>
@@ -1916,9 +1948,9 @@ function showCoupoleModal(onDone) {
   const html = `
     <h3>⚖️ Convoquer la Coupole</h3>
     <label>Plaignant (qui convoque) :</label>
-    <select id="f-plaintiff">${joueurs.map(j => `<option value="${j.id}">${j.nom} (${j.nb_coupole_restantes || 0} restante${(j.nb_coupole_restantes || 0) > 1 ? 's' : ''})</option>`).join('')}</select>
+    <select id="f-plaintiff">${joueurs.map(j => `<option value="${j.id}">${e(j.nom)} (${j.nb_coupole_restantes || 0} restante${(j.nb_coupole_restantes || 0) > 1 ? 's' : ''})</option>`).join('')}</select>
     <label>Accusé :</label>
-    <select id="f-accused">${joueurs.map((j, i) => `<option value="${j.id}" ${i === 1 ? 'selected' : ''}>${j.nom}</option>`).join('')}</select>
+    <select id="f-accused">${joueurs.map((j, i) => `<option value="${j.id}" ${i === 1 ? 'selected' : ''}>${e(j.nom)}</option>`).join('')}</select>
     <div class="modal-actions"><button class="btn-secondary" id="modal-cancel">Annuler</button><button class="btn-primary" id="modal-ok">Réunir la Coupole</button></div>
   `;
 
@@ -1933,7 +1965,7 @@ function showCoupoleModal(onDone) {
 
     const check = ContractEngine.canConvokeCoupole(gameState, plaintiffId);
     if (!check.ok) {
-      showCoupoleToast(check.reason);
+      showCoupoleToast(check.msg || check.reason);
       return;
     }
 
@@ -1952,12 +1984,12 @@ function showCoupoleVoteModal(plaintiffId, accusedId, onDone) {
     body.innerHTML = `
       <div class="coupole-title">⚖️ La Coupole</div>
       <div class="coupole-sub">
-        <strong style="color:${gameState.joueurs[plaintiffId].couleur}">${gameState.joueurs[plaintiffId].nom}</strong> accuse
-        <strong style="color:${gameState.joueurs[accusedId].couleur}">${gameState.joueurs[accusedId].nom}</strong> de trahison.
+        <strong style="color:${col(gameState.joueurs[plaintiffId].couleur)}">${e(gameState.joueurs[plaintiffId].nom)}</strong> accuse
+        <strong style="color:${col(gameState.joueurs[accusedId].couleur)}">${e(gameState.joueurs[accusedId].nom)}</strong> de trahison.
       </div>
       ${votants.map(j => `<div class="coupole-vote-row">
-        <span class="hud-player-dot" style="background:${j.couleur}"></span>
-        <span>${j.nom}</span>
+        <span class="hud-player-dot" style="background:${col(j.couleur)}"></span>
+        <span>${e(j.nom)}</span>
         <div class="coupole-vote-btns">
           <button class="coupole-vote-btn guilty ${votes[j.id] === true ? 'selected' : ''}" data-pid="${j.id}" data-vote="guilty">Coupable</button>
           <button class="coupole-vote-btn innocent ${votes[j.id] === false ? 'selected' : ''}" data-pid="${j.id}" data-vote="innocent">Innocent</button>
@@ -2042,7 +2074,7 @@ function showRevealOverlay(title, log, onContinue) {
       let extraClass = '';
       if (entry.type === 'conflict') extraClass = ' reveal-conflict';
       if (entry.type === 'heist') extraClass = ' reveal-heist';
-      return `<div class="reveal-line${extraClass}" data-type="${entry.type}" style="border-left:3px solid ${color}"><span class="reveal-icon">${icon}</span>${entry.msg}</div>`;
+      return `<div class="reveal-line${extraClass}" data-type="${entry.type}" style="border-left:3px solid ${col(color)}"><span class="reveal-icon">${icon}</span>${e(entry.msg)}</div>`;
     }).join('');
   }
 
@@ -2050,7 +2082,7 @@ function showRevealOverlay(title, log, onContinue) {
   summary.className = 'reveal-summary';
   summary.innerHTML = '<div class="section-title">Ressources après résolution</div>' +
     gameState.joueurs.map(j =>
-      `<div class="reveal-player"><span class="hud-player-dot" style="background:${j.couleur}"></span><strong>${j.nom}</strong> — ${j.ressources.lingots}L · ${j.ressources.armes}A · ${j.ressources.doses}D</div>`
+      `<div class="reveal-player"><span class="hud-player-dot" style="background:${col(j.couleur)}"></span><strong>${e(j.nom)}</strong> — ${j.ressources.lingots}L · ${j.ressources.armes}A · ${j.ressources.doses}D</div>`
     ).join('');
   body.appendChild(summary);
 
@@ -2067,7 +2099,7 @@ function renderPreElection() {
   const mandateNum = Math.floor(gameState.tour / 7) + 1;
 
   const maireInfo = maire
-    ? `<div class="pre-election-mayor">🏛️ Maire sortant : <strong style="color:${maire.couleur}">${maire.nom}</strong></div>`
+    ? `<div class="pre-election-mayor">🏛️ Maire sortant : <strong style="color:${col(maire.couleur)}">${e(maire.nom)}</strong></div>`
     : `<div class="pre-election-mayor">🏛️ Aucun maire en poste — un nouveau sera élu</div>`;
 
   body.innerHTML = `
@@ -2114,15 +2146,15 @@ function renderElectionVote() {
   const candidateCards = gameState.joueurs.map(j => {
     const pts = gameState.getPlayerPoints(j.id, gameData.gameplay);
     return `<div class="vote-candidate" data-pid="${j.id}" role="button" tabindex="0">
-      <span class="vote-candidate-dot" style="background:${j.couleur}"></span>
-      <span class="vote-candidate-name">${j.nom}</span>
+      <span class="vote-candidate-dot" style="background:${col(j.couleur)}"></span>
+      <span class="vote-candidate-name">${e(j.nom)}</span>
       <span class="vote-candidate-info">${pts} pts</span>
     </div>`;
   }).join('');
 
   body.innerHTML = `
     <div class="election-title">🗳️ Élection municipale</div>
-    <div class="election-sub">Tour ${gameState.tour} — <strong style="color:${voter.couleur}">${voter.nom}</strong>, votez pour votre candidat</div>
+    <div class="election-sub">Tour ${gameState.tour} — <strong style="color:${col(voter.couleur)}">${e(voter.nom)}</strong>, votez pour votre candidat</div>
     <div class="vote-candidates">${candidateCards}</div>
     <button id="btn-vote-submit" class="btn-main" disabled>Voter</button>
   `;
@@ -2158,10 +2190,10 @@ function renderElectionResult() {
     const power = results.voterPower[j.id] || 0;
     const isWinner = results.winner === j.id;
     return `<div class="election-result-row" style="${isWinner ? 'border:1px solid #f8c48a;' : ''}">
-      <span class="vote-candidate-dot" style="background:${j.couleur}"></span>
-      <span style="width:100px;font-weight:600">${j.nom}</span>
+      <span class="vote-candidate-dot" style="background:${col(j.couleur)}"></span>
+      <span style="width:100px;font-weight:600">${e(j.nom)}</span>
       <div style="flex:1;background:rgba(255,255,255,0.05);border-radius:3px;overflow:hidden;">
-        <div class="election-bar" style="width:${pct}%;background:${j.couleur}"></div>
+        <div class="election-bar" style="width:${pct}%;background:${col(j.couleur)}"></div>
       </div>
       <span style="min-width:90px;text-align:right;font-size:13px">${(votes / 1000).toFixed(0)}k voix</span>
       <span style="min-width:80px;text-align:right;font-size:11px;color:#888">(poids: ${(power / 1000).toFixed(0)}k)</span>
@@ -2171,7 +2203,7 @@ function renderElectionResult() {
   let banner = '';
   if (results.winner !== null) {
     const w = gameState.joueurs[results.winner];
-    banner = `<div class="election-winner-banner" style="color:${w.couleur}">🏛️ ${w.nom} est élu(e) Maire !</div>`;
+    banner = `<div class="election-winner-banner" style="color:${col(w.couleur)}">🏛️ ${e(w.nom)} est élu(e) Maire !</div>`;
   } else {
     banner = `<div class="election-winner-banner">Égalité — aucun maire élu ce tour</div>`;
   }
@@ -2218,6 +2250,9 @@ function renderDraftPick() {
   }
 
   const hand = turnManager.draftHands[pid] || [];
+  // En cas de pénurie de deck, draftPhase peut rendre une main de moins de 8 cartes :
+  // le nombre à garder suit la main réelle, sinon l'écran reste bloqué (softlock).
+  const aGarder = MagouilleEngine.nbCartesAGarder(hand.length);
   const selected = new Set();
 
   const ov = document.getElementById('election-ov');
@@ -2232,8 +2267,8 @@ function renderDraftPick() {
       return `<div class="draft-card ${sel ? 'draft-selected' : ''}" data-uid="${uid}" role="button" tabindex="0">
         ${imgSrc ? `<img src="${imgSrc}" class="draft-card-img" onerror="this.style.display='none'">` : '<div class="draft-card-img draft-card-placeholder">🃏</div>'}
         <div class="draft-card-info">
-          <strong>${card.nom}</strong>
-          <span class="draft-card-desc">${card.description}</span>
+          <strong>${e(card.nom)}</strong>
+          <span class="draft-card-desc">${e(card.description)}</span>
           ${Object.keys(card.cout || {}).length ? `<span class="draft-card-cost">${Object.entries(card.cout).map(([k,v]) => `${v}${k[0].toUpperCase()}`).join(' ')}</span>` : '<span class="draft-card-cost">Gratuit</span>'}
         </div>
         <div class="draft-card-actions" onclick="event.stopPropagation()">
@@ -2245,10 +2280,10 @@ function renderDraftPick() {
 
     body.innerHTML = `
       <div class="election-title">🃏 Cartes Magouille</div>
-      <div class="election-sub"><strong style="color:${j.couleur}">${j.nom}</strong>, choisissez 4 cartes parmi 8</div>
+      <div class="election-sub"><strong style="color:${col(j.couleur)}">${e(j.nom)}</strong>, choisissez ${aGarder} carte(s) parmi ${hand.length}</div>
       <div class="draft-card-list">${cards}</div>
-      <div style="text-align:center;margin-top:8px;font-size:13px;color:#888">${selected.size}/4 sélectionnée(s)</div>
-      <button id="btn-draft-confirm" class="btn-main" style="margin-top:12px" ${selected.size !== 4 ? 'disabled' : ''}>Confirmer mon choix</button>
+      <div style="text-align:center;margin-top:8px;font-size:13px;color:#888">${selected.size}/${aGarder} sélectionnée(s)</div>
+      <button id="btn-draft-confirm" class="btn-main" style="margin-top:12px" ${selected.size !== aGarder ? 'disabled' : ''}>Confirmer mon choix</button>
     `;
 
     body.querySelectorAll('.draft-card').forEach(el => {
@@ -2256,7 +2291,7 @@ function renderDraftPick() {
         if (e.target.closest('.draft-card-actions')) return;
         const uid = el.dataset.uid;
         if (selected.has(uid)) { selected.delete(uid); }
-        else if (selected.size < 4) { selected.add(uid); }
+        else if (selected.size < aGarder) { selected.add(uid); }
         refreshDraft();
       });
     });
@@ -2264,7 +2299,7 @@ function renderDraftPick() {
       btn.addEventListener('click', () => {
         const uid = btn.closest('.draft-card').dataset.uid;
         if (selected.has(uid)) { selected.delete(uid); }
-        else if (selected.size < 4) { selected.add(uid); }
+        else if (selected.size < aGarder) { selected.add(uid); }
         refreshDraft();
       });
     });
@@ -2278,7 +2313,7 @@ function renderDraftPick() {
 
     body.querySelector('#btn-draft-confirm')?.addEventListener('click', () => {
       const keptUids = [...selected];
-      MagouilleEngine.keepCards(gameState, pid, keptUids);
+      MagouilleEngine.keepCards(gameState, pid, keptUids, hand.length);
       MagouilleEngine.discardFromDraft(gameState, hand, keptUids);
       ov.classList.add('hidden');
       turnManager.submitDraftPick();
@@ -2323,7 +2358,7 @@ function showMagouilleCardDetail(card, canPlay, reason, onPlay) {
     ${card.phase_jouable ? `<div>Phase jouable : ${card.phase_jouable === 'any' ? 'Toute phase' : `Phase ${card.phase_jouable}`}</div>` : ''}
     ${card.duree ? `<div>Durée : ${card.duree === 'immediat' ? 'Immédiat' : card.duree === 'tour' ? 'Ce tour' : card.duree}</div>` : ''}
     ${card.repose_sous_pile !== undefined ? `<div>${card.repose_sous_pile ? 'Retourne sous la pile après usage' : 'Retirée du jeu après usage'}</div>` : ''}` : ''}
-    ${!isInfoOnly && !canPlay && reason ? `<div style="color:#e74c3c;margin-top:8px">⛔ ${reason}</div>` : ''}
+    ${!isInfoOnly && !canPlay && reason ? `<div style="color:#e74c3c;margin-top:8px">⛔ ${e(reason)}</div>` : ''}
   `;
   const actionsDiv = ov.querySelector('.magouille-detail-actions');
   if (actionsDiv) {
@@ -2352,9 +2387,9 @@ function showPlayCardModal(pid, currentPhase, refresh) {
     const card = MagouilleEngine.getCardDef(gameState, uid, cartesDef);
     if (!card) return '';
     const check = MagouilleEngine.canPlay(gameState, pid, uid, currentPhase, cartesDef);
-    return `<button class="op-btn magouille-card-btn" data-uid="${uid}" data-canplay="${check.ok}" data-reason="${(check.reason || '').replace(/"/g, '&quot;')}" style="text-align:left;margin-bottom:6px">
-      <strong>${card.nom}</strong>${!check.ok ? ' ⛔' : ''}
-      <br><span style="font-size:12px;color:#bbb">${card.description.substring(0, 90)}…</span>
+    return `<button class="op-btn magouille-card-btn" data-uid="${uid}" data-canplay="${check.ok}" data-reason="${e(check.msg || check.reason || '')}" style="text-align:left;margin-bottom:6px">
+      <strong>${e(card.nom)}</strong>${!check.ok ? ' ⛔' : ''}
+      <br><span style="font-size:12px;color:#bbb">${e(card.description.substring(0, 90))}…</span>
       ${Object.keys(card.cout || {}).length ? `<br><span style="font-size:12px;color:#f8c48a">${Object.entries(card.cout).map(([k,v]) => `${v} ${k}`).join(', ')}</span>` : ''}
     </button>`;
   }).join('');
@@ -2416,7 +2451,7 @@ function executeCardWithParams(pid, uid, currentPhase, refresh) {
 
     default: {
       const result = MagouilleEngine.play(gameState, pid, uid, {}, cartesDef);
-      showMagouilleToast(result.msg);
+      showMagouilleToast(result.msg, result.ok);
       if (refresh) refresh();
     }
   }
@@ -2433,26 +2468,26 @@ function showCardTargetPionModal(pid, uid, card, refresh) {
   });
   if (allPions.length === 0) { showMagouilleToast('Aucun pion ciblable'); return; }
 
-  const html = `<h3>🃏 ${card.nom}</h3><label>Pion ciblé :</label>
-    <select id="f-target-pion">${allPions.map((p, i) => `<option value="${i}">${p.type} sur ${p.zone} — ${gameData.gameplay.zones[p.zone]?.nom || ''} (${gameState.joueurs[p.joueur]?.nom || 'neutre'})</option>`).join('')}</select>
+  const html = `<h3>🃏 ${e(card.nom)}</h3><label>Pion ciblé :</label>
+    <select id="f-target-pion">${allPions.map((p, i) => `<option value="${i}">${p.type} sur ${p.zone} — ${e(gameData.gameplay.zones[p.zone]?.nom || '')} (${e(gameState.joueurs[p.joueur]?.nom || 'neutre')})</option>`).join('')}</select>
     <div class="modal-actions"><button class="btn-secondary" id="modal-cancel">Annuler</button><button class="btn-primary" id="modal-ok">Confirmer</button></div>`;
   openModal(html, () => {
     const sel = allPions[Number(document.getElementById('f-target-pion').value)];
     const result = MagouilleEngine.play(gameState, pid, uid, { zone: sel.zone, pionIdx: sel.idx }, cartesDef);
-    showMagouilleToast(result.msg);
+    showMagouilleToast(result.msg, result.ok);
     if (refresh) refresh();
   });
 }
 
 function showCardTargetPlayerModal(pid, uid, card, refresh) {
   const others = gameState.joueurs.filter((_, i) => i !== pid);
-  const html = `<h3>🃏 ${card.nom}</h3><label>Joueur ciblé :</label>
-    <select id="f-target">${others.map(j => `<option value="${j.id}">${j.nom}</option>`).join('')}</select>
+  const html = `<h3>🃏 ${e(card.nom)}</h3><label>Joueur ciblé :</label>
+    <select id="f-target">${others.map(j => `<option value="${j.id}">${e(j.nom)}</option>`).join('')}</select>
     <div class="modal-actions"><button class="btn-secondary" id="modal-cancel">Annuler</button><button class="btn-primary" id="modal-ok">Confirmer</button></div>`;
   openModal(html, () => {
     const cible = Number(document.getElementById('f-target').value);
     const result = MagouilleEngine.play(gameState, pid, uid, { cible }, cartesDef);
-    showMagouilleToast(result.msg);
+    showMagouilleToast(result.msg, result.ok);
     if (refresh) refresh();
   });
 }
@@ -2466,26 +2501,26 @@ function showCardTeleportModal(pid, uid, card, refresh) {
   });
   if (myPions.length === 0) { showMagouilleToast('Aucun pion à téléporter'); return; }
   const allZones = Object.keys(gameState.plateau);
-  const html = `<h3>🃏 ${card.nom}</h3>
-    <label>Pion :</label><select id="f-pion">${myPions.map((p, i) => `<option value="${i}">${p.type} sur ${p.zone} — ${gameData.gameplay.zones[p.zone]?.nom || ''}</option>`).join('')}</select>
-    <label>Destination :</label><select id="f-dest">${allZones.map(z => `<option value="${z}">${z} — ${gameData.gameplay.zones[z]?.nom || z}</option>`).join('')}</select>
+  const html = `<h3>🃏 ${e(card.nom)}</h3>
+    <label>Pion :</label><select id="f-pion">${myPions.map((p, i) => `<option value="${i}">${p.type} sur ${p.zone} — ${e(gameData.gameplay.zones[p.zone]?.nom || '')}</option>`).join('')}</select>
+    <label>Destination :</label><select id="f-dest">${allZones.map(z => `<option value="${z}">${z} — ${e(gameData.gameplay.zones[z]?.nom || z)}</option>`).join('')}</select>
     <div class="modal-actions"><button class="btn-secondary" id="modal-cancel">Annuler</button><button class="btn-primary" id="modal-ok">Téléporter</button></div>`;
   openModal(html, () => {
     const sel = myPions[Number(document.getElementById('f-pion').value)];
     const result = MagouilleEngine.play(gameState, pid, uid, { fromZone: sel.zone, pionIdx: sel.idx, toZone: document.getElementById('f-dest').value }, cartesDef);
-    showMagouilleToast(result.msg);
+    showMagouilleToast(result.msg, result.ok);
     if (refresh) refresh();
   });
 }
 
 function showCardQuartierModal(pid, uid, card, refresh) {
   const quartiers = gameData.gameplay.quartiers;
-  const html = `<h3>🃏 ${card.nom}</h3><label>Quartier :</label>
-    <select id="f-quartier">${quartiers.map(q => `<option value="${q.id}">${q.nom}</option>`).join('')}</select>
+  const html = `<h3>🃏 ${e(card.nom)}</h3><label>Quartier :</label>
+    <select id="f-quartier">${quartiers.map(q => `<option value="${q.id}">${e(q.nom)}</option>`).join('')}</select>
     <div class="modal-actions"><button class="btn-secondary" id="modal-cancel">Annuler</button><button class="btn-primary" id="modal-ok">Confirmer</button></div>`;
   openModal(html, () => {
     const result = MagouilleEngine.play(gameState, pid, uid, { quartierId: document.getElementById('f-quartier').value, gameplayData: gameData.gameplay }, cartesDef);
-    showMagouilleToast(result.msg);
+    showMagouilleToast(result.msg, result.ok);
     if (refresh) refresh();
   });
 }
@@ -2494,33 +2529,33 @@ function showCardMoveIncorruptibleModal(pid, uid, card, refresh) {
   const incZones = Object.entries(gameState.plateau).filter(([_, z]) => z.pions.some(p => p.type === 'incorruptible')).map(([zid]) => zid);
   const allZones = Object.keys(gameState.plateau);
   if (incZones.length === 0) { showMagouilleToast('Aucun incorruptible sur le plateau'); return; }
-  const html = `<h3>🃏 ${card.nom}</h3>
+  const html = `<h3>🃏 ${e(card.nom)}</h3>
     <label>Incorruptible actuel :</label><select id="f-from">${incZones.map(z => `<option value="${z}">${z}</option>`).join('')}</select>
     <label>Nouvelle zone :</label><select id="f-to">${allZones.map(z => `<option value="${z}">${z}</option>`).join('')}</select>
     <div class="modal-actions"><button class="btn-secondary" id="modal-cancel">Annuler</button><button class="btn-primary" id="modal-ok">Déplacer</button></div>`;
   openModal(html, () => {
     const result = MagouilleEngine.play(gameState, pid, uid, { fromZone: document.getElementById('f-from').value, toZone: document.getElementById('f-to').value }, cartesDef);
-    showMagouilleToast(result.msg);
+    showMagouilleToast(result.msg, result.ok);
     if (refresh) refresh();
   });
 }
 
 function showCardZoneModal(pid, uid, card, label, refresh) {
   const allZones = Object.keys(gameState.plateau);
-  const html = `<h3>🃏 ${card.nom}</h3><label>${label} :</label>
+  const html = `<h3>🃏 ${e(card.nom)}</h3><label>${e(label)} :</label>
     <select id="f-zone">${allZones.map(z => `<option value="${z}">${z}</option>`).join('')}</select>
     <div class="modal-actions"><button class="btn-secondary" id="modal-cancel">Annuler</button><button class="btn-primary" id="modal-ok">Confirmer</button></div>`;
   openModal(html, () => {
     const result = MagouilleEngine.play(gameState, pid, uid, { zone: document.getElementById('f-zone').value, adjacencies: gameData.adjacencies }, cartesDef);
-    showMagouilleToast(result.msg);
+    showMagouilleToast(result.msg, result.ok);
     if (refresh) refresh();
   });
 }
 
-function showMagouilleToast(msg) {
+function showMagouilleToast(msg, ok = true) {
   const toast = document.createElement('div');
-  toast.className = 'magouille-toast';
-  toast.textContent = '🃏 ' + msg;
+  toast.className = 'magouille-toast' + (ok ? '' : ' toast-echec');
+  toast.textContent = (ok ? '🃏 ' : '⛔ ') + msg;
   document.body.appendChild(toast);
   setTimeout(() => toast.remove(), 3500);
 }
@@ -2559,15 +2594,15 @@ function showQuartiersOverview() {
     const canGang = owner !== null && gameState.tour >= 7 && !gangActif;
     const entries = Object.entries(presence).sort((a, b) => b[1] - a[1]);
 
-    let card = `<div class="qov-card" style="border-color:${oj ? oj.couleur : qc?.stroke || '#555'}" data-qid="${q.id}">
+    let card = `<div class="qov-card" style="border-color:${col(oj ? oj.couleur : qc?.stroke || '#555')}" data-qid="${q.id}">
       <div class="qov-header" style="background:${qc?.fill || '#222'}">
-        <span class="qov-name" style="color:${qc?.stroke || '#aaa'}">${q.nom}</span>
+        <span class="qov-name" style="color:${qc?.stroke || '#aaa'}">${e(q.nom)}</span>
         <span class="qov-pts">${q.points} pts</span>
       </div>
       <div class="qov-body">`;
 
     if (oj) {
-      card += `<div class="qov-owner" style="color:${oj.couleur}">★ ${oj.nom}</div>`;
+      card += `<div class="qov-owner" style="color:${col(oj.couleur)}">★ ${e(oj.nom)}</div>`;
     }
 
     if (entries.length > 0) {
@@ -2575,9 +2610,9 @@ function showQuartiersOverview() {
         const j = gameState.joueurs[pid];
         const pct = Math.round((count / q.zones.length) * 100);
         card += `<div class="qov-progress">
-          <span class="hud-player-dot" style="background:${j.couleur}"></span>
-          <span style="color:${j.couleur};font-size:11px">${j.nom}</span>
-          <div class="conquest-bar-wrap" style="flex:1"><div class="conquest-bar" style="width:${pct}%;background:${j.couleur}"></div></div>
+          <span class="hud-player-dot" style="background:${col(j.couleur)}"></span>
+          <span style="color:${col(j.couleur)};font-size:11px">${e(j.nom)}</span>
+          <div class="conquest-bar-wrap" style="flex:1"><div class="conquest-bar" style="width:${pct}%;background:${col(j.couleur)}"></div></div>
           <span style="font-size:11px;font-family:monospace;color:#aaa">${count}/${q.zones.length}</span>
         </div>`;
       });
@@ -2587,11 +2622,11 @@ function showQuartiersOverview() {
 
     if (gangActif) {
       const gj = gameState.joueurs[gangActif.joueur];
-      card += `<div class="qov-gang active" style="color:${gj.couleur}">🔫 ${q.gang.nom} (actif, ${gj.nom})</div>`;
+      card += `<div class="qov-gang active" style="color:${col(gj.couleur)}">🔫 ${e(q.gang.nom)} (actif, ${e(gj.nom)})</div>`;
     } else if (canGang) {
-      card += `<div class="qov-gang available">🔫 ${q.gang.nom} — activable</div>`;
+      card += `<div class="qov-gang available">🔫 ${e(q.gang.nom)} — activable</div>`;
     } else {
-      card += `<div class="qov-gang">${q.gang.nom}</div>`;
+      card += `<div class="qov-gang">${e(q.gang.nom)}</div>`;
     }
 
     card += `</div></div>`;
@@ -2651,12 +2686,12 @@ function renderTurnEnd() {
       const zones = Object.values(gameState.plateau).filter(z => z.proprietaire === j.id).length;
       const quartiers = gameData.gameplay.quartiers.filter(q => gameState.getQuartierOwner(q.id, gameData.gameplay) === j.id);
       const qNames = quartiers.map(q => q.nom).join(', ');
-      return `<div class="turnend-rank" style="border-color:${j.couleur}">
+      return `<div class="turnend-rank" style="border-color:${col(j.couleur)}">
         <div class="turnend-rank-medal">${medal}</div>
         <div class="turnend-rank-info">
-          <div class="turnend-rank-name" style="color:${j.couleur}">${j.nom}</div>
+          <div class="turnend-rank-name" style="color:${col(j.couleur)}">${e(j.nom)}</div>
           <div class="turnend-rank-detail">${zones} zones · ${quartiers.length} quartier${quartiers.length > 1 ? 's' : ''}</div>
-          ${quartiers.length > 0 ? `<div class="turnend-rank-quartiers">★ ${qNames}</div>` : ''}
+          ${quartiers.length > 0 ? `<div class="turnend-rank-quartiers">★ ${e(qNames)}</div>` : ''}
         </div>
         <div class="turnend-rank-pts">${j.pts} <small>pts</small></div>
         <div class="turnend-rank-res">💰${j.ressources.lingots} 🔫${j.ressources.armes} 💊${j.ressources.doses}</div>
@@ -2687,9 +2722,9 @@ function renderTurnEnd() {
     nearConquest.forEach(nc => {
       const j = gameState.joueurs[nc.pid];
       const pct = Math.round(nc.pct * 100);
-      html += `<div class="turnend-conquest" style="border-left:3px solid ${j.couleur}">
-        <span style="color:${j.couleur};font-weight:600">${j.nom}</span> — <strong>${nc.quartier.nom}</strong> ${nc.count}/${nc.total} zones (${pct}%)
-        <div class="conquest-bar-wrap" style="margin-top:3px"><div class="conquest-bar" style="width:${pct}%;background:${j.couleur}"></div></div>
+      html += `<div class="turnend-conquest" style="border-left:3px solid ${col(j.couleur)}">
+        <span style="color:${col(j.couleur)};font-weight:600">${e(j.nom)}</span> — <strong>${e(nc.quartier.nom)}</strong> ${nc.count}/${nc.total} zones (${pct}%)
+        <div class="conquest-bar-wrap" style="margin-top:3px"><div class="conquest-bar" style="width:${pct}%;background:${col(j.couleur)}"></div></div>
       </div>`;
     });
   }
@@ -2706,7 +2741,7 @@ function renderTurnEnd() {
       const joueur = pid >= 0 ? gameState.joueurs[pid] : null;
       const name = joueur ? joueur.nom : 'Général';
       const color = joueur ? joueur.couleur : '#888';
-      html += `<div class="turnend-recap-player" style="border-left:3px solid ${color}"><strong style="color:${color}">${name}</strong> · ${entries.length} action${entries.length > 1 ? 's' : ''}</div>`;
+      html += `<div class="turnend-recap-player" style="border-left:3px solid ${col(color)}"><strong style="color:${col(color)}">${e(name)}</strong> · ${entries.length} action${entries.length > 1 ? 's' : ''}</div>`;
     }
     html += `</div>`;
   }
@@ -2717,13 +2752,13 @@ function renderTurnEnd() {
         const jA = gameState.joueurs[c.joueur_a];
         const jB = gameState.joueurs[c.joueur_b];
         const typeDef = CONTRACT_TYPES[c.type] || CONTRACT_TYPES.libre;
-        return `<div class="reveal-line" style="border-left:3px solid #2ecc71;font-size:12px">${typeDef.icon} <span style="color:${jA.couleur}">${jA.nom}</span> → <span style="color:${jB.couleur}">${jB.nom}</span> : ${c.description || typeDef.label} (${c.tours_restants}t)${!c.honore ? ' <span style="color:#e74c3c">⚠ Non honoré</span>' : ''}</div>`;
+        return `<div class="reveal-line" style="border-left:3px solid #2ecc71;font-size:12px">${typeDef.icon} <span style="color:${col(jA.couleur)}">${e(jA.nom)}</span> → <span style="color:${col(jB.couleur)}">${e(jB.nom)}</span> : ${e(c.description || typeDef.label)} (${c.tours_restants}t)${!c.honore ? ' <span style="color:#e74c3c">⚠ Non honoré</span>' : ''}</div>`;
       }).join('');
   }
 
   const winner = gameState.joueurs.find(j => gameState.getPlayerPoints(j.id, gameData.gameplay) >= 55);
   if (winner) {
-    html += `<div class="victory-banner" style="color:${winner.couleur}">🏆 ${winner.nom} remporte la partie avec ${gameState.getPlayerPoints(winner.id, gameData.gameplay)} points !</div>`;
+    html += `<div class="victory-banner" style="color:${col(winner.couleur)}">🏆 ${e(winner.nom)} remporte la partie avec ${gameState.getPlayerPoints(winner.id, gameData.gameplay)} points !</div>`;
   }
 
   body.innerHTML = html;
@@ -2756,7 +2791,7 @@ function renderInfoPanel(id) {
   }
 
   document.getElementById('info-facilite').innerHTML = zd?.facilite
-    ? `<span class="facilite-tag">${FACILITE_LABELS[zd.facilite] || zd.facilite}</span>` : '';
+    ? `<span class="facilite-tag">${e(FACILITE_LABELS[zd.facilite] || zd.facilite)}</span>` : '';
 
   if (zd) {
     document.getElementById('info-indices').innerHTML = `
@@ -2767,7 +2802,7 @@ function renderInfoPanel(id) {
 
   if (q) {
     let qStatsHtml = `
-      <div class="section-title">Quartier : ${q.nom}</div>
+      <div class="section-title">Quartier : ${e(q.nom)}</div>
       <div class="stat-row"><span class="stat-label">Zones</span><span class="stat-value">${q.zones.length}</span></div>
       <div class="stat-row"><span class="stat-label">Points</span><span class="stat-value">${q.points}</span></div>
       <div class="stat-row"><span class="stat-label">Pop./zone</span><span class="stat-value">${(q.population_par_zone / 1000).toFixed(0)}k</span></div>`;
@@ -2789,8 +2824,8 @@ function renderInfoPanel(id) {
       if (owner !== null) {
         const oj = gameState.joueurs[owner];
         const canGang = gameState.tour >= 7 && !gameState.gangs_actifs[q.id];
-        qStatsHtml += `<div class="conquest-owner-banner" style="border-color:${oj.couleur}">
-          <strong style="color:${oj.couleur}">${oj.nom}</strong> contrôle ce quartier
+        qStatsHtml += `<div class="conquest-owner-banner" style="border-color:${col(oj.couleur)}">
+          <strong style="color:${col(oj.couleur)}">${e(oj.nom)}</strong> contrôle ce quartier
           <div class="conquest-rewards">+${q.points} pts de victoire${canGang ? ` · Gang activable` : ''}</div>
         </div>`;
       }
@@ -2801,9 +2836,9 @@ function renderInfoPanel(id) {
           const pct = Math.round((count / q.zones.length) * 100);
           const full = count === q.zones.length;
           qStatsHtml += `<div class="conquest-progress">
-            <div class="conquest-player"><span class="hud-player-dot" style="background:${j.couleur}"></span>${j.nom}</div>
+            <div class="conquest-player"><span class="hud-player-dot" style="background:${col(j.couleur)}"></span>${e(j.nom)}</div>
             <div class="conquest-bar-wrap">
-              <div class="conquest-bar" style="width:${pct}%;background:${j.couleur}${full ? '' : '99'}"></div>
+              <div class="conquest-bar" style="width:${pct}%;background:${col(j.couleur)}${full ? '' : '99'}"></div>
             </div>
             <span class="conquest-count ${full ? 'conquest-full' : ''}">${count}/${q.zones.length}${full ? ' ★' : ''}</span>
           </div>`;
@@ -2818,9 +2853,9 @@ function renderInfoPanel(id) {
         const oj = zOwner != null ? gameState.joueurs[zOwner] : null;
         const pCount = z ? z.pions.length : 0;
         qStatsHtml += `<div class="conquest-zone-row" onclick="window._selectZone('${zid}')">
-          <span class="conquest-zone-dot" style="background:${oj ? oj.couleur : '#333'}"></span>
-          <span class="conquest-zone-name">${zoneName}</span>
-          <span class="conquest-zone-owner" style="color:${oj ? oj.couleur : '#555'}">${oj ? oj.nom : '—'}</span>
+          <span class="conquest-zone-dot" style="background:${col(oj ? oj.couleur : '#333')}"></span>
+          <span class="conquest-zone-name">${e(zoneName)}</span>
+          <span class="conquest-zone-owner" style="color:${col(oj ? oj.couleur : '#555')}">${e(oj ? oj.nom : '—')}</span>
           ${pCount > 0 ? `<span class="conquest-zone-pions">${pCount}p</span>` : ''}
         </div>`;
       });
@@ -2831,7 +2866,7 @@ function renderInfoPanel(id) {
     const g = q.gang;
     const dur = g.duree === -1 ? 'permanent' : g.duree === 0 ? 'instantané' : `${g.duree} tours`;
     const gangEl = document.getElementById('info-gang');
-    gangEl.innerHTML = `<div class="gang-name">${g.nom}</div><div>${g.effet.replace(/_/g, ' ')} · ${dur}</div><div class="gang-more">ℹ Plus d'infos</div>`;
+    gangEl.innerHTML = `<div class="gang-name">${e(g.nom)}</div><div>${g.effet.replace(/_/g, ' ')} · ${dur}</div><div class="gang-more">ℹ Plus d'infos</div>`;
     gangEl.style.cursor = 'pointer';
     gangEl.onclick = () => showGangInfoModal(q);
   } else {
@@ -2847,12 +2882,12 @@ function renderInfoPanel(id) {
     if (zone) {
       if (zone.proprietaire != null) {
         const owner = gameState.joueurs[zone.proprietaire];
-        html += `<div class="stat-row"><span class="stat-label">Contrôle</span><span class="stat-value" style="color:${owner.couleur}">${owner.nom}</span></div>`;
+        html += `<div class="stat-row"><span class="stat-label">Contrôle</span><span class="stat-value" style="color:${col(owner.couleur)}">${e(owner.nom)}</span></div>`;
       }
       if (zone.construction) {
         const buildLabel = CONSTRUCTION_DEFS[zone.construction]?.label || zone.construction;
         const owner = zone.proprietaire != null ? gameState.joueurs[zone.proprietaire] : null;
-        html += `<div class="stat-row"><span class="stat-label">🏗️ ${buildLabel}</span><span class="stat-value" style="color:${owner?.couleur || '#888'}">${owner?.nom || '—'}</span></div>`;
+        html += `<div class="stat-row"><span class="stat-label">🏗️ ${e(buildLabel)}</span><span class="stat-value" style="color:${col(owner?.couleur || '#888')}">${e(owner?.nom || '—')}</span></div>`;
       }
       if (!zone.electricite) {
         html += `<div class="stat-row" style="color:#f39c12"><strong>⚡ Électricité coupée</strong></div>`;
@@ -2863,7 +2898,7 @@ function renderInfoPanel(id) {
             const j = p.joueur != null ? gameState.joueurs[p.joueur] : null;
             const color = j ? j.couleur : '#888';
             const name = j ? j.nom : 'Neutre';
-            return `<div class="stat-row"><span class="stat-label" style="color:${color}">${name}</span><span class="stat-value">${p.type.replace(/_/g, ' ')}</span></div>`;
+            return `<div class="stat-row"><span class="stat-label" style="color:${col(color)}">${e(name)}</span><span class="stat-value">${p.type.replace(/_/g, ' ')}</span></div>`;
           }).join('');
       }
       if (zone.gitans) html += `<div class="stat-row" style="color:#795548"><strong>🏕️ Camp de gitans</strong></div>`;
@@ -2877,76 +2912,13 @@ function renderInfoPanel(id) {
       const aName = gameData.gameplay.zones[a]?.nom || a;
       if (aq) {
         const ac = QUARTIER_COLORS[aq.id];
-        return `<span onclick="window._selectZone('${a}')" style="background:${ac.fill};color:${ac.stroke};border:1px solid ${ac.stroke}" title="${aq.nom}">${aName}</span>`;
+        return `<span onclick="window._selectZone('${a}')" style="background:${ac.fill};color:${ac.stroke};border:1px solid ${ac.stroke}" title="${e(aq.nom)}">${e(aName)}</span>`;
       }
-      return `<span onclick="window._selectZone('${a}')">${aName}</span>`;
+      return `<span onclick="window._selectZone('${a}')">${e(aName)}</span>`;
     }).join('') : '';
 
   panel.classList.remove('hidden');
 }
-
-const GANG_DESCRIPTIONS = {
-  bloquer_ventes_armes: {
-    desc: 'Bloque toutes les ventes d\'armes sur les points d\'approvisionnement pendant la durée de l\'effet. Aucun joueur ne peut acheter d\'armes.',
-    icon: '🔫'
-  },
-  eliminer_3_pions: {
-    desc: 'Éliminez immédiatement jusqu\'à 3 pions ennemis de votre choix, partout sur le plateau. Effet instantané et dévastateur.',
-    icon: '💀'
-  },
-  revente_marchandises: {
-    desc: 'Permet de revendre vos doses et armes à tout moment au prix du marché. Effet permanent tant que vous contrôlez le quartier.',
-    icon: '💱'
-  },
-  bloquer_ordres: {
-    desc: 'Bloque tous les ordres d\'un joueur ciblé pendant la durée de l\'effet. Le joueur ne peut plus passer aucun ordre.',
-    icon: '🚫'
-  },
-  restriction_ethnie_caucasien_asiatique: {
-    desc: 'Interdit le recrutement de pions caucasiens et asiatiques dans tout le quartier. Restriction permanente tant que le gang est actif.',
-    icon: '🚷'
-  },
-  voler_action_maire: {
-    desc: 'Volez une action de maire au joueur qui en est le titulaire. Si personne n\'est maire, l\'effet est perdu.',
-    icon: '🏛️'
-  },
-  actions_supplementaires: {
-    desc: 'Vous octroie 2 ordres supplémentaires par tour, de manière permanente. Un avantage stratégique majeur.',
-    icon: '⚡'
-  },
-  restriction_ethnie_non_asiatique_non_italien: {
-    desc: 'Interdit le recrutement de pions non-asiatiques et non-italiens dans le quartier. Restriction permanente.',
-    icon: '🚷'
-  },
-  immunite_restrictions_ethniques: {
-    desc: 'Immunise tous vos pions contre les restrictions ethniques imposées par les autres gangs. Effet permanent.',
-    icon: '🛡️'
-  },
-  eliminer_prostituees_quartier_voisin: {
-    desc: 'Élimine toutes les prostituées ennemies dans un quartier voisin de votre choix. Effet instantané.',
-    icon: '💃'
-  },
-  racket_etablissements: {
-    desc: 'Percevez immédiatement les revenus de tous les établissements d\'un quartier ciblé, même s\'ils ne vous appartiennent pas.',
-    icon: '💰'
-  },
-  casino_gratuit: {
-    desc: 'Construisez un casino gratuitement sur une zone que vous contrôlez. Normalement le casino coûte extrêmement cher.',
-    icon: '🎰'
-  },
-  bloquer_approvisionnements: {
-    desc: 'Bloque tous les approvisionnements (denrées, armes, doses) pendant la durée de l\'effet. Aucun joueur ne peut s\'approvisionner.',
-    icon: '📦'
-  },
-  restriction_ethnie_non_caucasien: {
-    desc: 'Interdit le recrutement de pions non-caucasiens dans le quartier. Restriction permanente tant que le gang est actif.',
-    icon: '🚷'
-  },
-  bloquer_deplacements_manhattan: {
-    desc: 'Bloque tous les déplacements de pions vers Manhattan pendant la durée de l\'effet. Un blocus stratégique redoutable.',
-    icon: '🚕'
-  }
-};
 
 function showShareModal() {
   if (!gameState) return;
@@ -2997,13 +2969,13 @@ function showGangInfoModal(quartier) {
     const gangActif = gameState.gangs_actifs[quartier.id];
     if (gangActif) {
       const owner = gameState.joueurs[gangActif.joueur];
-      statusHtml = `<div class="gang-modal-status active"><span style="color:${owner.couleur}">✔ Activé par ${owner.nom}</span> (tour ${gangActif.tour_activation})</div>`;
+      statusHtml = `<div class="gang-modal-status active"><span style="color:${col(owner.couleur)}">✔ Activé par ${e(owner.nom)}</span> (tour ${gangActif.tour_activation})</div>`;
     } else {
       const owner = gameState.getQuartierOwner(quartier.id, gameData.gameplay);
       if (owner !== null) {
         const j = gameState.joueurs[owner];
         const canActivate = gameState.tour >= 7;
-        statusHtml = `<div class="gang-modal-status"><span style="color:${j.couleur}">${j.nom}</span> contrôle ce quartier${canActivate ? ' — <strong>peut activer</strong>' : ' — activable après le tour 7'}</div>`;
+        statusHtml = `<div class="gang-modal-status"><span style="color:${col(j.couleur)}">${e(j.nom)}</span> contrôle ce quartier${canActivate ? ' — <strong>peut activer</strong>' : ' — activable après le tour 7'}</div>`;
       } else {
         statusHtml = `<div class="gang-modal-status">Aucun joueur ne contrôle ce quartier</div>`;
       }
@@ -3011,9 +2983,9 @@ function showGangInfoModal(quartier) {
   }
 
   const html = `
-    <h3>${info.icon} ${g.nom} ${helpLink('gang')}</h3>
-    <div class="gang-modal-quartier">Quartier : <strong>${quartier.nom}</strong> (${quartier.zones.length} zones, ${quartier.points} pts)</div>
-    <div class="gang-modal-effect">${info.desc}</div>
+    <h3>${info.icon} ${e(g.nom)} ${helpLink('gang')}</h3>
+    <div class="gang-modal-quartier">Quartier : <strong>${e(quartier.nom)}</strong> (${quartier.zones.length} zones, ${quartier.points} pts)</div>
+    <div class="gang-modal-effect">${e(info.desc)}</div>
     <div class="gang-modal-details">
       <div class="stat-row"><span class="stat-label">Durée</span><span class="stat-value">${dur}</span></div>
       <div class="stat-row"><span class="stat-label">Usage unique</span><span class="stat-value">${g.usage_unique ? 'Oui — une seule activation' : 'Non — réutilisable'}</span></div>
@@ -3041,7 +3013,7 @@ function renderLegend() {
     const c = QUARTIER_COLORS[q.id];
     const item = document.createElement('div');
     item.className = 'legend-item';
-    item.innerHTML = `<div class="legend-swatch" style="background:${c.fill};border-color:${c.stroke}"></div><span>${q.nom}</span><span class="legend-info">${q.zones.length}z · ${q.points}pts</span>`;
+    item.innerHTML = `<div class="legend-swatch" style="background:${c.fill};border-color:${c.stroke}"></div><span>${e(q.nom)}</span><span class="legend-info">${q.zones.length}z · ${q.points}pts</span>`;
     item.onclick = () => {
       if (highlightedQ === q.id) { highlightedQ = null; mapRenderer.highlightQuartier(null); el.querySelectorAll('.legend-item').forEach(e => e.classList.remove('active')); }
       else { highlightedQ = q.id; mapRenderer.highlightQuartier(q.id); el.querySelectorAll('.legend-item').forEach(e => e.classList.remove('active')); item.classList.add('active'); }
