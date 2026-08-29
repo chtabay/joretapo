@@ -72,7 +72,7 @@ export const DICT_ENTRIES = {
     content: `
       <p>Un <strong>tour</strong> représente un cycle complet des 5 phases du jeu.</p>
       <p>Chaque tour, chaque joueur dispose de <strong>5 ordres</strong> au total, répartis entre la phase 1 (approvisionnement, construction) et la phase 4 (déplacements, création de pions, <strong>soutien à un allié</strong>).</p>
-      <p><strong>Tous les 7 tours</strong> : élections municipales, tirage de cartes magouille (8→4), et activation des gangs possible à partir du tour 7.</p>
+      <p><strong>Tous les ${RULES.toursParMandat} tours</strong> : élections municipales, puis tirage de cartes magouille (on pioche ${RULES.draftPioche}, on en garde ${RULES.draftGarde}). Les gangs s'activent à partir du tour 7.</p>
     `
   },
   phase: {
@@ -136,7 +136,7 @@ export const DICT_ENTRIES = {
   election: {
     title: 'Élections municipales',
     content: `
-      <p>Les élections ont lieu <strong>tous les 7 tours</strong> (tours 7, 14, 21…).</p>
+      <p>Les élections ont lieu <strong>tous les ${RULES.toursParMandat} tours</strong> : à la fin des tours ${[...Array(Math.floor((RULES.finDePartie - 1) / RULES.toursParMandat)).keys()].map(i => (i + 1) * RULES.toursParMandat).join(' et ')}. La partie s'achevant au ${RULES.finDePartie}<sup>e</sup>, il y a donc deux scrutins : le titre se reprend.</p>
       <p>Chaque joueur vote secrètement pour un candidat. Le poids du vote dépend de la <strong>population</strong> contrôlée (zones avec pions armés ou constructions).</p>
       <p>Le vainqueur devient <strong>maire</strong> et obtient 2 privilèges : taxe, coupure électricité, repositionner flics, exproprier, déplacer gitans, placer incorruptible.</p>
     `
@@ -159,9 +159,9 @@ export const DICT_ENTRIES = {
         <tr><td>Port</td><td>20</td><td>10</td><td></td></tr>
         <tr><td>Aéroport</td><td>10</td><td>—</td><td>+4 prostituées</td></tr>
         <tr><td>Péage</td><td>10</td><td>4</td><td>+1 prostituée</td></tr>
-        <tr><td>Camp gitans</td><td>—</td><td>∞</td><td>Armes à 3× le prix (12L)</td></tr>
+        <tr><td>Camp gitans</td><td>—</td><td>∞</td><td>Armes à 6× le prix (24L)</td></tr>
       </table>
-      <p><strong>Prix</strong> : doses = 2L, armes = 4L (12L chez les gitans).</p>
+      <p><strong>Prix</strong> : doses = 2L, armes = 4L — et 24L au marché noir des camps gitans, soit six fois le prix. Un péage de 50 % s'ajoute quand l'équipement appartient à un autre joueur.</p>
       <p>Les <strong>administrations</strong> (ambassade, douanes, immigration) augmentent les plafonds si possédées.</p>
       <p>Chaque commande utilise <strong>1 ordre</strong>. Une seule ligne par denrée et par point.</p>
     `
@@ -231,9 +231,9 @@ export const DICT_ENTRIES = {
     content: `
       <p>Créez un dealer ou trafiquant sur une zone que vous contrôlez.</p>
       <table class="dict-table">
-        <tr><th>Pion</th><th>Coût</th><th>Fonction</th><th>Roi avec…</th></tr>
-        <tr><td>Dealer</td><td>40L + 2 armes</td><td>Vend drogue (3L/dose)</td><td>8+ → 10 pts</td></tr>
-        <tr><td>Trafiquant</td><td>80L + 3 armes</td><td>Vend armes (8L/arme)</td><td>6+ → 10 pts</td></tr>
+        <tr><th>Pion</th><th>Coût</th><th>Fonction</th></tr>
+        <tr><td>Dealer</td><td>40L + 2 armes</td><td>Vend drogue (3L/dose)</td></tr>
+        <tr><td>Trafiquant</td><td>80L + 3 armes</td><td>Vend armes (8L/arme)</td></tr>
       </table>
       <p>Le coût est versé à la <strong>police</strong>. Le pion apparaît immédiatement.</p>
       <p><strong>Cohabitation</strong> : un seul pion armé par case, les prostituées peuvent cohabiter avec.</p>

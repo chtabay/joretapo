@@ -600,3 +600,29 @@ test('recharger pendant un vote ou un draft repasse aussi par leur rideau', asyn
 
   assert.equal(repris.phase, PHASE.ELECTION_CURTAIN, 'le bulletin est secret lui aussi');
 });
+
+test('une phase publique déjà jouée ne se rejoue pas à la reprise', async () => {
+  /* La récolte et la résolution MUTENT l'état en s'affichant. La sauvegarde
+     porte leur nom de phase pendant tout l'affichage du journal : sans marque,
+     chaque rechargement recréditait toute la table — indéfiniment. */
+  const { gs, tm } = await newManager(3);
+  tm.phase = PHASE.REVEAL_HARVEST;
+  tm.marquerFaite('recolte');
+
+  const repris = new TurnManager(gs, testCity());
+  repris.resumePhase();
+
+  assert.equal(repris.phase, PHASE.NEGOTIATION, 'on passe à la suite, on ne récolte pas deux fois');
+});
+
+test('une phase publique interrompue avant son traitement est bien jouée', async () => {
+  /* Le rechargement peut tomber entre le changement de phase et son traitement :
+     là, il faut au contraire la laisser se faire. */
+  const { gs, tm } = await newManager(3);
+  tm.phase = PHASE.REVEAL_RESOLVE;
+
+  const repris = new TurnManager(gs, testCity());
+  repris.resumePhase();
+
+  assert.equal(repris.phase, PHASE.REVEAL_RESOLVE);
+});

@@ -87,8 +87,9 @@ export class RevenueEngine {
    * defendu. Le peage seul ne suffisait pas : il rendait l'equipement rentable,
    * pas necessaire.
    *
-   * Mesure sur le plateau de New York : douze points existent, un quartier de
-   * depart en atteint un a trois. C'est la contrainte qui donne un objectif
+   * Mesure sur le plateau de New York : treize points existent — trois ports,
+   * cinq peages, un aeroport et quatre camps gitans — et un quartier de depart
+   * en atteint un a trois. C'est la contrainte qui donne un objectif
    * militaire a un port.
    */
   static estAPortee(gs, pid, pointZone, adjacencies) {

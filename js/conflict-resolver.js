@@ -283,9 +283,17 @@ export class ConflictResolver {
     if (tied || winner === null) {
       const exAequo = [...participants.entries()].filter(([, d]) => d.strength === maxStrength);
 
-      const enPlace = exAequo.find(([pid, d]) => d.isDefender || gs.plateau[dest]?.proprietaire === pid);
+      /* « Tenir la zone », c'est y avoir un pion, pas y avoir le drapeau. Les
+         deux criteres etaient fusionnes dans un seul find, tranche par l'ordre
+         d'insertion — les attaquants avant le defenseur : il suffisait qu'une
+         prostituee de l'ancien proprietaire soit restee sur place pour que le
+         drapeau ne suive pas le pion arme adverse, et l'attaquant delogeait a
+         force strictement egale un defenseur bien present. */
+      const physique = exAequo.find(([, d]) => d.isDefender);
+      const drapeau = exAequo.find(([pid]) => gs.plateau[dest]?.proprietaire === pid);
+      const enPlace = physique || drapeau;
       let departage = enPlace || null;
-      let motif = enPlace ? 'tient la zone' : null;
+      let motif = physique ? 'défend la zone' : enPlace ? 'la zone lui appartient' : null;
 
       if (!departage) {
         const pionsDe = pid => movers.filter(m => m.pid === pid).length;
@@ -321,8 +329,30 @@ export class ConflictResolver {
       type: 'conflict'
     });
 
-    // Les pions du vainqueur avancent (1 seul armé par case)
-    if (winnerMoves.length > 0) result.winners.push(winnerMoves[0]);
+    /* On n'entre jamais sur une case ou un pion arme adverse reste debout.
+       Le classement du defenseur ignore les pions d'un joueur qui attaque aussi
+       la case : quand un joueur y avait deja un pion ET en envoyait un autre,
+       personne n'etait declare defenseur, personne ne fuyait — et depuis que
+       l'egalite est departagee, le vainqueur entrait par-dessus. La case
+       finissait avec un pion arme de chaque camp, configuration que le jeu
+       interdit partout ailleurs et devant laquelle le decompte de propriete
+       renonce. */
+    const survivants = gs.plateau[dest].pions.filter(p =>
+      IS_ARMED(p.type) && p.joueur !== winner &&
+      !(defenderPid !== null && defenderPid !== winner && p.joueur === defenderPid)
+    );
+    if (winnerMoves.length > 0) {
+      if (survivants.length === 0) {
+        result.winners.push(winnerMoves[0]);
+      } else {
+        result.cancelled.push(winnerMoves[0]);
+        result.log.push({
+          pid: winner,
+          msg: `${gs.joueurs[winner].nom}: ${zoneName} reste tenue par un pion adverse, l'assaut rebondit`,
+          type: 'warn'
+        });
+      }
+    }
 
     // Les attaquants perdants restent en place
     movers.filter(m => m.pid !== winner).forEach(m => result.cancelled.push(m));

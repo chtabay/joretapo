@@ -95,8 +95,9 @@ export const RULES = {
    * d'etre pris — la logistique n'avait aucune geographie.
    *
    * 0,5 place la rente a un niveau qui se remarque sans etouffer : 30 armes
-   * achetees chez un rival lui versent 60 lingots. Six des onze quartiers de
-   * depart ne portant aucun point, ce ne peut pas etre un verrou.
+   * achetees chez un rival lui versent 60 lingots. Cinq des onze quartiers de
+   * depart ne portant aucun equipement dans leurs propres zones, ce ne peut pas
+   * etre un verrou.
    */
   peageApproPct: 0.5,
 

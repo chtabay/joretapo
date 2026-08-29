@@ -356,3 +356,41 @@ test('un pion ne peut pas soutenir et se battre le même tour', async () => {
   assert.equal(gs.plateau['B1'].pions.filter(p => p.joueur === 0).length, 1,
     "un seul pion occupe la zone conquise");
 });
+
+test('on n\'entre jamais sur une case où un pion armé adverse reste debout', async () => {
+  /* Le classement du défenseur ignore les pions d'un joueur qui attaque aussi la
+     case. Quand un joueur y avait déjà un pion ET en envoyait un autre, personne
+     n'était déclaré défenseur, personne ne fuyait — et depuis que l'égalité est
+     départagée, le vainqueur entrait par-dessus : la case finissait avec un pion
+     armé de chaque camp, ce que le jeu interdit partout ailleurs. */
+  const { gs, city, adj } = await newTestGame(2);
+  place(gs, 'D1', 'dealer', 1);
+  gs.plateau['D1'].proprietaire = 0;      /* le drapeau est à J0, le pion à J1 */
+  place(gs, 'D2', 'dealer', 0);
+  place(gs, 'B1', 'dealer', 1);
+
+  ConflictResolver.resolve(gs, {
+    0: [move('D2', 'D1')],
+    1: [move('B1', 'D1')]
+  }, adj, city);
+
+  const armes = gs.plateau['D1'].pions.filter(p => p.type === 'dealer' || p.type === 'trafiquant');
+  assert.equal(new Set(armes.map(p => p.joueur)).size, 1,
+    'une seule couleur de pion armé par case');
+});
+
+test('à égalité, le pion présent l\'emporte sur le drapeau', async () => {
+  /* « Tenir la zone », c'est y avoir un pion, pas y avoir le drapeau. Une
+     prostituée de l'ancien propriétaire restée sur place suffisait à ce que le
+     drapeau ne suive pas le pion armé adverse : l'attaquant délogeait alors un
+     défenseur bien présent, à force strictement égale. */
+  const { gs, city, adj } = await newTestGame(2);
+  place(gs, 'B1', 'prostituee_base', 0);          /* le drapeau reste à J0 */
+  gs.plateau['B1'].pions.push({ type: 'dealer', joueur: 1 });
+  place(gs, 'A2', 'dealer', 0);
+
+  ConflictResolver.resolve(gs, { 0: [move('A2', 'B1')] }, adj, city);
+
+  assert.equal(holds(gs, 'B1', 1), true, 'le défenseur présent garde la zone');
+  assert.equal(holds(gs, 'A2', 0), true, 'l\'assaut rebondit');
+});

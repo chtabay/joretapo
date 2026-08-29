@@ -6,7 +6,7 @@ import { TurnManager, PHASE, GAME_PHASE_LABELS } from './turn-manager.js';
 import { RevenueEngine, BUY_PRICE, CONSTRUCTION_DEFS } from './revenue-engine.js';
 import { ConflictResolver, PORTEE_SOUTIEN } from './conflict-resolver.js';
 import { MayorEngine, MAYOR_POWERS } from './mayor-engine.js';
-import { vueJoueurs, quartiersDisputes } from './vues.js';
+import { vueJoueurs, classementDe, quartiersDisputes } from './vues.js';
 import { MagouilleEngine } from './magouille-engine.js';
 import { SpecialEntities } from './special-entities.js';
 import { ContractEngine, CONTRACT_TYPES } from './contract-engine.js';
@@ -115,6 +115,13 @@ function renderTitleScreen() {
   /* Le bandeau de victoire annoncait « 35 points » et « domination de marche,
      richesse » en dur : deux paliers supprimes et un seuil recale plus tard, il
      mentait sur les deux. Il se remplit depuis js/rules.js. */
+  const scrutin = document.getElementById('intro-election');
+  if (scrutin) {
+    const tours = [...Array(Math.floor((RULES.finDePartie - 1) / RULES.toursParMandat)).keys()]
+      .map(i => (i + 1) * RULES.toursParMandat);
+    scrutin.innerHTML = `Tous les <strong>${RULES.toursParMandat} tours</strong> — fin des tours ${tours.join(' et ')} — ` +
+      `des élections municipales. Le maire gagne 15 pts et 2 privilèges, et doit les redéfendre au scrutin suivant.`;
+  }
   const victoire = document.getElementById('intro-victory');
   if (victoire) {
     victoire.innerHTML = `<strong>🏆 ${RULES.victoire} points pour gagner</strong><br>` +
@@ -246,9 +253,14 @@ function updateBarreDePartie() {
 
   const destinataire = qui();
   const vues = vueJoueurs(gameState, gameData.gameplay, { revele: destinataire });
-  const visibles = vues.filter(v => !v.cache);
-  const mien = destinataire !== 'tous';
-  const ref = mien ? vues[destinataire] : visibles.reduce((a, b) => (b.points > a.points ? b : a), visibles[0]);
+  /* Deux pieges successifs ici, tous deux au meme endroit. Le test portait sur
+     'tous', valeur que qui() ne rend plus : `mien` etait toujours vrai et `ref`
+     valait undefined. Puis le meneur etait cherche parmi les joueurs NON masques
+     — or ils le sont tous desormais, la liste etait vide. Le meneur se lit sur
+     les POINTS, qui sont publics : c'est tout l'interet de les avoir sortis du
+     calcul secret. */
+  const mien = destinataire !== 'aucun';
+  const ref = mien ? vues[destinataire] : classementDe(vues)[0];
 
   const score = ref
     ? `<span class="etb-score"><span class="etb-score-qui">${mien ? 'vous' : 'tête'}</span> <strong>${ref.points}</strong>/${RULES.victoire}</span>`
@@ -708,6 +720,13 @@ function onPhaseChange() {
 
   const hasActivePlayer = [PHASE.CURTAIN, PHASE.ORDERS_SUPPLY, PHASE.ORDERS_MOVE, PHASE.ELECTION_CURTAIN, PHASE.ELECTION_VOTE, PHASE.DRAFT_CURTAIN, PHASE.DRAFT_PICK].includes(turnManager.phase);
   setPlayerTopbar(hasActivePlayer ? turnManager.currentPlayer : null);
+
+  /* Les anneaux « equipement a portee » etaient poses par la feuille d'ordres et
+     n'etaient effaces qu'a la suivante, deux phases plus loin : pendant la
+     revelation, la negociation et le rideau, la carte cerclait encore les
+     equipements du DERNIER joueur ayant achete, comme s'ils l'etaient pour tout
+     le monde. Ils n'appartiennent qu'a une phase de saisie. */
+  if (turnManager.phase !== PHASE.ORDERS_SUPPLY) mapRenderer?.marquerPortee([]);
 
   switch (turnManager.phase) {
     case PHASE.CURTAIN: renderCurtain(); break;
@@ -2454,7 +2473,7 @@ function processAndShowReveal() {
   const supplyLog = RevenueEngine.processSupplyOrders(gameState, turnManager.supplyOrders, gameData.gameplay, gameData.adjacencies);
   const revenueLog = RevenueEngine.calculateRevenues(gameState, gameData.gameplay, gameData.adjacencies);
   const expired = ContractEngine.tickContracts(gameState);
-  gameState.save();
+  turnManager.marquerFaite('recolte');
   refreshMap();
 
   const cLog = contractLog.map(cl => ({
@@ -2678,7 +2697,7 @@ function showCoupoleToast(msg) {
 function processAndShowResolve() {
   const avant = instantane();
   const moveLog = ConflictResolver.resolve(gameState, turnManager.moveOrders, gameData.adjacencies, gameData.gameplay);
-  gameState.save();
+  turnManager.marquerFaite('resolution');
   refreshMap();
 
   showRevealOverlay('Résolution des mouvements', moveLog, () => {

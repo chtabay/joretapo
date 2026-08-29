@@ -77,6 +77,12 @@ function mancheVierge(nbJoueurs) {
   const parJoueur = () => Object.fromEntries(Array.from({ length: nbJoueurs }, (_, i) => [i, []]));
   return {
     phase: null,
+    /* Les deux phases publiques MUTENT l'etat en s'affichant : la recolte
+       encaisse les revenus, la resolution deplace les pions. Sans marque, une
+       reprise apres rechargement les rejouait — et chaque reprise recreditait
+       toute la table. On note donc qu'elles ont eu lieu. */
+    recolteFaite: false,
+    resolutionFaite: false,
     playerQueue: [],
     currentPlayerIdx: 0,
     supplyOrders: parJoueur(),
@@ -147,6 +153,16 @@ export class TurnManager {
       };
       const rideau = RETOUR_AU_RIDEAU[this.gs.manche.phase];
       if (rideau) this.gs.manche.phase = rideau;
+
+      /* Une phase publique deja jouee ne se rejoue pas : on passe a la suivante.
+         Si elle ne l'a pas ete — le rechargement tombe dans l'intervalle entre
+         le changement de phase et son traitement — on la laisse se faire. */
+      if (this.gs.manche.phase === PHASE.REVEAL_HARVEST && this.gs.manche.recolteFaite) {
+        this.gs.manche.phase = PHASE.NEGOTIATION;
+        this.gs.phase = 3;
+      } else if (this.gs.manche.phase === PHASE.REVEAL_RESOLVE && this.gs.manche.resolutionFaite) {
+        this.gs.manche.phase = PHASE.TURN_END;
+      }
       this._emit();
       return;
     }
@@ -211,6 +227,13 @@ export class TurnManager {
       case 4: this.gs.phase = 5; this.phase = PHASE.REVEAL_RESOLVE; break;
       case 5: this.phase = PHASE.TURN_END; break;
     }
+  }
+
+  /** Marque une phase publique comme jouee, pour qu'une reprise ne la rejoue pas. */
+  marquerFaite(quoi) {
+    if (quoi === 'recolte') this.gs.manche.recolteFaite = true;
+    if (quoi === 'resolution') this.gs.manche.resolutionFaite = true;
+    this.gs.save();
   }
 
   continueFromReveal() { this._advance(); this._emit(); }
