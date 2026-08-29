@@ -1,0 +1,61 @@
+name: Publication
+
+# Le site a passe cinq mois en retard sur le depot sans que rien ne le dise :
+# Pages servait main, main n'avait pas bouge, et on a teste a la table une
+# version d'avant tout le travail. Ce fichier existe pour que « c'est dans le
+# depot » et « c'est en ligne » redeviennent la meme phrase.
+#
+# Il remplace le service depuis une branche : il faut donc, une fois, basculer
+# Settings > Pages > Source sur « GitHub Actions ». Ce qu'on y gagne par rapport
+# au service direct de main : rien ne part en ligne si les tests sont rouges.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Une publication a la fois, et on ne coupe pas celle qui est en cours : la
+# derniere poussee gagne, mais elle attend son tour.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  verifier:
+    name: Tests avant publication
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # Aucune dependance, aucun build : ce qui est teste ici est exactement ce
+      # qui sera servi. C'est la propriete qui rend cette barriere honnete.
+      - name: Tests des moteurs
+        run: npm test
+
+  publier:
+    name: Publier sur Pages
+    needs: verifier
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploiement.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/configure-pages@v5
+
+      # Le depot EST le site : index.html est a la racine, les modules sont
+      # charges tels quels par le navigateur. Rien a construire.
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: '.'
+
+      - id: deploiement
+        uses: actions/deploy-pages@v4

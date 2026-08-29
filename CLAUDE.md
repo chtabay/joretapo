@@ -236,6 +236,18 @@ ceux qui étaient couverts. On mesure au doigt, avec `elementFromPoint`.
   deux les passages de tablette mais supprime les combats. Le raisonnement
   complet est en tête de `js/turn-manager.js` — ne pas la refaire sans le lire.
 
+## Mettre en ligne
+
+Le site est servi par GitHub Pages depuis `main`, et `.github/workflows/pages.yml`
+le republie à chaque poussée, **une fois les tests verts**. Tant que le travail
+reste sur une branche, il n'est pas en ligne : c'est ainsi qu'une version de mars
+a été testée à la table cinq mois plus tard, avec trois défauts déjà corrigés
+depuis. Si le jeu en ligne ne ressemble pas au dépôt, la question n'est pas
+« quel bug » mais « quel commit ».
+
+Le workflow remplace le service depuis une branche : il faut, une fois, basculer
+*Settings → Pages → Source* sur « GitHub Actions ».
+
 ## Conventions
 
 - Le code, les commentaires et les libellés de test sont en **français**.
