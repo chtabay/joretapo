@@ -437,6 +437,11 @@
   /* ── Mayor ── */
   .op-btn-mayor { background: rgba(248,196,138,0.12) !important; border-color: #f8c48a !important; color: #f8c48a !important; }
   .op-btn-mayor:hover { background: rgba(248,196,138,0.2) !important; }
+  /* Le refus d'un geste sur la carte. Meme gabarit que les autres, teinte
+     d'avertissement : il repond a un doigt, pas a un evenement de jeu. */
+  .geste-toast { position: fixed; top: 44px; left: 50%; transform: translateX(-50%); background: #2e2413; color: #f39c12; padding: 10px 20px; border-radius: 8px; border: 1px solid rgba(243,156,18,0.5); font-weight: 600; font-size: 13px; z-index: 90; pointer-events: none; max-width: calc(100% - 24px); text-align: center; }
+  .geste-choix { display: flex; flex-direction: column; gap: 8px; margin: 12px 0; }
+  .geste-choix .geste-pion { text-transform: capitalize; }
   .mayor-toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: #2a1a3e; color: #f8c48a; padding: 12px 24px; border-radius: 8px; border: 1px solid #f8c48a; font-weight: 600; z-index: 90; animation: slideUp 0.4s ease, fadeIn 0.4s ease; pointer-events: none; }
 
   /* ── Negotiation ── */
@@ -893,6 +898,7 @@
 
     .curtain-turn { font-size: 22px; }
     .curtain-player { font-size: 28px; }
+    .geste-toast { left: 8px; right: 8px; transform: translateX(0); width: calc(100% - 16px); }
     .magouille-toast, .mayor-toast, .contract-toast, .coupole-toast, .heist-toast { font-size: 14px; padding: 10px 20px; left: 8px; right: 8px; transform: translateX(0); width: calc(100% - 16px); }
 
     .heist-grid { grid-template-columns: 1fr; }

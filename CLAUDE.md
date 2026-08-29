@@ -303,6 +303,48 @@ passent avec, et les ouvrages vivent dans `data/ouvrages.json`, fusionnés
 **après** le calcul géométrique : une régénération de la carte ne les efface
 plus.
 
+## Déplacer au doigt : deux touchers, pas un glissé
+
+Deuxième remarque de la table : « l'ergonomie du déplacement est complexe,
+pourrait-on glisser les pions sur la carte ? Faudrait-il des sprites ? »
+
+Réponse mesurée : **oui pour la carte, non pour le glissé, non pour les
+sprites.**
+
+| Mesure, Playwright, cinq formats | Relevé |
+|---|---|
+| Diamètre d'un pion à l'écran | **18 px** partout — la contre-échelle tient |
+| Entraxe de deux pions voisins | 20 px |
+| Ce que touche le doigt au centre d'un pion | `path.zone` — les pions sont transparents aux événements |
+| Petit côté d'une zone, portrait, médiane | **121 px**, minimum 44, aucune sous 44 |
+| Glissé depuis le centre exact d'un pion | **3 px suffisent à déplacer la carte** |
+
+Un pion ne se saisit pas ; une zone, si — elle est 6,7 fois plus large. Et
+greffer un glisser-déposer obligerait à ajouter un seuil ou un appui long au
+déplacement de la carte, c'est-à-dire à abîmer le geste principal du plateau
+pour en installer un second. Le modèle d'ordres, lui, n'a jamais besoin de
+désigner un pion précis : seulement `(from, pion_type, to)`.
+
+D'où le geste retenu, en phase 4 : **toucher ma case, toucher la voisine.**
+Les destinations légales s'éclairent, la règle d'entrée du moteur est consultée
+avant que l'ordre soit posé, une flèche part du départ vers l'arrivée, et la
+retoucher annule l'ordre. Rien ne bouge sur le plateau : les ordres restent
+différés, le pion ne se déplace qu'à la résolution.
+
+Coût : **0 passage de tablette**, aucun sprite, une couche SVG de plus. Les
+flèches sont peintes hors de `refreshMap`, qui ne fait rien pendant les phases
+secrètes — or c'est précisément là qu'elles servent ; ce qu'elles montrent est
+le secret de celui qui tient la tablette, et il n'y en a jamais que d'un joueur.
+
+Deux pièges payés en chemin, tous deux invisibles aux tests :
+
+- **`renderOrderPanel` n'est pas un rafraîchissement, c'est une ouverture** : il
+  remet `pendingOrders` à zéro. L'appeler pour redessiner le compteur effaçait
+  l'ordre à l'instant même où on le comptait. Le bon crochet est le `refresh`
+  interne du panneau.
+- **Un écouteur posé sur une couche qu'on vide et regarnit** est un écouteur
+  qu'on croit accroché. Celui des flèches vit sur la racine SVG.
+
 ## Ce qui reste ouvert
 
 - **Aucune partie n'a encore été jouée par des humains.** Le pilote appuie sur
@@ -310,6 +352,12 @@ plus.
   regardant la tablette du voisin. C'est la prochaine étape et elle prime sur
   tout le reste : si les notes d'une vraie table contredisent ce qui est écrit
   ici, ce sont elles qui gagnent.
+- **La question des stocks et des besoins n'a pas été instruite.** « L'état des
+  stocks et des besoins n'est pas très clair » est le troisième point remonté de
+  la table ; l'enquête a été interrompue avant d'aboutir. Ce qui est déjà
+  établi : les trois ressources s'affichent en pastilles, les coûts n'apparaissent
+  que sur certains boutons, et rien ne dit d'un coup d'œil ce qu'on peut se
+  payer. À reprendre.
 - Le taux de combat mesuré reste faible (10 % des parties). Les bots du banc sont
   gloutons et prudents ; un joueur réel attaquera plus. À revérifier à la table.
 - 4 tests `todo` documentent des défauts connus non corrigés (`npm test` les

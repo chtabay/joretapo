@@ -93,6 +93,8 @@ export class MapRenderer {
     this.pathMap = {};
     this.featureMap = {};
     this.pionsGroup = null;
+    this.gOrdres = null;
+    this.onOrdreClick = null;
     this.selectedId = null;
     this.onZoneSelect = null;
 
@@ -225,6 +227,11 @@ export class MapRenderer {
     this.glyphScale = this._unitsPerPixel();
     const k = this.glyphScale;
 
+    /* Les fleches d'ordres portent une epaisseur et une pointe contre-echelees :
+       elles doivent etre repeintes a chaque changement de cadrage, sinon un
+       zoom les reduit a un cheveu et un dezoom a un pate. */
+    if (this._ordres) this.marquerOrdres(this._ordres, this._ordresCouleur);
+
     Object.entries(this.glyphGroups).forEach(([zid, g]) => {
       const [cx, cy] = this.centroids[zid] || [0, 0];
       g.setAttribute('transform', `translate(${cx.toFixed(2)} ${cy.toFixed(2)}) scale(${k.toFixed(5)})`);
@@ -316,6 +323,7 @@ export class MapRenderer {
        noms de zone : le nom du proprietaire d'un quartier — qui pese l'essentiel
        des points — passait sous « Little Ferry / Meadowlands ». */
     this.gQuartierBadges = document.createElementNS(NS, 'g');
+    this.gOrdres = document.createElementNS(NS, 'g');
     this.gLabels = document.createElementNS(NS, 'g');
     this.pionsGroup = document.createElementNS(NS, 'g');
 
@@ -430,6 +438,7 @@ export class MapRenderer {
     this.svg.appendChild(this.gQuartierBorders);
     this.svg.appendChild(this.gLabels);
     this.svg.appendChild(this.gQuartierBadges);
+    this.svg.appendChild(this.gOrdres);
     this.svg.appendChild(this.pionsGroup);
 
     this.container.innerHTML = '';
@@ -554,6 +563,18 @@ export class MapRenderer {
       if (path) this.selectZone(path.dataset.id, e);
     });
 
+    /* Toucher une fleche annule son ordre : le geste inverse, au meme endroit
+       que celui qui l'a pose. L'ecouteur est pose sur la RACINE et non sur la
+       couche des fleches : celle-ci est videe et regarnie a chaque repeinture,
+       et un ecouteur accroche a une couche qu'on croit stable est un ecouteur
+       qu'on croit accroche. La racine, elle, ne bouge pas. */
+    this.svg.addEventListener('click', e => {
+      const g = e.target.closest?.('[data-ordre]');
+      if (!g) return;
+      e.stopPropagation();
+      this.onOrdreClick?.(+g.dataset.ordre);
+    });
+
     /* Pousser le viewBox d'ouverture dans le DOM. Sans ça, l'attribut reste à
        l'étendue complète posée par _buildSvg jusqu'au premier zoom, et l'échelle
        des pions est calculée contre une vue qui n'est pas celle affichée. */
@@ -598,6 +619,64 @@ export class MapRenderer {
       } else {
         p.classList.add('dimmed');
       }
+    });
+  }
+
+  /**
+   * Peint les ordres de déplacement déjà posés mais pas encore résolus.
+   *
+   * Les ordres sont différés : rien ne bouge avant la phase 5. Un geste qui
+   * déplacerait le pion mentirait sur l'état du plateau. On dessine donc une
+   * flèche du départ vers l'arrivée — le pion reste où il est, l'intention se
+   * lit sans ouvrir la feuille d'ordres.
+   *
+   * La flèche vit en unités SVG et NON dans un groupe contre-échelé : sa
+   * longueur est une distance de plateau, elle doit grandir avec le zoom. Seule
+   * l'épaisseur et la pointe sont contre-échelées, sinon la pointe devient un
+   * pâté au dézoom et le trait un cheveu au zoom.
+   */
+  marquerOrdres(ordres, couleur) {
+    if (!this.gOrdres) return;
+    this._ordres = ordres;
+    this._ordresCouleur = couleur;
+    while (this.gOrdres.firstChild) this.gOrdres.removeChild(this.gOrdres.firstChild);
+    const k = this.glyphScale || 1;
+    (ordres || []).forEach((o, i) => {
+      /* Meme repli que centrerSur : les centroides sont calcules paresseusement,
+         une zone jamais peinte n'en a pas encore. */
+      const centre = z => this.centroids[z] || (this.featureMap[z] ? this._centroid(this.featureMap[z]) : null);
+      const a = centre(o.from), b = centre(o.to);
+      if (!a || !b) return;
+      const g = document.createElementNS(NS, 'g');
+      g.dataset.ordre = String(i);
+      g.style.cursor = 'pointer';
+
+      const trait = document.createElementNS(NS, 'line');
+      trait.setAttribute('x1', a[0].toFixed(1)); trait.setAttribute('y1', a[1].toFixed(1));
+      trait.setAttribute('x2', b[0].toFixed(1)); trait.setAttribute('y2', b[1].toFixed(1));
+      trait.setAttribute('stroke', couleur || '#fff');
+      trait.setAttribute('stroke-width', (5 * k).toFixed(2));
+      trait.setAttribute('stroke-linecap', 'round');
+      trait.setAttribute('opacity', '0.9');
+      g.appendChild(trait);
+
+      /* Zone sensible : un trait de 5 px ne s'annule pas au doigt. On le double
+         d'un second, transparent et large de 44 px écran — d'où le facteur. */
+      const prise = trait.cloneNode();
+      prise.setAttribute('stroke', 'transparent');
+      prise.setAttribute('stroke-width', (44 * k).toFixed(2));
+      prise.setAttribute('opacity', '1');
+      g.appendChild(prise);
+
+      const ang = Math.atan2(b[1] - a[1], b[0] - a[0]) * 180 / Math.PI;
+      const pointe = document.createElementNS(NS, 'path');
+      pointe.setAttribute('d', 'M0,0 L-11,-6 L-11,6 Z');
+      pointe.setAttribute('fill', couleur || '#fff');
+      pointe.setAttribute('transform',
+        `translate(${b[0].toFixed(1)} ${b[1].toFixed(1)}) rotate(${ang.toFixed(1)}) scale(${k.toFixed(4)})`);
+      g.appendChild(pointe);
+
+      this.gOrdres.appendChild(g);
     });
   }
 

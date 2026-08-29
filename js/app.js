@@ -32,6 +32,17 @@ let gameState = null;
 let mapRenderer = null;
 let turnManager = null;
 let pendingOrders = [];
+/* Le geste de deplacement sur la carte : deux touchers plutot qu'un glisse.
+   Mesure : un pion fait 18 px de diametre et deux pions voisins sont a 20 px
+   d'entraxe — il ne se saisit pas au doigt. La ZONE, elle, fait 121 px de petit
+   cote en mediane a 390 px de large, et aucune zone visible n'y descend sous 44.
+   C'est elle qu'on saisit. Et un glisse de 3 px depuis le centre exact d'un pion
+   deplace deja la carte : greffer un glisser-deposer abimerait le geste
+   principal du plateau. */
+let gesteSource = null;
+/* La carte pose desormais des ordres : il lui faut de quoi rafraichir la feuille
+   qui les compte. Sans ca, le budget d'ordres affiche ment. */
+let rafraichirFeuille = null;
 let turnLog = [];
 
 /**
@@ -179,10 +190,12 @@ function renderGameScreen() {
       document.getElementById('mobile-stats-sheet')?.classList.add('hidden');
       document.getElementById('order-panel')?.classList.add('hidden');
     }
+    if (id && gesteSurZone(id)) return;
     if (id && gameState && turnManager && turnManager.isOrderPhase()) {
       showZonePopup(id, event);
     }
   };
+  mapRenderer.onOrdreClick = i => annulerOrdreDeplacement(i);
   const recenter = document.getElementById('btn-recenter');
   if (recenter) recenter.onclick = () => mapRenderer?.recenter();
   /* Deux gestes, pas un : ⤢ montre le plateau, ⌖ me ramène chez moi. Le second
@@ -391,7 +404,28 @@ function refreshMap() {
   carteARafraichir = false;
   mapRenderer.updateOwnership(gameState);
   mapRenderer.renderPions(gameState);
+  peindreMesOrdres();
   updateHUD();
+}
+
+/**
+ * Les ordres posés se lisent sur la carte, pas seulement dans la feuille : une
+ * flèche par déplacement, du départ vers l'arrivée. Rien ne bouge avant la
+ * résolution, le pion reste donc où il est.
+ *
+ * Peinte à part de `refreshMap`, qui ne fait rien pendant les phases secrètes —
+ * or c'est précisément là que ces flèches servent. Ce qu'elles montrent est le
+ * secret de celui qui tient la tablette, à lui seul : elles disparaissent dès
+ * que les ordres sont validés, et il n'y en a jamais que d'un joueur.
+ */
+function peindreMesOrdres() {
+  if (!mapRenderer || !gameState || !turnManager) return;
+  const moi = turnManager.currentPlayerId;
+  const visible = moi != null && turnManager.isOrderPhase();
+  mapRenderer.marquerOrdres(
+    visible ? pendingOrders.filter(o => o.type === 'deplacer') : [],
+    visible ? gameState.joueurs[moi]?.couleur : '#fff'
+  );
 }
 
 
@@ -499,6 +533,124 @@ function updateMobileOrdersBadge() {
   const badge = document.getElementById('mnav-orders-badge');
   if (!badge) return;
   badge.textContent = pendingOrders.length > 0 ? pendingOrders.length : '';
+}
+
+/* ── Le geste de deplacement sur la carte ────────────────────────────────── */
+
+/** Un refus doit se dire. Le silence est ce qui s'est raconte a la table comme
+    « ca a plante » : ordre depense, plateau inchange, aucun ecran. */
+function motSurLaCarte(msg) {
+  document.querySelector('.geste-toast')?.remove();
+  const el = document.createElement('div');
+  el.className = 'geste-toast';
+  el.textContent = msg;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 2600);
+}
+
+/** Mes pions deplacables sur une zone. Au plus deux : le resolveur interdit deux
+    pions armes du meme joueur sur une case, et deux prostituees sur une case
+    tout court. Mesure : 79,4 % des cases n'en portent qu'un, 20,6 % deux. */
+function mesPionsSur(zid, pid) {
+  return [...new Set((gameState.plateau[zid]?.pions || [])
+    .filter(p => p.joueur === pid && p.type !== 'flic')
+    .map(p => p.type))];
+}
+
+/** Ce qui quitte une zone selon mes ordres deja poses — pour lire les chaines. */
+function partantsPosesDe(zid, pid) {
+  return pendingOrders
+    .filter(o => o.type === 'deplacer' && o.from === zid)
+    .map(o => ({ type: o.pion_type, joueur: pid }));
+}
+
+/** Les types de mes pions de `from` qui peuvent legalement entrer sur `to`. */
+function pionsAdmisVers(from, to, pid) {
+  const dejaPose = pendingOrders.some(o => o.type === 'deplacer' && o.from === from);
+  if (dejaPose) return [];
+  return mesPionsSur(from, pid)
+    .filter(t => !obstacleEntree(gameState.plateau[to], t, pid, partantsPosesDe(to, pid)));
+}
+
+function peindreGeste() {
+  if (!mapRenderer) return;
+  mapRenderer.clearHighlights();
+  if (!gesteSource) return;
+  const pid = turnManager.currentPlayerId;
+  const adj = gameData.adjacencies[gesteSource] || [];
+  const legales = adj.filter(a => pionsAdmisVers(gesteSource, a, pid).length > 0);
+  mapRenderer.highlightZones([...legales, gesteSource], {
+    targetClass: 'move-dest', ownedIds: [gesteSource], ownedClass: 'move-source', dimOthers: true
+  });
+}
+
+function poserDeplacement(from, to, pionType) {
+  pendingOrders.push({ type: 'deplacer', pion_type: pionType, from, to });
+  gesteSource = null;
+  peindreGeste();
+  peindreMesOrdres();
+  updateMobileOrdersBadge();
+  rafraichirFeuille?.();
+}
+
+/**
+ * Un toucher sur une zone, pendant la phase de deplacement.
+ *
+ * Rend true si le geste a consomme le toucher — auquel cas le popup de zone ne
+ * s'ouvre pas. Deux touchers posent un ordre : ma case, puis la voisine. C'est
+ * le meme ordre que la feuille produit, dans le meme `pendingOrders`, compte
+ * dans le meme budget : la carte est une seconde porte sur la feuille, pas un
+ * second systeme.
+ */
+function gesteSurZone(zid) {
+  if (!gameState || !turnManager || gameState.phase !== 4 || !turnManager.isOrderPhase()) return false;
+  const pid = turnManager.currentPlayerId;
+
+  if (gesteSource) {
+    if (zid === gesteSource) { gesteSource = null; peindreGeste(); return true; }
+    const adj = gameData.adjacencies[gesteSource] || [];
+    if (adj.includes(zid)) {
+      const admis = pionsAdmisVers(gesteSource, zid, pid);
+      if (admis.length === 1) { poserDeplacement(gesteSource, zid, admis[0]); return true; }
+      if (admis.length > 1) {
+        const src = gesteSource;
+        const nom = t => t.replace(/_/g, ' ');
+        openModal(`<h3>Quel pion ?</h3><div class="geste-choix">${admis.map(t =>
+          `<button class="btn-main geste-pion" data-type="${t}">${nom(t)}</button>`).join('')}</div>
+          <div class="modal-actions"><button class="btn-secondary" id="modal-cancel">Annuler</button></div>`);
+        setTimeout(() => document.querySelectorAll('.geste-pion').forEach(b => {
+          b.onclick = () => { closeModal(); poserDeplacement(src, zid, b.dataset.type); };
+        }), 0);
+        return true;
+      }
+      /* Voisine, mais aucune entree legale : on le dit plutot que de rien faire. */
+      const t0 = mesPionsSur(gesteSource, pid)[0];
+      const raison = pendingOrders.some(o => o.type === 'deplacer' && o.from === gesteSource)
+        ? 'ce pion a déjà un ordre ce tour-ci'
+        : (obstacleEntree(gameState.plateau[zid], t0, pid, partantsPosesDe(zid, pid)) || 'entrée impossible');
+      motSurLaCarte(`Impossible : cette case ${raison}.`);
+      return true;
+    }
+    gesteSource = null;
+    peindreGeste();
+    return false;
+  }
+
+  if (!mesPionsSur(zid, pid).length) return false;
+  gesteSource = zid;
+  peindreGeste();
+  return true;
+}
+
+/** Annule un ordre en touchant sa fleche. */
+function annulerOrdreDeplacement(i) {
+  const mesDeplacements = pendingOrders.filter(o => o.type === 'deplacer');
+  const cible = mesDeplacements[i];
+  if (!cible) return;
+  pendingOrders.splice(pendingOrders.indexOf(cible), 1);
+  peindreMesOrdres();
+  updateMobileOrdersBadge();
+  rafraichirFeuille?.();
 }
 
 /* ── Zone context popup (Piste 3) ── */
@@ -857,6 +1009,8 @@ function peindreRideauSpecial(libellePhase, suite) {
 
 /* ── Order Panel (Phase 1 & 4) ── */
 function renderOrderPanel(gamePhase) {
+  /* La carte pose desormais des ordres elle aussi : il lui faut de quoi
+     redessiner la feuille qui les compte, sinon le budget affiche ment. */
   const panel = document.getElementById('order-panel');
   document.getElementById('info-panel')?.classList.add('shifted');
   const pid = turnManager.currentPlayerId;
@@ -989,6 +1143,15 @@ function renderOrderPanel(gamePhase) {
     fab.classList.add('hidden');
     fab.onclick = () => { panel.classList.remove('hidden'); fab.classList.add('hidden'); };
   }
+
+
+  /* La carte pose désormais des ordres elle aussi : il lui faut de quoi
+     redessiner la feuille qui les compte, sinon le budget affiché ment. C'est
+     `refresh` qu'il faut — surtout pas `renderOrderPanel`, qui rouvre le
+     panneau et vide `pendingOrders` au passage : l'ordre qu'on venait de poser
+     disparaissait à l'instant même où on le comptait. */
+  rafraichirFeuille = refresh;
+  peindreMesOrdres();
 
   refresh();
   panel.classList.remove('hidden', 'collapsed');
