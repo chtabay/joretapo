@@ -538,6 +538,17 @@
   /* Un refus se lit avant de payer l'ordre, pas dans le bilan du tour. */
   .move-illegal-warn { font-size: 12px; color: #f39c12; padding: 6px 10px; background: rgba(243,156,18,0.12); border-radius: 6px; border: 1px solid rgba(243,156,18,0.3); margin-top: 6px; }
   .rb-refus { color: #f39c12; font-weight: 600; }
+  /* La ligne d'etat du bandeau : conditionnelle, elle n'apparait que s'il y a
+     un manque ou un decouvert. Sans elle le bandeau est plus court qu'avant. */
+  .op-etat { font-size: 11.5px; line-height: 1.25; padding: 5px 10px; border-radius: 6px; margin: 0 16px 6px; }
+  .op-etat-ambre { color: #f0c070; background: rgba(243,156,18,0.10); border: 1px solid rgba(243,156,18,0.26); }
+  .op-etat-rouge { color: #ef8b7f; background: rgba(231,76,60,0.12); border: 1px solid rgba(231,76,60,0.34); font-weight: 600; }
+  /* L'avoir NET, et entre-temps ce qu'on avait : un ordre pose engage deja. */
+  .op-res-engage { color: #f0c070; }
+  .op-res small { opacity: 0.55; font-weight: 400; }
+  /* Le prix hors de portee se marque, mais le bouton reste actif : un bouton
+     grise ne dit pas pourquoi, et la modale sait deja nommer le refus. */
+  .op-p-cher { color: #ef8b7f !important; }
   /* Une chaine se lit autrement qu'une case vide : elle depend d'un depart. */
   .move-chain-warn { font-size: 12px; color: #8ab4f8; padding: 6px 10px; background: rgba(138,180,248,0.10); border-radius: 6px; border: 1px solid rgba(138,180,248,0.28); margin-top: 6px; }
 
@@ -920,7 +931,10 @@
      25 px de carte en moins, une rangee d'actions entiere en plus. La fraction
      de 42 % reste telle quelle sur les grands ecrans, ou elle a ete calee. */
   @media (max-width: 820px) and (max-height: 780px) {
-    #order-panel, #order-panel.sheet-mid { height: min(336px, calc(100dvh - 36px - 52px)); }
+    /* 336 px suffisaient tant que les pastilles ne portaient pas leur prix.
+       Le logement du prix ajoute une ligne : mesuré, la seconde rangée d'actions
+       repassait sous la lisière (4 vues sur 8). 356 px la ramènent entière. */
+    #order-panel, #order-panel.sheet-mid { height: min(356px, calc(100dvh - 36px - 52px)); }
   }
 </style>
 </head>

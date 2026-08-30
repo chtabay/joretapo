@@ -106,4 +106,37 @@ export const RULES = {
   draftGarde: 4
 };
 
+/**
+ * Barème des ordres payants.
+ *
+ * Il vivait en cinq exemplaires, dont deux copies littérales identiques du coût
+ * d'un pion (`revenue-engine.js` et `conflict-resolver.js`), un `160 + 20` pour
+ * le flic, un `definitif ? 550 : 300`, et un 700 répété trois fois dans
+ * `special-entities.js`. C'est cette dispersion qui rendait impossible d'écrire
+ * le prix sur un bouton : la feuille d'ordres n'avait personne à qui le
+ * demander. Mesuré : aucun des onze boutons d'action n'affiche de prix, et les
+ * deux seuls du dépôt vivent dans un attribut `title` qu'un doigt n'ouvre
+ * jamais.
+ *
+ * Aucune valeur ne change ici : c'est un regroupement, pas un réglage.
+ */
+export const COUTS = {
+  creer_pion: {
+    dealer:     { lingots: 40, armes: 2 },
+    trafiquant: { lingots: 80, armes: 3 }
+  },
+  deployer_flic: { lingots: 180 },
+  eliminer_flic: {
+    temporaire: { lingots: 300 },
+    definitif:  { lingots: 550 }
+  },
+  eliminer_incorruptible: { lingots: 700 },
+  /* Payée seulement si l'attaque l'emporte — mais c'est le pire cas, et c'est
+     celui qu'il faut pouvoir payer sous peine de voir l'ordre refusé après. */
+  eliminer_en_conflit: {
+    dealer:     { lingots: 40,  armes: 4 },
+    trafiquant: { lingots: 160, armes: 6 }
+  }
+};
+
 export default RULES;

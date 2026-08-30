@@ -1,5 +1,5 @@
 import { GameState } from './game-state.js';
-import { RULES } from './rules.js';
+import { RULES, COUTS } from './rules.js';
 import { MapRenderer, QUARTIER_COLORS, setQuartierColors, FACILITE_LABELS, EQUIPEMENTS } from './map-renderer.js';
 import { renderSetupScreen } from './setup.js';
 import { TurnManager, PHASE, GAME_PHASE_LABELS } from './turn-manager.js';
@@ -1059,6 +1059,40 @@ function renderOrderPanel(gamePhase) {
        annulait ce qu'il voyait et perdait ce qu'il ne voyait pas. */
     peindreMesOrdres();
     const remaining = maxOrders - pendingOrders.length;
+    /* Ce que la feuille savait sans jamais le dire. `besoinsDuJoueur` calcule
+       exactement ce qui manque pour faire tourner ses pions — mediane 6 doses et
+       6 armes, 38L, dans 93,7 % des ouvertures de feuille — et ne servait qu'a
+       pre-remplir un champ dans une modale qu'il faut d'abord penser a ouvrir.
+       Et `coutDesOrdresPoses` ne comptait ni les armes ni aucun des quatre
+       ordres payants de la phase 4 : on pouvait poser trois creations de dealer
+       avec de quoi en payer deux, sans qu'aucun ecran ne bronche.
+       La ligne est CONDITIONNELLE : sans manque et sans engagement, le bandeau
+       est plus court qu'avant. Priorite : decouvert, puis manque. */
+    const engage = coutDesOrdresPoses(pid);
+    const decouvert = engage.lingots > j.ressources.lingots || engage.armes > j.ressources.armes;
+    const besoin = gamePhase === 1 ? besoinsDuJoueur(pid) : { doses: 0, armes: 0 };
+    const coutBesoin = besoin.doses * (BUY_PRICE.doses || 0) + besoin.armes * (BUY_PRICE.armes || 0);
+    const ligneEtat = decouvert
+      ? `<div class="op-etat op-etat-rouge">⚠ ${pendingOrders.length} ordre${pendingOrders.length > 1 ? 's' : ''} engagent ${engage.lingots}L${engage.armes ? ` et ${engage.armes}🔫` : ''} — vous n'avez que ${j.ressources.lingots}L${engage.armes ? ` et ${j.ressources.armes}🔫` : ''}</div>`
+      : (besoin.doses || besoin.armes)
+        ? `<div class="op-etat op-etat-ambre">Il manque ${besoin.doses ? `${besoin.doses}💊 ` : ''}${besoin.armes ? `${besoin.armes}🔫 ` : ''}(≈ ${coutBesoin}L) pour faire tourner vos pions</div>`
+        : '';
+
+    /* Le prix sur le bouton, et une marque quand il est hors de portee. Le
+       logement `.op-pastille em` existait dans la feuille de style et aucun
+       bouton ne l'utilisait : les deux seuls prix du depot vivaient dans un
+       attribut `title` qu'un doigt n'ouvre jamais. On ne DESACTIVE pas le
+       bouton pour autant — un bouton grise ne dit pas pourquoi, et la modale
+       sait deja nommer le refus. */
+    const netL = j.ressources.lingots - engage.lingots;
+    const netA = j.ressources.armes - engage.armes;
+    const prixSur = (c, libelle) => {
+      if (!c) return `<em>${libelle || 'gratuit'}</em>`;
+      const trop = (c.lingots || 0) > netL || (c.armes || 0) > netA;
+      const txt = libelle || `${c.lingots || 0}L${c.armes ? ` + ${c.armes}🔫` : ''}`;
+      return `<em class="${trop ? 'op-p-cher' : ''}">${txt}</em>`;
+    };
+
     panel.innerHTML = `
       <div class="op-sheet-handle" id="op-drag-handle"><div class="op-sheet-grip"></div></div>
       <div class="op-header" style="border-color:${j.couleur}">
@@ -1074,34 +1108,35 @@ function renderOrderPanel(gamePhase) {
       <div class="op-bandeau" title="${gamePhase === 1
         ? `Ces ${maxOrders} ordres couvrent tout le tour : ce que vous dépensez ici en achats, vous ne l'aurez plus en phase 4.`
         : `${ordresDejaUtilises} ordre(s) déjà dépensé(s) en approvisionnement ce tour.`}">
-        <span class="op-res">💰 ${j.ressources.lingots}L</span>
-        <span class="op-res">🔫 ${j.ressources.armes}</span>
+        <span class="op-res${engage.lingots ? ' op-res-engage' : ''}">💰 ${j.ressources.lingots - engage.lingots}${engage.lingots ? `<small>/${j.ressources.lingots}</small>` : ''}L</span>
+        <span class="op-res${engage.armes ? ' op-res-engage' : ''}">🔫 ${j.ressources.armes - engage.armes}${engage.armes ? `<small>/${j.ressources.armes}</small>` : ''}</span>
         <span class="op-res">💊 ${j.ressources.doses}</span>
         <span class="op-ordres${remaining <= 0 ? ' op-ordres-vide' : ''}">${remaining}/${maxOrders} ordre${maxOrders > 1 ? 's' : ''}<small>${gamePhase === 1 ? ' pour le tour' : ' restants'}</small></span>
       </div>
+      ${ligneEtat}
       <div class="op-scroll">
       <div class="op-actions">
         ${gamePhase === 1 ? `
           <div class="op-grille">
-            <button class="op-pastille" id="btn-add-supply" title="Acheter des denrées à un équipement à portée" ${remaining <= 0 ? 'disabled' : ''}><span class="op-p-icone">📦</span>Acheter</button>
-            <button class="op-pastille" id="btn-add-recruit" title="Recruter une prostituée" ${remaining <= 0 ? 'disabled' : ''}><span class="op-p-icone">👠</span>Recruter</button>
-            <button class="op-pastille" id="btn-add-build" title="Construire un bâtiment" ${remaining <= 0 ? 'disabled' : ''}><span class="op-p-icone">🏗️</span>Construire</button>
+            <button class="op-pastille" id="btn-add-supply" title="Acheter des denrées à un équipement à portée" ${remaining <= 0 ? 'disabled' : ''}><span class="op-p-icone">📦</span>Acheter${prixSur({ lingots: BUY_PRICE.doses }, `dès ${BUY_PRICE.doses}L`)}</button>
+            <button class="op-pastille" id="btn-add-recruit" title="Recruter une prostituée" ${remaining <= 0 ? 'disabled' : ''}><span class="op-p-icone">👠</span>Recruter${prixSur({ lingots: BUY_PRICE.prostituee_base })}</button>
+            <button class="op-pastille" id="btn-add-build" title="Construire un bâtiment" ${remaining <= 0 ? 'disabled' : ''}><span class="op-p-icone">🏗️</span>Construire${prixSur({ lingots: Math.min(...Object.values(CONSTRUCTION_DEFS).map(d => d.total)) }, `dès ${Math.min(...Object.values(CONSTRUCTION_DEFS).map(d => d.total))}L`)}</button>
           </div>
           <div class="op-hint">On ne commande qu'aux équipements <strong>à portée</strong>, cerclés de jaune sur la carte.</div>
         ` : `
           <div class="op-groupe">Sur le plateau</div>
           <div class="op-grille">
-            <button class="op-pastille" id="btn-add-move" title="Déplacer un pion vers une zone voisine" ${remaining <= 0 ? 'disabled' : ''}><span class="op-p-icone">➜</span>Déplacer</button>
-            <button class="op-pastille op-p-soutien" id="btn-add-support" title="Prêter la force d'un pion immobile à un autre joueur, jusqu'à deux zones" ${remaining <= 0 ? 'disabled' : ''}><span class="op-p-icone">🤝</span>Soutenir</button>
-            <button class="op-pastille" id="btn-add-create" title="Créer un dealer ou un trafiquant sur une de vos zones" ${remaining <= 0 ? 'disabled' : ''}><span class="op-p-icone">➕</span>Créer</button>
-            <button class="op-pastille" id="btn-add-flic" title="Déployer un flic sur une zone — 180 lingots" ${remaining <= 0 ? 'disabled' : ''}><span class="op-p-icone">👮</span>Poser flic</button>
+            <button class="op-pastille" id="btn-add-move" title="Déplacer un pion vers une zone voisine" ${remaining <= 0 ? 'disabled' : ''}><span class="op-p-icone">➜</span>Déplacer${prixSur(null)}</button>
+            <button class="op-pastille op-p-soutien" id="btn-add-support" title="Prêter la force d'un pion immobile à un autre joueur, jusqu'à deux zones" ${remaining <= 0 ? 'disabled' : ''}><span class="op-p-icone">🤝</span>Soutenir${prixSur(null)}</button>
+            <button class="op-pastille" id="btn-add-create" title="Créer un dealer ou un trafiquant sur une de vos zones" ${remaining <= 0 ? 'disabled' : ''}><span class="op-p-icone">➕</span>Créer${prixSur(COUTS.creer_pion.dealer, `dès ${COUTS.creer_pion.dealer.lingots}L+${COUTS.creer_pion.dealer.armes}🔫`)}</button>
+            <button class="op-pastille" id="btn-add-flic" title="Déployer un flic sur une zone — 180 lingots" ${remaining <= 0 ? 'disabled' : ''}><span class="op-p-icone">👮</span>Poser flic${prixSur(COUTS.deployer_flic)}</button>
           </div>
           <div class="op-groupe">Coups de force</div>
           <div class="op-grille">
-            <button class="op-pastille" id="btn-elim-flic" title="Éliminer un flic ennemi" ${remaining <= 0 ? 'disabled' : ''}><span class="op-p-icone">✖</span>Ôter flic</button>
-            <button class="op-pastille" id="btn-elim-incorruptible" title="Éliminer un incorruptible — 700 lingots" ${remaining <= 0 ? 'disabled' : ''}><span class="op-p-icone">🎖️</span>Incorrupt.</button>
-            <button class="op-pastille" id="btn-activate-gang" title="Activer le gang de votre quartier d'origine" ${remaining <= 0 ? 'disabled' : ''}><span class="op-p-icone">🔥</span>Gang</button>
-            <button class="op-pastille op-p-or" id="btn-heist" title="Cambrioler un coffre" ${remaining <= 0 ? 'disabled' : ''}><span class="op-p-icone">💰</span>Cambrioler</button>
+            <button class="op-pastille" id="btn-elim-flic" title="Éliminer un flic ennemi" ${remaining <= 0 ? 'disabled' : ''}><span class="op-p-icone">✖</span>Ôter flic${prixSur(COUTS.eliminer_flic.temporaire, `dès ${COUTS.eliminer_flic.temporaire.lingots}L`)}</button>
+            <button class="op-pastille" id="btn-elim-incorruptible" title="Éliminer un incorruptible — 700 lingots" ${remaining <= 0 ? 'disabled' : ''}><span class="op-p-icone">🎖️</span>Incorrupt.${prixSur(COUTS.eliminer_incorruptible)}</button>
+            <button class="op-pastille" id="btn-activate-gang" title="Activer le gang de votre quartier d'origine" ${remaining <= 0 ? 'disabled' : ''}><span class="op-p-icone">🔥</span>Gang${prixSur(null)}</button>
+            <button class="op-pastille op-p-or" id="btn-heist" title="Cambrioler un coffre" ${remaining <= 0 ? 'disabled' : ''}><span class="op-p-icone">💰</span>Cambrioler${prixSur({ armes: 20 }, `dès 20🔫`)}</button>
           </div>
           <div class="op-hint">Aider un <em>autre</em> joueur demande un ordre de soutien ${helpLink('soutien')}.</div>
         `}
@@ -1253,14 +1288,28 @@ function initSheetDrag(panel) {
 
 function formatOrder(o) {
   switch (o.type) {
-    case 'approvisionner': return `${o.quantite} ${o.denree} via ${o.point} (${o.quantite * (BUY_PRICE[o.denree] || 0)}L)`;
-    case 'recruter': return `${o.pion_type.replace(/_/g, ' ')} → ${o.zone_dest} (${BUY_PRICE[o.pion_type]}L)`;
-    case 'construire': return `${o.batiment} sur ${o.zone}`;
+    /* Mesuré : 15,8 % des lignes d'appro affichaient un prix faux à quatre
+       joueurs, 22,8 % à six, TOUJOURS sous-estimé — 512 lignes sur 512 —
+       jusqu'à 360L de moins que la réalité. Le prix de base ignore le péage de
+       50 %, la remise du labo et les 24L de l'arme au camp gitan. */
+    case 'approvisionner': {
+      const p = RevenueEngine.prixAppro(gameState, turnManager.currentPlayerId, o.point, o.denree, gameData.gameplay);
+      return `${o.quantite} ${o.denree} via ${o.point} (${o.quantite * p.total}L`
+           + `${p.peage ? `, dont ${o.quantite * p.peage}L de péage` : ''})`;
+    }
+    case 'recruter': {
+      const p = RevenueEngine.prixAppro(gameState, turnManager.currentPlayerId, o.point, o.pion_type, gameData.gameplay);
+      return `${o.pion_type.replace(/_/g, ' ')} → ${o.zone_dest} (${p.total}L)`;
+    }
+    case 'construire': return `${o.batiment} sur ${o.zone} (${CONSTRUCTION_DEFS[o.batiment]?.total || 0}L)`;
     case 'deplacer': return `${o.pion_type} ${o.from} → ${o.to}${o.eliminer ? ' 💀' : ''}`;
-    case 'creer_pion': return `Créer ${o.pion_type} sur ${o.zone}`;
+    case 'creer_pion': {
+      const c = COUTS.creer_pion[o.pion_type] || {};
+      return `Créer ${o.pion_type} sur ${o.zone} (${c.lingots}L${c.armes ? ` + ${c.armes}🔫` : ''})`;
+    }
     case 'soutenir': return `🤝 ${o.from} soutient ${gameState.joueurs[o.beneficiaire]?.nom || '?'} sur ${o.to}`;
-    case 'deployer_flic': return `🚔 Flic → ${o.zone} (180L)`;
-    case 'eliminer_flic': return `🚔 Éliminer flic sur ${o.zone} (${o.definitif ? '550L déf.' : '300L temp.'})`;
+    case 'deployer_flic': return `🚔 Flic → ${o.zone} (${COUTS.deployer_flic.lingots}L)`;
+    case 'eliminer_flic': return `🚔 Éliminer flic sur ${o.zone} (${o.definitif ? `${COUTS.eliminer_flic.definitif.lingots}L déf.` : `${COUTS.eliminer_flic.temporaire.lingots}L temp.`})`;
     default: return JSON.stringify(o);
   }
 }
@@ -1333,19 +1382,45 @@ function besoinsDuJoueur(pid) {
  * lingots, et la premiere revelation publique de la soiree s'ouvrait sur sept
  * lignes de refus.
  */
+/**
+ * Ce que les ordres déjà posés vont coûter — en lingots ET en armes.
+ *
+ * La version précédente ne comptait que les lingots, et seulement les trois
+ * ordres de la phase 1 ; elle n'était lue que par la modale d'appro. Les quatre
+ * ordres payants de la phase 4 n'étaient comptés nulle part. Mesuré sur les
+ * moteurs : 100L et 5 armes en caisse, trois « créer un dealer » posés, la
+ * feuille accepte les trois, deux passent, le troisième est refusé à la
+ * résolution — et la pastille affiche 100L et 5 armes du début à la fin.
+ */
 function coutDesOrdresPoses(pid) {
-  return pendingOrders.reduce((total, o) => {
-    if (o.type === 'approvisionner') {
-      return total + o.quantite * RevenueEngine.prixAppro(gameState, pid, o.point, o.denree, gameData.gameplay).total;
+  const t = { lingots: 0, armes: 0 };
+  const add = c => { t.lingots += c?.lingots || 0; t.armes += c?.armes || 0; };
+  const prix = (point, quoi) =>
+    RevenueEngine.prixAppro(gameState, pid, point, quoi, gameData.gameplay).total;
+
+  pendingOrders.forEach(o => {
+    switch (o.type) {
+      case 'approvisionner': add({ lingots: o.quantite * prix(o.point, o.denree) }); break;
+      case 'recruter':       add({ lingots: prix(o.point, o.pion_type) }); break;
+      case 'construire':     add({ lingots: CONSTRUCTION_DEFS[o.batiment]?.total || 0 }); break;
+      case 'creer_pion':     add(COUTS.creer_pion[o.pion_type]); break;
+      case 'deployer_flic':  add(COUTS.deployer_flic); break;
+      case 'eliminer_flic':
+        add(o.definitif ? COUTS.eliminer_flic.definitif : COUTS.eliminer_flic.temporaire); break;
+      case 'eliminer_incorruptible': add(COUTS.eliminer_incorruptible); break;
+      case 'deplacer':
+        /* Une élimination en conflit n'est payée que si l'attaque l'emporte. On
+           la compte quand même : c'est le pire cas, et c'est celui qu'il faut
+           pouvoir payer sous peine de voir l'ordre refusé après coup. */
+        if (o.eliminer) {
+          const def = (gameState.plateau[o.to]?.pions || [])
+            .find(p => (p.type === 'dealer' || p.type === 'trafiquant') && p.joueur !== pid);
+          if (def) add(COUTS.eliminer_en_conflit[def.type]);
+        }
+        break;
     }
-    if (o.type === 'recruter') {
-      return total + RevenueEngine.prixAppro(gameState, pid, o.point, o.pion_type, gameData.gameplay).total;
-    }
-    if (o.type === 'construire') {
-      return total + (CONSTRUCTION_DEFS[o.batiment]?.total || 0);
-    }
-    return total;
-  }, 0);
+  });
+  return t;
 }
 
 function showSupplyModal(pid, refresh) {
@@ -1511,7 +1586,7 @@ function showSupplyModal(pid, refresh) {
     if (!d) { el.innerHTML = ''; return; }
     const prix = RevenueEngine.prixAppro(gameState, pid, pointId, denreeId, gameData.gameplay);
     const total = prix.total * qty;
-    const engage = coutDesOrdresPoses(pid);
+    const engage = coutDesOrdresPoses(pid).lingots;
     const dispo = Math.max(0, j.ressources.lingots - engage);
     const warn = total > dispo ? ' <span style="color:#e74c3c">⚠ Fonds insuffisants</span>' : '';
     const peage = prix.soumisAuPeage
@@ -1567,7 +1642,7 @@ function showSupplyModal(pid, refresh) {
        revelation — et la premiere scene publique de la soiree s'ouvrait sur une
        liste d'echecs. Les ordres ne sont debites qu'a la resolution ; c'est ici
        qu'il faut les anticiper. */
-    const soldeDisponible = () => Math.max(0, j.ressources.lingots - coutDesOrdresPoses(pid));
+    const soldeDisponible = () => Math.max(0, j.ressources.lingots - coutDesOrdresPoses(pid).lingots);
     const quantiteBesoin = () => Math.min(besoins[selDenree.value] || 1, stockDe(detail()),
       Math.floor(soldeDisponible() / prixReel()));
     const quantiteMax = () => Math.min(stockDe(detail()),

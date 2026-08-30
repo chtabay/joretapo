@@ -396,6 +396,53 @@ Deux pièges payés en chemin, tous deux invisibles aux tests :
 - **Un écouteur posé sur une couche qu'on vide et regarnit** est un écouteur
   qu'on croit accroché. Celui des flèches vit sur la racine SVG.
 
+## Les prix étaient nulle part, et le besoin était calculé puis jeté
+
+Troisième remarque de la table : « l'état des stocks et des besoins n'est pas
+très clair ». Le trou n'était pas les pastilles.
+
+**Aucun des onze boutons d'action n'affichait de prix.** Les deux seuls du dépôt
+— 180L et 700L — vivaient dans un attribut `title` qu'un doigt n'ouvre jamais.
+Et ils n'y étaient pas par négligence : le barème vivait en **cinq exemplaires**,
+dont deux copies littérales identiques du coût d'un pion. La feuille d'ordres
+n'avait personne à qui demander un prix. Il est maintenant dans `COUTS`
+(`js/rules.js`), lu par les quatre moteurs — aucune valeur n'a changé, le banc
+est identique au chiffre près.
+
+**Le besoin était calculé, puis jeté.** `besoinsDuJoueur` sait exactement ce qui
+manque pour faire tourner ses pions et ne servait qu'à pré-remplir un champ dans
+une modale qu'il faut d'abord penser à ouvrir. Mesuré au banc :
+
+| 40 parties, 4 joueurs | |
+|---|---|
+| Feuilles ouvertes en phase 1 | 1 848 |
+| dont un manque à combler | **1 732 (93,7 %)** |
+| dont on a les moyens de le combler | 1 665 (90,1 %) |
+| Manque médian | 6 💊 et 6 🔫, soit 38L |
+| Caisse médiane à cet instant | 204L |
+| Revenu perdu faute de stock | 9,7L par joueur et par tour, sur 91,6L possibles (**10,6 %**) |
+
+**Et deux mensonges.** La ligne d'ordre affichait un prix faux dans 15,8 % des
+cas à quatre joueurs, 22,8 % à six — **toujours sous-estimé**, 512 lignes sur
+512, jusqu'à 360L d'écart : le prix de base ignore le péage de 50 %, la remise
+du labo et les 24L de l'arme au camp gitan. Et `coutDesOrdresPoses` ne comptait
+ni les armes ni aucun des quatre ordres payants de la phase 4 : trois créations
+de dealer avec de quoi en payer deux se posaient sans qu'aucun écran ne bronche.
+
+Le tout tient dans le bandeau existant, sans un pixel pris à la carte :
+
+- l'avoir devient **net** — `💰 24/204` quand des ordres engagent déjà ;
+- une ligne d'état **conditionnelle** : découvert en rouge, sinon manque en ambre,
+  sinon rien — auquel cas le bandeau est plus court qu'avant ;
+- un prix sur chaque pastille, dans un logement CSS (`.op-pastille em`) qui
+  existait déjà et que **rien n'utilisait**.
+
+Le bouton n'est pas désactivé quand le prix dépasse la caisse, seulement marqué :
+un bouton grisé ne dit pas pourquoi, et la modale sait déjà nommer le refus.
+Prix payé, mesuré : le logement du prix ajoute une ligne, et sous 780 px de haut
+la seconde rangée d'actions repassait sous la lisière — la feuille passe de 336
+à 356 px sur ces écrans, et les huit actions reviennent.
+
 ## Ce qui reste ouvert
 
 - **Aucune partie n'a encore été jouée par des humains.** Le pilote appuie sur
@@ -403,12 +450,6 @@ Deux pièges payés en chemin, tous deux invisibles aux tests :
   regardant la tablette du voisin. C'est la prochaine étape et elle prime sur
   tout le reste : si les notes d'une vraie table contredisent ce qui est écrit
   ici, ce sont elles qui gagnent.
-- **La question des stocks et des besoins n'a pas été instruite.** « L'état des
-  stocks et des besoins n'est pas très clair » est le troisième point remonté de
-  la table ; l'enquête a été interrompue avant d'aboutir. Ce qui est déjà
-  établi : les trois ressources s'affichent en pastilles, les coûts n'apparaissent
-  que sur certains boutons, et rien ne dit d'un coup d'œil ce qu'on peut se
-  payer. À reprendre.
 - Le taux de combat mesuré reste faible (10 % des parties). Les bots du banc sont
   gloutons et prudents ; un joueur réel attaquera plus. À revérifier à la table.
 - 4 tests `todo` documentent des défauts connus non corrigés (`npm test` les

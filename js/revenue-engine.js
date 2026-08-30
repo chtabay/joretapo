@@ -464,7 +464,7 @@ export class RevenueEngine {
           destinations[destKey].push({ pid, from: o.from, pionIdx, pion_type: o.pion_type });
 
         } else if (o.type === 'creer_pion') {
-          const costs = { dealer: { lingots: 40, armes: 2 }, trafiquant: { lingots: 80, armes: 3 } };
+          const costs = COUTS.creer_pion;
           const c = costs[o.pion_type];
           if (!c) return;
           if (joueur.ressources.lingots < c.lingots || joueur.ressources.armes < (c.armes || 0)) {

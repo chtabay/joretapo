@@ -1,4 +1,5 @@
 import { SpecialEntities } from './special-entities.js';
+import { COUTS } from './rules.js';
 
 const IS_ARMED = t => t === 'dealer' || t === 'trafiquant';
 
@@ -6,10 +7,7 @@ const IS_ARMED = t => t === 'dealer' || t === 'trafiquant';
 export const PORTEE_SOUTIEN = 2;
 const IS_PROST = t => t === 'prostituee_base' || t === 'prostituee_luxe';
 
-const ELIM_COST = {
-  dealer:     { lingots: 40,  armes: 4 },
-  trafiquant: { lingots: 160, armes: 6 }
-};
+const ELIM_COST = COUTS.eliminer_en_conflit;
 
 /**
  * Ce qui empêche un pion d'entrer sur une case, ou null.
@@ -578,7 +576,7 @@ export class ConflictResolver {
 
   static _createPion(gs, pid, order, log) {
     const joueur = gs.joueurs[pid];
-    const costs = { dealer: { lingots: 40, armes: 2 }, trafiquant: { lingots: 80, armes: 3 } };
+    const costs = COUTS.creer_pion;
     const c = costs[order.pion_type];
     if (!c) return;
 
@@ -602,7 +600,7 @@ export class ConflictResolver {
 
   static _deployFlic(gs, pid, order, log) {
     const joueur = gs.joueurs[pid];
-    const cost = 160 + 20;
+    const cost = COUTS.deployer_flic.lingots;
 
     if (joueur.ressources.lingots < cost) {
       log.push({ pid, msg: `${joueur.nom}: pas assez de lingots pour déployer un flic (${cost}L)`, type: 'warn' });
@@ -646,7 +644,7 @@ export class ConflictResolver {
     }
 
     const definitif = order.definitif === true;
-    const cost = definitif ? 550 : 300;
+    const cost = (definitif ? COUTS.eliminer_flic.definitif : COUTS.eliminer_flic.temporaire).lingots;
 
     if (joueur.ressources.lingots < cost) {
       log.push({ pid, msg: `${joueur.nom}: pas assez de lingots (${cost}L) pour éliminer le flic`, type: 'warn' });

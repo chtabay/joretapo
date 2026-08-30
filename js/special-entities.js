@@ -1,3 +1,4 @@
+import { COUTS } from './rules.js';
 export class SpecialEntities {
 
   /** Surface de regles activee — voir data/ruleset.json. */
@@ -112,8 +113,8 @@ export class SpecialEntities {
 
   static canEliminateIncorruptible(gs, pid) {
     const j = gs.joueurs[pid];
-    if (j.ressources.lingots < 700) return { ok: false, reason: '700L requis' };
-    return { ok: true, cost: 700 };
+    if (j.ressources.lingots < COUTS.eliminer_incorruptible.lingots) return { ok: false, reason: `${COUTS.eliminer_incorruptible.lingots}L requis` };
+    return { ok: true, cost: COUTS.eliminer_incorruptible.lingots };
   }
 
   static eliminateIncorruptible(gs, pid, zoneId) {
@@ -125,7 +126,7 @@ export class SpecialEntities {
     const idx = zone.pions.findIndex(p => p.type === 'incorruptible');
     if (idx === -1) return { ok: false, reason: 'Pas d\'incorruptible ici' };
 
-    gs.joueurs[pid].ressources.lingots -= 700;
+    gs.joueurs[pid].ressources.lingots -= COUTS.eliminer_incorruptible.lingots;
     zone.pions.splice(idx, 1);
     gs.incorruptibles.elimines++;
 
