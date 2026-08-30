@@ -303,6 +303,57 @@ passent avec, et les ouvrages vivent dans `data/ouvrages.json`, fusionnés
 **après** le calcul géométrique : une régénération de la carte ne les efface
 plus.
 
+## Ce que la contre-expertise a corrigé après coup
+
+Deux changements sont partis en production sans sceptique — le point fixe qui
+débloque les déplacements coordonnés, et le geste sur la carte. Repassés
+ensuite, ils ont rendu six défauts, dont trois graves. Le cœur des deux tenait ;
+c'est ce qui l'entourait qui était faux.
+
+**Le geste ignorait le budget d'ordres.** Un joueur qui dépensait ses cinq
+ordres en phase 1 manœuvrait gratuitement en phase 4 : le compteur affichait
+`-2/0`, et le résolveur exécutait quand même. Ce n'était pas un défaut
+d'affichage mais un contournement de `RULES.ordresParTour`.
+
+**La carte et la feuille se désynchronisaient.** `peindreMesOrdres` n'était pas
+appelé par le `refresh` interne du panneau — celui que la croix ✕ et toutes les
+modales empruntent. Un déplacement posé par la feuille ne dessinait aucune
+flèche, un déplacement supprimé laissait la sienne, et comme l'annulation
+réindexe la liste à chaud, **toucher cette flèche fantôme supprimait un autre
+ordre**. Le joueur annulait ce qu'il voyait et perdait ce qu'il ne voyait pas :
+exactement le « ça a planté » du rapport de table précédent.
+
+**Une élimination payée pouvait être perdue.** Les fuites s'exécutent avant que
+les entrées ne soient tranchées : un pion délogé ailleurs atterrissait sur la
+case qu'un vainqueur venait de nettoyer, et c'est le vainqueur qui se voyait
+refuser l'entrée — après avoir payé. Mesuré au fuzz : **442 des 3 032
+éliminations payantes**, soit 43 600 lingots et 44,2 M d'électeurs jetés. Une
+case convoitée n'est plus qu'un refuge de dernier recours ; l'écarter tout à
+fait ferait bondir les éliminations faute de fuite de 4 421 à 6 654.
+
+Et trois moindres : la source armée ne se remettait pas à zéro au passage de
+tablette, donc le premier toucher du joueur suivant était avalé ; la flèche ne
+s'annulait jamais à la souris, la capture de pointeur retargettant le clic ; et
+le geste n'autorisait qu'un ordre par case là où la feuille en autorise un par
+pion.
+
+**Deux leçons de méthode, plus coûteuses que les défauts.**
+
+Le message de commit annonçait « banc rigoureusement inchangé aux trois
+formats ». C'était faux, et surtout ça ne prouvait rien : **le banc n'exécute
+jamais l'étape 4bis** — `refus4bis = 0` aux trois formats. Un banc muet n'est pas
+un banc vert. À graines identiques, 2 parties sur 40 diffèrent à 3 joueurs, 1 sur
+40 à 4 et à 6, et trois changent de vainqueur ; les agrégats ne bougent pas.
+Le prix de la fuite, lui, n'avait pas été chiffré du tout : écarter du refuge les
+cases tenues par ses propres pions armés fait passer les défenseurs délogés
+éliminés faute d'issue de 1 754 à 2 414 sur 30 000 résolutions, **+37,6 %**.
+
+Et les deux verrous que ce commit annonçait comme fermés **n'avaient aucun
+test** : révertés un à un, `npm test` restait entièrement vert pendant qu'un
+fuzz comptait 791 et 576 violations sur 30 000 résolutions. Ils en ont trois
+maintenant, dont un fuzz de 4 000 résolutions dans `npm test` — vérifiés en les
+défaisant : chacun fait tomber un test.
+
 ## Déplacer au doigt : deux touchers, pas un glissé
 
 Deuxième remarque de la table : « l'ergonomie du déplacement est complexe,

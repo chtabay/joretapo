@@ -531,3 +531,122 @@ test('à égalité, le pion présent l\'emporte sur le drapeau', async () => {
   assert.equal(holds(gs, 'B1', 1), true, 'le défenseur présent garde la zone');
   assert.equal(holds(gs, 'A2', 0), true, 'l\'assaut rebondit');
 });
+
+/* ── L'invariant, tenu au hasard ────────────────────────────────────────────
+ *
+ * Deux verrous du résolveur n'avaient AUCUN test : la fuite qui n'écartait que
+ * les pions armés ENNEMIS, et le refus d'entrée sur une case restée tenue par un
+ * adverse. Mesuré en les révertant un à un : `npm test` restait entièrement vert
+ * pendant qu'un fuzz comptait 791 et 576 violations sur 30 000 résolutions. Un
+ * verrou sans test est un verrou qu'un passant défait en silence.
+ *
+ * Ce test ne décrit pas une règle de plus : il tient celle que trois modules
+ * énoncent déjà — un pion armé par case, une prostituée par case — contre tout
+ * ce que la résolution peut produire.
+ */
+
+/** Générateur reproductible : un fuzz qui change à chaque exécution ne dit rien. */
+function graine(n) {
+  return () => {
+    n |= 0; n = (n + 0x6D2B79F5) | 0;
+    let t = Math.imul(n ^ (n >>> 15), 1 | n);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+test('aucune résolution ne laisse deux pions armés, ni deux prostituées, sur une case', async () => {
+  const ZONES = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2', 'D1', 'D2'];
+  const TYPES = ['dealer', 'trafiquant', 'prostituee_base', 'prostituee_luxe'];
+  const EST_ARME = t => t === 'dealer' || t === 'trafiquant';
+  const EST_PROST = t => t.startsWith('prostituee');
+  let violations = 0, resolutions = 0;
+
+  for (let n = 0; n < 4000; n++) {
+    const r = graine(n * 7919 + 13);
+    const { gs, city, adj } = await newTestGame(3);
+
+    /* Une mise en place quelconque, mais LEGALE : c'est l'etat de depart du
+       jeu, et le resolveur n'a pas a rattraper une position deja illegale. */
+    ZONES.forEach(z => {
+      if (r() < 0.45) {
+        const t = TYPES[Math.floor(r() * TYPES.length)];
+        place(gs, z, t, Math.floor(r() * 3));
+        if (r() < 0.5) {
+          const autre = EST_ARME(t)
+            ? (r() < 0.5 ? 'prostituee_base' : 'prostituee_luxe')
+            : (r() < 0.5 ? 'dealer' : 'trafiquant');
+          place(gs, z, autre, Math.floor(r() * 3));
+        }
+      }
+    });
+
+    const ordres = { 0: [], 1: [], 2: [] };
+    ZONES.forEach(z => {
+      (gs.plateau[z].pions || []).forEach(p => {
+        if (r() > 0.55) return;
+        const voisines = adj[z] || [];
+        if (!voisines.length) return;
+        const to = voisines[Math.floor(r() * voisines.length)];
+        ordres[p.joueur].push({ type: 'deplacer', from: z, to, pion_type: p.type,
+                                eliminer: r() < 0.2 });
+      });
+    });
+
+    ConflictResolver.resolve(gs, ordres, adj, city);
+    resolutions++;
+
+    ZONES.forEach(z => {
+      const pions = gs.plateau[z].pions || [];
+      if (pions.filter(p => EST_ARME(p.type)).length > 1) violations++;
+      if (pions.filter(p => EST_PROST(p.type)).length > 1) violations++;
+    });
+  }
+
+  assert.equal(violations, 0,
+    `${violations} case(s) illégale(s) sur ${resolutions} résolutions`);
+});
+
+test('un pion délogé ne fuit pas sur une case où il a déjà un pion armé', async () => {
+  /* D1 est sa seule issue, et elle porte déjà un de ses dealers. Il n'a donc
+     pas de refuge : il est éliminé. Le contraire — fuir sur sa propre case —
+     produisait deux pions armés du même joueur, ce que trois modules
+     interdisent et qu'aucun test ne voyait. */
+  const { gs, city, adj } = await newTestGame(2);
+  place(gs, 'B1', 'dealer', 1);       /* le défenseur */
+  place(gs, 'D1', 'dealer', 1);       /* une issue, déjà tenue par lui */
+  place(gs, 'B2', 'dealer', 0);       /* deux attaquants sur B1 */
+  place(gs, 'A2', 'trafiquant', 0);
+  place(gs, 'D2', 'dealer', 0);       /* qui attaque D1 pour couper son soutien */
+
+  ConflictResolver.resolve(gs, {
+    0: [move('B2', 'B1'), move('A2', 'B1', 'trafiquant'), move('D2', 'D1')]
+  }, adj, city);
+
+  const armesDeJ1 = z => gs.plateau[z].pions.filter(p => p.joueur === 1 && /dealer|trafiquant/.test(p.type));
+  assert.equal(armesDeJ1('D1').length, 1, 'D1 ne porte qu\'un seul pion armé de J1');
+  assert.equal(armesDeJ1('B1').length, 0, 'et il a bien quitté B1');
+});
+
+test('un fugitif préfère un refuge que personne ne conquiert', async () => {
+  /* Les fuites s'exécutent avant que les entrées ne soient tranchées : un pion
+     délogé pouvait atterrir sur la case qu'un vainqueur venait de nettoyer, et
+     c'est le vainqueur qui était refusé — après avoir payé son élimination.
+     Mesuré au fuzz : 442 des 3 032 éliminations payantes perdues ainsi.
+     Une case convoitée reste un refuge de DERNIER recours : l'écarter tout à
+     fait ferait bondir les éliminations faute de fuite de 4 421 à 6 654. */
+  const { gs, city, adj } = await newTestGame(2);
+  place(gs, 'B1', 'dealer', 1);   /* le délogé : A2, B2 et D1 pour fuir */
+
+  const ou = convoitees => {
+    const copie = JSON.parse(JSON.stringify(gs.plateau));
+    const faux = { ...gs, plateau: copie };
+    ConflictResolver._executeFlight(faux, { zone: 'B1', pid: 1, eliminateBy: null }, adj, [], convoitees);
+    return ['A2', 'B2', 'D1'].find(z => copie[z].pions.some(p => p.joueur === 1)) || 'éliminé';
+  };
+
+  assert.equal(ou(new Set(['A2'])), 'B2', 'il évite la case qu\'un autre conquiert');
+  assert.equal(ou(new Set(['A2', 'B2'])), 'D1', 'et la suivante aussi');
+  assert.equal(ou(new Set(['A2', 'B2', 'D1'])), 'A2',
+    'mais quand toutes sont convoitées, il en prend une plutôt que de mourir');
+});

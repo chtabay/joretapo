@@ -153,8 +153,20 @@ export class ConflictResolver {
       result.winners.forEach(m => resolvedMoves.push(m));
       result.cancelled.forEach(m => cancelledMoves.add(m));
 
+      /* Une case qu'un ordre encore debout conquiert n'est un refuge qu'en
+         DERNIER recours. Les fuites s'exécutent ici, le verrou « pion armé
+         adverse » à l'étape 4bis : sans cette préférence, un pion délogé
+         ailleurs atterrit sur la case qu'un vainqueur vient de nettoyer, et
+         c'est le vainqueur qui se voit refuser l'entrée — après avoir payé
+         l'élimination. Mesuré au fuzz : 442 des 3 032 éliminations payantes
+         étaient ainsi perdues, soit 43 600 lingots et 44,2 M d'électeurs.
+         On ne RETIRE pas ces cases du refuge : la variante stricte fait bondir
+         les éliminations faute de fuite de 4 421 à 6 654. */
+      const convoitees = new Set([...simpleMoves, ...resolvedMoves]
+        .filter(m => !cancelledMoves.has(m) && IS_ARMED(m.pion_type))
+        .map(m => m.to));
       result.flights.forEach(flight => {
-        ConflictResolver._executeFlight(gs, flight, adjacencies, log);
+        ConflictResolver._executeFlight(gs, flight, adjacencies, log, convoitees);
       });
     });
 
@@ -459,7 +471,7 @@ export class ConflictResolver {
     return result;
   }
 
-  static _executeFlight(gs, flight, adjacencies, log) {
+  static _executeFlight(gs, flight, adjacencies, log, convoitees = new Set()) {
     const { zone: fromZone, pid, eliminateBy } = flight;
     const zoneData = gs.plateau[fromZone];
     const adj = adjacencies[fromZone] || [];
@@ -502,7 +514,7 @@ export class ConflictResolver {
     }
 
     // Fuir vers la première zone libre
-    const dest = freeZones[0];
+    const dest = freeZones.find(a => !convoitees.has(a)) ?? freeZones[0];
     const [fugitive] = zoneData.pions.splice(armedIdx, 1);
     gs.plateau[dest].pions.push(fugitive);
 

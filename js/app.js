@@ -566,9 +566,12 @@ function partantsPosesDe(zid, pid) {
 
 /** Les types de mes pions de `from` qui peuvent legalement entrer sur `to`. */
 function pionsAdmisVers(from, to, pid) {
-  const dejaPose = pendingOrders.some(o => o.type === 'deplacer' && o.from === from);
-  if (dejaPose) return [];
+  /* Un ordre par PION, pas par case : une case portant un trafiquant et une
+     prostituée peut faire sortir les deux, comme la feuille l'autorise. */
+  const dejaSortis = pendingOrders
+    .filter(o => o.type === 'deplacer' && o.from === from).map(o => o.pion_type);
   return mesPionsSur(from, pid)
+    .filter(t => !dejaSortis.includes(t))
     .filter(t => !obstacleEntree(gameState.plateau[to], t, pid, partantsPosesDe(to, pid)));
 }
 
@@ -584,7 +587,17 @@ function peindreGeste() {
   });
 }
 
+/** Ce qu'il me reste d'ordres. La carte en pose : elle doit les compter comme la
+    feuille, sinon un joueur qui a dépensé ses cinq ordres en phase 1 manœuvre
+    gratuitement en phase 4 — le compteur affiche « -2/0 » et le résolveur
+    exécute quand même. */
+function ordresRestants() {
+  const pid = turnManager.currentPlayerId;
+  return turnManager.maxOrdersForPhase(pid) - pendingOrders.length;
+}
+
 function poserDeplacement(from, to, pionType) {
+  if (ordresRestants() <= 0) { motSurLaCarte('Plus d\'ordre disponible ce tour-ci.'); return; }
   pendingOrders.push({ type: 'deplacer', pion_type: pionType, from, to });
   gesteSource = null;
   peindreGeste();
@@ -608,6 +621,7 @@ function gesteSurZone(zid) {
 
   if (gesteSource) {
     if (zid === gesteSource) { gesteSource = null; peindreGeste(); return true; }
+    if (ordresRestants() <= 0) { motSurLaCarte('Plus d\'ordre disponible ce tour-ci.'); return true; }
     const adj = gameData.adjacencies[gesteSource] || [];
     if (adj.includes(zid)) {
       const admis = pionsAdmisVers(gesteSource, zid, pid);
@@ -624,11 +638,15 @@ function gesteSurZone(zid) {
         return true;
       }
       /* Voisine, mais aucune entree legale : on le dit plutot que de rien faire. */
-      const t0 = mesPionsSur(gesteSource, pid)[0];
-      const raison = pendingOrders.some(o => o.type === 'deplacer' && o.from === gesteSource)
-        ? 'ce pion a déjà un ordre ce tour-ci'
-        : (obstacleEntree(gameState.plateau[zid], t0, pid, partantsPosesDe(zid, pid)) || 'entrée impossible');
-      motSurLaCarte(`Impossible : cette case ${raison}.`);
+      const dejaSortis = pendingOrders
+        .filter(o => o.type === 'deplacer' && o.from === gesteSource).map(o => o.pion_type);
+      const libres = mesPionsSur(gesteSource, pid).filter(t => !dejaSortis.includes(t));
+      if (!libres.length) {
+        motSurLaCarte('Impossible : tous vos pions de cette case ont déjà un ordre.');
+        return true;
+      }
+      const obst = obstacleEntree(gameState.plateau[zid], libres[0], pid, partantsPosesDe(zid, pid));
+      motSurLaCarte(obst ? `Impossible : cette case ${obst}.` : 'Impossible : entrée refusée sur cette case.');
       return true;
     }
     gesteSource = null;
@@ -1022,6 +1040,9 @@ function renderOrderPanel(gamePhase) {
      ordre, sans avoir jamais ete prevenu qu'il jouait son tour militaire. */
   const ordresDejaUtilises = turnManager.ordersUsedP1?.[pid] || 0;
   pendingOrders = [];
+  /* La source armée appartient au joueur qui l'a armée : sans ça, le premier
+     toucher du suivant est avalé par un geste qu'il n'a pas commencé. */
+  gesteSource = null;
 
   /* Les equipements a portee sont cercles sur la carte pendant la phase d'achat :
      le joueur voit ou il peut commander avant d'ouvrir quoi que ce soit. */
@@ -1030,6 +1051,13 @@ function renderOrderPanel(gamePhase) {
     : []);
 
   function refresh() {
+    /* La feuille et la carte lisent le MÊME `pendingOrders` : tout ce qui le
+       change ici doit redessiner les flèches. Sans ça, un déplacement posé par
+       la feuille ne dessinait aucune flèche, un déplacement supprimé par la
+       feuille laissait la sienne — et comme l'annulation réindexe la liste à
+       chaud, toucher cette flèche fantôme supprimait un AUTRE ordre. Le joueur
+       annulait ce qu'il voyait et perdait ce qu'il ne voyait pas. */
+    peindreMesOrdres();
     const remaining = maxOrders - pendingOrders.length;
     panel.innerHTML = `
       <div class="op-sheet-handle" id="op-drag-handle"><div class="op-sheet-grip"></div></div>

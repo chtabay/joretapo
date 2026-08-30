@@ -518,7 +518,12 @@ export class MapRenderer {
     }, { passive: true });
 
     this.container.addEventListener('pointerdown', e => {
-      if (e.target.classList.contains('zone')) return;
+      /* Ne pas capturer le pointeur sur une zone NI sur une flèche d'ordre : la
+         capture retargette le `click` vers le conteneur, et le geste inverse —
+         toucher la flèche pour annuler — ne répondait plus jamais à la souris.
+         Au doigt la capture n'a pas lieu, l'annulation marchait : le défaut
+         n'existait que sur navigateur de bureau, où le jeu est aussi servi. */
+      if (e.target.classList.contains('zone') || e.target.closest?.('[data-ordre]')) return;
       if (e.pointerType === 'touch') return; /* touch géré par touchstart/touchmove */
       dragging = true;
       this.container.classList.add('dragging');
